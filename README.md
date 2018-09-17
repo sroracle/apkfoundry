@@ -42,4 +42,34 @@ being installed for sandboxing the build.
 documentation for more details.  Alternatively, a Github webhook can be found in the
 `abuildd.webhook` module.  The webhook module requires gunicorn and aiohttp.
 
-TODO: explain how to set up the webhook
+## Webhook
+
+Still a work in progress - mostly finished but needs an installer. To set it up and play
+with it, here's a quick and dirty rundown:
+
+```
+# mkdir /etc/abuildd
+# cp conf/*.ini /etc/abuildd
+# $EDITOR /etc/abuildd/*.ini
+$ echo 'CREATE DATABASE abuildd;' | psql -U postgres
+$ psql -U postgres -d abuildd -f abuildd/abuildd.sql
+$ virtualenv /path/to/new/venv
+$ source /path/to/new/venv/bin/activate
+(venv) $ pip install hbmqtt aiohttp asyncpg
+(venv) $ export PYTHONPATH="$(pwd):/path/to/py3-abuild:$PYTHONPATH"
+```
+
+Then create a bare git clone for each project you want to support. A project's name is
+simply its git URL with slashes replaced by full stops, e.g.
+`code.foxkit.us.sroracle.packages.git`.
+
+```
+(venv) $ git clone --bare https://git/clone/url.git git.clone.url.git
+(venv) $ /path/to/webhook.py
+```
+
+The webhook can be added to a GitLab project by going to Settings > Web Hooks. Currently,
+"Push Events", "Comments" (on merge requests; "notes" internally), and "Merge Request
+Events" are supported.
+
+
