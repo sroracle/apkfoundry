@@ -172,6 +172,7 @@ async def handle_webhook(request):
     if config.getboolean(kind, "enabled"):
         job = await hooks[hook][2](project, config, data)
         if job:
+            job.loop = app.loop
             async with app["pgpool"].acquire() as db:
                 await job.enqueue(db, app["mqtt"], app["builders"])
 

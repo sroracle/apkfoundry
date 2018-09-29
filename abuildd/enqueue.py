@@ -1,11 +1,13 @@
-import asyncio  # CancelledError, Condition, ensure_future
-import fnmatch  # fnmatchcase
-import json     # dumps, loads, JSONDecodeError
-import logging  # getLogger, basicConfig
-import shlex    # quote
-import sys      # exit
+import asyncio   # CancelledError, Condition, ensure_future
+import fnmatch   # fnmatchcase
+import json      # dumps, loads, JSONDecodeError
+import logging   # getLogger, basicConfig
+import shlex     # quote
+import sys       # exit
+import functools # partial
 
 from abuild.config import SHELLEXPAND_PATH
+from abuild.file import APKBUILD
 from hbmqtt.mqtt.constants import QOS_1, QOS_2
 
 from abuildd.connections import init_pgpool, init_mqtt
@@ -60,39 +62,17 @@ class Job:
         raise NotImplementedError
 
     async def analyze_packages(self):
-        commit_s = shlex.quote(self.commit)
         self.packages = dict.fromkeys(self.packages)
 
         for package in self.packages:
-            data = {}
-            project_s = shlex.quote(self.project)
-            package_s = shlex.quote(package)
-            git_cmd = f"git -C {project_s} show {commit_s}:{package_s}/APKBUILD"
+            contents = await get_command_output(
+                ["git", "-C", self.project, "show",
+                f"{self.commit}:{package}/APKBUILD"])
 
-            expanded = await get_command_output(
-                [f"{git_cmd} | {SHELLEXPAND_PATH} -"], shell=True)
-            for line in expanded.split("\0"):
-                line = line.replace("\t", "").strip()
-                line = line.split("=", maxsplit=1)
-                if len(line) == 2:
-                    data[line[0]] = line[1]
+            expanded = await self.loop.run_in_executor(
+                None, APKBUILD, package, contents)
 
-            maintainer = await get_command_output(
-                [f"{git_cmd} | sed -n 's/>$//; s/^# Maintainer: .*<//p'"],
-                shell=True)
-
-            if "pkgver" not in data:
-                raise RuntimeError(f"Missing pkgver in {package}")
-            if "pkgrel" not in data:
-                raise RuntimeError(f"Missing pkgrel in {package}")
-            if "arch" not in data:
-                raise RuntimeError(f"Missing arch in {package}")
-
-            self.packages[package] = {}
-            self.packages[package]["name"] = package
-            self.packages[package]["arch"] = data["arch"].split(" \t\n")
-            self.packages[package]["ver"] = f"{data['pkgver']}-r{data['pkgrel']}"
-            self.packages[package]["maintainer"] = maintainer.strip()
+            self.packages[package] = expanded.meta
 
         return self.packages
 
@@ -189,7 +169,7 @@ class Job:
                     "event": self.event, "priority": self.priority,
                     "project": self.project, "url": self.url,
                     "branch": self.branch, "commit": self.commit,
-                    "package": package["name"], "mr_id": self.mr,
+                    "package": package["pkgname"], "mr_id": self.mr,
                 }
                 task = json.dumps(task).encode("utf-8")
 
@@ -296,7 +276,8 @@ async def db_add_task(db, job_id, package, arch):
 INSERT INTO task(job_id, package, version, arch, maintainer)
 VALUES($1, $2, $3, $4, $5)
 RETURNING task_id AS id;""",
-          job_id, package["name"], package["ver"], arch, package["maintainer"])
+          job_id, package["pkgname"], package["pkgver"], arch,
+          package["maintainer"][0])
 
     return task_row["id"]
 
