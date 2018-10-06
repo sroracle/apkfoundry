@@ -6,10 +6,12 @@ import fnmatch   # fnmatchcase
 import json      # dumps, loads, JSONDecodeError
 import logging   # getLogger, basicConfig
 import shlex     # quote
+import traceback # format_exc
 
 from hbmqtt.mqtt.constants import QOS_1, QOS_2
 from abuild.config import SHELLEXPAND_PATH
 from abuild.file import APKBUILD
+import abuild.exception as exc
 
 from abuildd.connections import init_pgpool, init_mqtt
 from abuildd.config import GLOBAL_CONFIG
@@ -70,8 +72,12 @@ class Job:
                 ["git", "-C", self.project, "show",
                  f"{self.commit}:{package}/APKBUILD"])
 
-            expanded = await self.loop.run_in_executor(
-                None, APKBUILD, package, contents)
+            try:
+                expanded = await self.loop.run_in_executor(
+                    None, APKBUILD, package, contents)
+            except exc.abuildException as e:
+                e.msg = f"{package}: {e.msg}"
+                raise
 
             self.packages[package] = expanded.meta
 
@@ -122,8 +128,14 @@ class Job:
         await self.get_packages()
         try:
             await self.analyze_packages()
-        except RuntimeError as e:
-            await db_reject_job(db, self, e)
+        except exc.abuildException as e:
+            if isinstance(e, exc.abuildFailure):
+                status = "failure"
+            else:
+                status = "error"
+
+            await db_reject_job(
+                db, self, str(e), status, traceback.format_exc())
             return
 
         async with db.transaction():
