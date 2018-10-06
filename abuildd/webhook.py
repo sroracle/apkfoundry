@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2018 Max Rees
+# See LICENSE for more information.
 import asyncio      # get_event_loop
 import configparser # ConfigParser
 import json         # JSONDecodeError

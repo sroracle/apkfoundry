@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2018 Max Rees
+# See LICENSE for more information.
 import asyncio   # CancelledError, Condition, ensure_future
 import fnmatch   # fnmatchcase
 import json      # dumps, loads, JSONDecodeError

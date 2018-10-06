@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2017 William Pitcock
+# Copyright (c) 2018 Max Rees
+# See LICENSE for more information.
 import asyncio
 import json         # JSONDecodeError
 import contextlib

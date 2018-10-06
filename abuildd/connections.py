@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2018 Max Rees
+# See LICENSE for more information.
 import logging  # getLogger, basicConfig
 import sys      # exit
 
