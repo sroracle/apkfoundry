@@ -51,7 +51,7 @@ DEFAULT_CONFIG = {
     },
 }
 
-_files = glob(SITE_CONF)
+_files = glob(SITE_CONF)  # pylint: disable=invalid-name
 _files.sort()
 
 CONFIGS = {}

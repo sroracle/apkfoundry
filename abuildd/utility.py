@@ -8,9 +8,8 @@ import contextlib
 import os
 import logging
 
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 @contextlib.contextmanager
 def chdir_context(new_path):
@@ -47,10 +46,12 @@ async def run_blocking_command(arglist, env=None, log=None):
     if not log:
         log = asyncio.subprocess.PIPE
 
-    proc = await asyncio.create_subprocess_exec(*arglist, env=env, stdout=log, stderr=log)
+    proc = await asyncio.create_subprocess_exec(
+        *arglist, env=env, stdout=log, stderr=log)
     return await proc.wait()
 
-async def get_command_output(args, shell=False, env=None, retcodes=None, stderr=None):
+async def get_command_output(
+        args, shell=False, env=None, retcodes=None, stderr=None):
     if stderr:
         stderr = asyncio.subprocess.PIPE
     if not retcodes:
@@ -69,5 +70,5 @@ async def get_command_output(args, shell=False, env=None, retcodes=None, stderr=
 
     if stderr:
         return (proc.returncode, *result)
-    else:
-        return result[0].decode("utf-8").strip("\n")
+
+    return result[0].decode("utf-8").strip("\n")

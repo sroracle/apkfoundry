@@ -9,8 +9,8 @@ from hbmqtt.client import MQTTClient, ConnectException
 
 from abuildd.config import GLOBAL_CONFIG
 
-logger = logging.getLogger(__name__)
-logger.setLevel("DEBUG")
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel("DEBUG")
 logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
 
 async def init_pgpool(loop=None):
@@ -24,7 +24,7 @@ async def init_pgpool(loop=None):
     try:
         pgpool = await asyncpg.create_pool(loop=loop, **kwargs)
     except OSError as e:
-        logger.error(f"Could not connect to SQL server: {e}")
+        LOGGER.error(f"Could not connect to SQL server: {e}")
         sys.exit(10)
 
     return pgpool
@@ -35,7 +35,7 @@ async def init_mqtt(topics, loop=None):
         await mqtt.connect(GLOBAL_CONFIG["mqtt"]["uri"])
         await mqtt.subscribe(topics)
     except ConnectException as e:
-        logger.error(f"Could not connect to MQTT broker: {e}")
+        LOGGER.error(f"Could not connect to MQTT broker: {e}")
         sys.exit(20)
 
     return mqtt

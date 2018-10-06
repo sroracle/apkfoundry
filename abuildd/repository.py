@@ -1,17 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2017 William Pitcock
 # See LICENSE for more information.
-import asyncio
 import tempfile
 import logging
 import os
 
-
 from .utility import chdir_context, run_blocking_command
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 
 class APKBuildRepository:
@@ -38,14 +36,14 @@ class APKBuildRepository:
             return await self.checkout(log)
 
         with chdir_context(self.path):
-            logger.info('Updating git repository: %s', self.path)
+            LOGGER.info('Updating git repository: %s', self.path)
             arglist = ['/usr/bin/git', 'update']
             return await run_blocking_command(arglist, log=log)
 
         return None
 
     async def checkout(self, log):
-        logger.info('Checking out git repository: %s -> %s', self.url, self.path)
+        LOGGER.info('Checking out git repository: %s -> %s', self.url, self.path)
 
         arglist = ['/usr/bin/git', 'clone', '--depth=50']
         if self.branch:
@@ -56,7 +54,7 @@ class APKBuildRepository:
             return await run_blocking_command(arglist, log=log)
 
     async def build(self, target, output, log):
-        logger.info('Trying to build: %s', target)
+        LOGGER.info('Trying to build: %s', target)
 
         environment = os.environ
         environment['APORTSDIR'] = self.path
@@ -66,10 +64,10 @@ class APKBuildRepository:
         environment['GIT_DISCOVERY_ACROSS_FILESYSTEM'] = '1'
 
         target_srcdir = '/'.join([self.path, target])
-        logger.info('Target srcdir: %s', target_srcdir)
+        LOGGER.info('Target srcdir: %s', target_srcdir)
 
         with chdir_context(target_srcdir):
             result = await run_blocking_command(['/usr/bin/abuild', 'rootbld'], environment, log)
 
-        logger.info('Build result: %r', result)
+        LOGGER.info('Build result: %r', result)
         return result

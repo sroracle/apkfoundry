@@ -6,20 +6,18 @@ import fnmatch   # fnmatchcase
 import json      # dumps, loads, JSONDecodeError
 import logging   # getLogger, basicConfig
 import shlex     # quote
-import sys       # exit
-import functools # partial
 
+from hbmqtt.mqtt.constants import QOS_1, QOS_2
 from abuild.config import SHELLEXPAND_PATH
 from abuild.file import APKBUILD
-from hbmqtt.mqtt.constants import QOS_1, QOS_2
 
 from abuildd.connections import init_pgpool, init_mqtt
 from abuildd.config import GLOBAL_CONFIG
 from abuildd.utility import get_command_output, run_blocking_command
 from abuildd.utility import assert_exists
 
-logger = logging.getLogger(__name__)
-logger.setLevel("DEBUG")
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel("DEBUG")
 logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
 
 SHELLEXPAND_PATH = shlex.quote(str(SHELLEXPAND_PATH))
@@ -43,7 +41,7 @@ def priorityspec(entries):
 class ArchCollection(dict):
     def __init__(self, *args, loop=None, **kwargs):
         self.any_available = asyncio.Condition(loop=loop)
-        return super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 class Job:
     def __init__(self, event, project, config, url, branch, commit, user):
@@ -56,21 +54,21 @@ class Job:
         self.user = user
 
         self.id = None
+        self.loop = None
         self.tasks = []
         self.mr = 0
 
         self.priority = self.config.getint(self.event, "priority")
+        self.packages = {}
 
     async def get_packages(self):
         raise NotImplementedError
 
     async def analyze_packages(self):
-        self.packages = dict.fromkeys(self.packages)
-
         for package in self.packages:
             contents = await get_command_output(
                 ["git", "-C", self.project, "show",
-                f"{self.commit}:{package}/APKBUILD"])
+                 f"{self.commit}:{package}/APKBUILD"])
 
             expanded = await self.loop.run_in_executor(
                 None, APKBUILD, package, contents)
@@ -113,7 +111,7 @@ class Job:
 
         branch_priority = DEFAULT_PRIORITY
         if hasattr(self, "branch_priority"):
-            branch_priority = self.branch_priority()
+            branch_priority = self.branch_priority()  # pylint: disable=no-member
             if branch_priority < 0:
                 await db_reject_job(
                     db, self, "Unauthorized branch or invalid priority")
@@ -163,7 +161,7 @@ class Job:
             for arch in arches:
                 if arch.startswith("!") or "!" + arch in arches:
                     continue
-                if arch == "all" or arch == "noarch":
+                if arch in ("all", "noarch"):
                     continue
 
                 task_id = await db_add_task(db, self.id, package, arch)
@@ -193,21 +191,22 @@ class PushJob(Job):
     async def get_packages(self):
         # TODO: need to handle before == None
         filenames = []
-        self.packages = []
 
         await run_blocking_command(
             ["git", "-C", self.project, "fetch", "origin",
-            f"{self.branch}:{self.branch}"])
+             f"{self.branch}:{self.branch}"])
         filenames = await get_command_output(
             ["git", "-C", self.project, "diff-tree", "-r", "--name-only",
-            "--diff-filter", "d", f"{self.before}..{self.after}"])
+             "--diff-filter", "d", f"{self.before}..{self.after}"])
 
         for filename in filenames.split("\n"):
             if filename.endswith("APKBUILD"):
-                self.packages.append(filename.replace("/APKBUILD", "", 1))
+                self.packages[filename.replace("/APKBUILD", "", 1)] = None
 
-        logger.debug(
-            f"[{self.project}] Push {self.after}: " + " ".join(self.packages))
+        LOGGER.debug(
+            f"[{self.project}] Push {self.after}: "
+            " ".join(self.packages.keys()))
+
         return self.packages
 
     def branch_priority(self):
@@ -230,69 +229,72 @@ class MRJob(Job):
 
     async def get_packages(self):
         filenames = []
-        self.packages = []
 
         await run_blocking_command(
             ["git", "-C", self.project, "fetch", "origin",
-            f"{self.target}:{self.target}"])
+             f"{self.target}:{self.target}"])
         await run_blocking_command(
             ["git", "-C", self.project, "fetch", self.url,
-            f"{self.branch}:mr-{self.mr}"])
+             f"{self.branch}:mr-{self.mr}"])
         base = await get_command_output(
             ["git", "-C", self.project, "merge-base", self.target,
-            f"mr-{self.mr}"])
+             f"mr-{self.mr}"])
         filenames = await get_command_output(
             ["git", "-C", self.project, "diff-tree", "-r", "--name-only",
-            "--diff-filter", "d", f"{base}..{self.commit}"])
+             "--diff-filter", "d", f"{base}..{self.commit}"])
 
         for filename in filenames.split("\n"):
             if filename.endswith("APKBUILD"):
-                self.packages.append(filename.replace("/APKBUILD", "", 1))
+                self.packages[filename.replace("/APKBUILD", "", 1)] = None
 
-        logger.debug(
-            f"[{self.project}] Merge #{self.mr}: " + " ".join(self.packages))
+        LOGGER.debug(
+            f"[{self.project}] Merge #{self.mr}: "
+            " ".join(self.packages.keys()))
+
         return self.packages
 
 async def init_conns(loop=None):
-    logger.info("Initializing connections...")
+    LOGGER.info("Initializing connections...")
 
     pgpool = await init_pgpool(loop=loop)
     mqtt = await init_mqtt([["builders/#", QOS_1]], loop=loop)
 
-    logger.info("Done!")
+    LOGGER.info("Done!")
     return (pgpool, mqtt)
 
-async def db_add_job(db, job, status="unbuilt", msg=""):
-    job_row = await db.fetchrow("""
-INSERT INTO job(status, msg, priority, project, url, branch,
-            commit_id, mr_id, username)
-VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING job_id AS id;""",
-          status, msg, job.priority, job.project, job.url, job.branch,
-          job.commit, job.mr, job.user)
+async def db_add_job(db, job, status="unbuilt", shortmsg="", msg=""):
+    job_row = await db.fetchrow(
+        """INSERT INTO job(status, shortmsg, msg, priority,
+        project, url, branch,
+        commit_id, mr_id, username)
+        VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING job_id AS id;""",
+        status, shortmsg, msg, job.priority,
+        job.project, job.url, job.branch,
+        job.commit, job.mr, job.user)
 
     job.id = job_row["id"]
     return job.id
 
 async def db_add_task(db, job_id, package, arch):
-    task_row = await db.fetchrow("""
-INSERT INTO task(job_id, package, version, arch, maintainer)
-VALUES($1, $2, $3, $4, $5)
-RETURNING task_id AS id;""",
-          job_id, package["pkgname"], package["pkgver"], arch,
-          package["maintainer"][0])
+    task_row = await db.fetchrow(
+        """INSERT INTO task(job_id, package, version, arch, maintainer)
+        VALUES($1, $2, $3, $4, $5)
+        RETURNING task_id AS id;""",
+        job_id, package["pkgname"], package["pkgver"], arch,
+        package["maintainer"][0])
 
     return task_row["id"]
 
-async def db_reject_job(db, job, msg):
+async def db_reject_job(db, job, shortmsg, status="rejected", msg=""):
     job.priority = -1
-    job_id = await db_add_job(db, job, "rejected", msg)
-    logger.error(f"Rejecting job {job_id}: {msg}")
+    job_id = await db_add_job(db, job, status, shortmsg, msg)
+    LOGGER.error(f"Rejecting job {job_id}: {shortmsg}")
 
 async def mqtt_send_task(mqtt, builder, arch, job_id, task_id, task):
     await builder
     builder = builder.result()
-    logger.debug(f"Sending #{job_id}/{task_id} to {arch} builder {builder}")
+    LOGGER.debug(f"Sending #{job_id}/{task_id} to {arch} builder {builder}")
     await mqtt.publish(f"tasks/{arch}/{builder}/{task_id}", task, QOS_2)
 
 async def mqtt_watch_servers(mqtt, builders):
@@ -302,7 +304,7 @@ async def mqtt_watch_servers(mqtt, builders):
             # builders/<arch>/<name>
             topic = message.topic.split("/")
             if len(topic) != 3:
-                logger.error(f"Invalid builder topic {message.topic}")
+                LOGGER.error(f"Invalid builder topic {message.topic}")
                 continue
 
             arch = topic[1]
@@ -311,7 +313,7 @@ async def mqtt_watch_servers(mqtt, builders):
             try:
                 data = json.loads(message.data)
             except json.JSONDecodeError:
-                logger.error(
+                LOGGER.error(
                     f"JSON decode error for MQTT data '{message.data}'"
                     f"on topic {message.topic}")
                 continue
@@ -322,24 +324,24 @@ async def mqtt_watch_servers(mqtt, builders):
                 assert_exists(data, "nprocs", int)
                 assert_exists(data, "ram_mb", int)
                 assert_exists(data, "status", str)
-            except JSONDecodeError as e:
-                logger.error(f"MQTT payload: {e.msg}")
+            except json.JSONDecodeError as e:
+                LOGGER.error(f"MQTT payload: {e.msg}")
                 continue
 
             status = data["status"]
             data["pref"] = calc_builder_preference(data)
 
             if arch not in builders:
-                logger.error(f"Arch '{arch}' is not enabled")
+                LOGGER.error(f"Arch '{arch}' is not enabled")
                 continue
 
             arch_collection = builders[arch]
 
             if name not in arch_collection:
-                logger.info(f"{arch} builder {name} joined ({status})")
+                LOGGER.info(f"{arch} builder {name} joined ({status})")
 
             elif arch_collection[name]["status"] != status:
-                logger.info(f"{arch} builder {name} becomes {status}")
+                LOGGER.info(f"{arch} builder {name} becomes {status}")
 
             async with arch_collection.any_available:
                 arch_collection[name] = data
@@ -348,7 +350,7 @@ async def mqtt_watch_servers(mqtt, builders):
                     arch_collection.any_available.notify()
 
                 elif not get_avail_builders(builders, arch):
-                    logger.warning(f"No builders available for {arch}")
+                    LOGGER.warning(f"No builders available for {arch}")
 
         except asyncio.CancelledError:
             break
@@ -376,4 +378,3 @@ async def choose_builder(builders, arch):
         builder["status"] = "busy"
 
     return builder["name"]
-

@@ -17,11 +17,11 @@ from abuildd.utility import get_command_output, run_blocking_command
 
 FAKE_COMMIT_ID = "0000000000000000000000000000000000000000"
 
-logger = logging.getLogger(__name__)
-logger.setLevel(GLOBAL_CONFIG["webhook"]["loglevel"])
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(GLOBAL_CONFIG["webhook"]["loglevel"])
 logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
 
-routes = web.RouteTableDef()
+ROUTES = web.RouteTableDef()
 
 def assert_exists(*args, **kwargs):
     try:
@@ -30,11 +30,11 @@ def assert_exists(*args, **kwargs):
         bad_request(f"HTTP payload: {e.msg}")
 
 def bad_request(msg):
-    logger.error(msg)
+    LOGGER.error(msg)
     raise web.HTTPBadRequest(reason=msg)
 
 def unauthorized(msg):
-    logger.error(msg)
+    LOGGER.error(msg)
     raise web.HTTPUnauthorized(reason=msg)
 
 async def handle_push(project, config, data):
@@ -48,15 +48,15 @@ async def handle_push(project, config, data):
         before = None
 
     if after == FAKE_COMMIT_ID:
-        logger.debug(f"[{project}] Skipping push for deleted ref {branch}")
+        LOGGER.debug(f"[{project}] Skipping push for deleted ref {branch}")
         return None
 
     if not branch.startswith("refs/heads/"):
-        logger.debug(f"[{project}] Skipping push for non-branch ref {branch}")
+        LOGGER.debug(f"[{project}] Skipping push for non-branch ref {branch}")
         return None
     branch = branch.replace("refs/heads/", "", 1)
 
-    logger.info(f"[{project}] Push: {branch} {before}..{after}")
+    LOGGER.info(f"[{project}] Push: {branch} {before}..{after}")
 
     job = enqueue.PushJob(project, config, url, branch, after, user)
     job.before = before
@@ -65,10 +65,10 @@ async def handle_push(project, config, data):
 async def handle_merge_request(project, config, data):
     state = assert_exists(data, "object_attributes/state", str)
 
-    if state != "opened" and state != "reopened":
+    if state not in ("opened", "reopened"):
         # Specifically we don't care about state == closed. I'm not sure
         # if there are other states possible.
-        logger.debug(f"[{project}] Skipping merge event with state {state}")
+        LOGGER.debug(f"[{project}] Skipping merge event with state {state}")
         return None
 
     mr = assert_exists(data, "object_attributes/iid", int)
@@ -79,7 +79,7 @@ async def handle_merge_request(project, config, data):
     commit = assert_exists(data, "object_attributes/last_commit/id", str)
     user = assert_exists(data, "user/username", str)
 
-    logger.info(f"[{project}] Merge #{mr}: up to {commit} -> {target}")
+    LOGGER.info(f"[{project}] Merge #{mr}: up to {commit} -> {target}")
 
     job = enqueue.MRJob("merge_request", project, config, url, branch, commit, user)
     job.mr = mr
@@ -89,7 +89,7 @@ async def handle_merge_request(project, config, data):
 async def handle_note(project, config, data):
     note_type = assert_exists(data, "object_attributes/noteable_type", str)
     if note_type != "MergeRequest":
-        logger.debug(f"[{project}] Skipping note with type {note_type}")
+        LOGGER.debug(f"[{project}] Skipping note with type {note_type}")
         return None
 
     content = assert_exists(data, "object_attributes/note", str)
@@ -104,14 +104,14 @@ async def handle_note(project, config, data):
     commit = assert_exists(data, "merge_request/last_commit/id", str)
     user = assert_exists(data, "user/username", str)
 
-    logger.info(f"[{project}] Note #{mr}: up to {commit} -> {target}")
+    LOGGER.info(f"[{project}] Note #{mr}: up to {commit} -> {target}")
 
     job = enqueue.MRJob("note", project, config, url, branch, commit, user)
     job.mr = mr
     job.target = target
     return job
 
-hooks = {
+HOOKS = {
     "Push Hook": (
         "push",
         "repository/git_http_url",
@@ -128,13 +128,13 @@ hooks = {
     ),
 }
 
-@routes.post(GLOBAL_CONFIG["webhook"]["endpoint"])
+@ROUTES.post(GLOBAL_CONFIG["webhook"]["endpoint"])
 async def handle_webhook(request):
     if "X-Gitlab-Event" not in request.headers:
         bad_request("Missing X-Gitlab-Event header")
 
     hook = request.headers["X-Gitlab-Event"]
-    if hook not in hooks:
+    if hook not in HOOKS:
         bad_request(f"Unsupported hook type {hook}")
 
     try:
@@ -142,14 +142,14 @@ async def handle_webhook(request):
     except json.JSONDecodeError as e:
         bad_request(f"HTTP payload: {e.msg}")
 
-    project = assert_exists(data, hooks[hook][1], str)
+    project = assert_exists(data, HOOKS[hook][1], str)
     project = project.replace("https://", "", 1)
     project = project.replace("/", ".")
     if project == "global":
         bad_request("Project name cannot be exactly 'global'")
 
     object_kind = assert_exists(data, "object_kind", str)
-    kind = hooks[hook][0]
+    kind = HOOKS[hook][0]
     if object_kind != kind:
         bad_request(f"[{project}] Mismatched event types {kind} and {kind}")
 
@@ -163,17 +163,17 @@ async def handle_webhook(request):
         try:
             await run_blocking_command(
                 ["git", "-C", project, "fetch", "origin",
-                "master:master"])
+                 "master:master"])
             project_conf = await get_command_output(
                 ["git", "-C", project, "show", "master:.abuildd.ini"])
             CONFIGS[project].read_string(project_conf)
         except RuntimeError as e:
-            logger.debug(f"Could not find .abuildd.ini: {e}")
+            LOGGER.debug(f"Could not find .abuildd.ini: {e}")
 
     config = CONFIGS[project]
 
     if config.getboolean(kind, "enabled"):
-        job = await hooks[hook][2](project, config, data)
+        job = await HOOKS[hook][2](project, config, data)
         if job:
             job.loop = app.loop
             async with app["pgpool"].acquire() as db:
@@ -187,7 +187,7 @@ def handle_bg_exception(future):
         # Raise the suppressed exception
         future.result()
 
-async def start_bg_tasks(app):
+async def start_bg_tasks(app):  # pylint: disable=redefined-outer-name
     app["builders"] = {}
     for arch in GLOBAL_CONFIG["builders"]["arches"].split("\n"):
         app["builders"][arch] = enqueue.ArchCollection(loop=app.loop)
@@ -196,7 +196,7 @@ async def start_bg_tasks(app):
         enqueue.mqtt_watch_servers(app["mqtt"], app["builders"]))
     app["mqtt_watcher"].add_done_callback(handle_bg_exception)
 
-async def end_bg_tasks(app):
+async def end_bg_tasks(app):  # pylint: disable=redefined-outer-name
     await app["mqtt"].unsubscribe(["builders/#"])
     await app["mqtt"].disconnect()
     app["mqtt_watcher"].cancel()
@@ -205,8 +205,9 @@ async def end_bg_tasks(app):
     await app["pgpool"].close()
 
 if __name__ == "__main__":
+    # pylint: disable=invalid-name
     app = web.Application()
-    app.add_routes(routes)
+    app.add_routes(ROUTES)
     loop = asyncio.get_event_loop()
     app["pgpool"], app["mqtt"] = loop.run_until_complete(
         enqueue.init_conns(app.loop))
