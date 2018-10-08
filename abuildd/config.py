@@ -55,7 +55,8 @@ _files = glob(SITE_CONF)  # pylint: disable=invalid-name
 _files.sort()
 
 CONFIGS = {}
-CONFIGS["global"] = configparser.ConfigParser(interpolation=None)
+CONFIGS["global"] = configparser.ConfigParser(
+    interpolation=None, comment_prefixes=(";",))
 CONFIGS["global"].read_dict(DEFAULT_CONFIG)
 CONFIGS["global"].read(_files)
 GLOBAL_CONFIG = CONFIGS["global"]
