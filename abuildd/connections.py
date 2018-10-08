@@ -10,8 +10,6 @@ from hbmqtt.client import MQTTClient, ConnectException
 from abuildd.config import GLOBAL_CONFIG
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel("DEBUG")
-logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
 
 async def init_pgpool(loop=None):
     kwargs = {}
