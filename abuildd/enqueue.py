@@ -8,15 +8,15 @@ import logging   # getLogger, basicConfig
 import shlex     # quote
 import traceback # format_exc
 
-from hbmqtt.mqtt.constants import QOS_1, QOS_2
+from hbmqtt.mqtt.constants import QOS_1
 from abuild.config import SHELLEXPAND_PATH
 from abuild.file import APKBUILD
 import abuild.exception as exc
 
-from abuildd.connections import init_pgpool, init_mqtt
 from abuildd.config import GLOBAL_CONFIG
 from abuildd.utility import get_command_output, run_blocking_command
-from abuildd.utility import assert_exists
+from abuildd.mqtt import init_mqtt, sanitize_message, mqtt_send_task
+from abuildd.db import init_pgpool, db_add_job, db_reject_job, db_add_task
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel("DEBUG")
@@ -274,71 +274,14 @@ async def init_conns(loop=None):
     LOGGER.info("Done!")
     return (pgpool, mqtt)
 
-async def db_add_job(db, job, status="unbuilt", shortmsg="", msg=""):
-    job_row = await db.fetchrow(
-        """INSERT INTO job(status, shortmsg, msg, priority,
-        project, url, branch,
-        commit_id, mr_id, username)
-        VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING job_id AS id;""",
-        status, shortmsg, msg, job.priority,
-        job.project, job.url, job.branch,
-        job.commit, job.mr, job.user)
-
-    job.id = job_row["id"]
-    return job.id
-
-async def db_add_task(db, job_id, package, arch):
-    task_row = await db.fetchrow(
-        """INSERT INTO task(job_id, package, version, arch, maintainer)
-        VALUES($1, $2, $3, $4, $5)
-        RETURNING task_id AS id;""",
-        job_id, package["pkgname"], package["pkgver"], arch,
-        package["maintainer"][0])
-
-    return task_row["id"]
-
-async def db_reject_job(db, job, shortmsg, status="rejected", msg=""):
-    job.priority = -1
-    job_id = await db_add_job(db, job, status, shortmsg, msg)
-    LOGGER.error(f"Rejecting job {job_id}: {shortmsg}")
-
-async def mqtt_send_task(mqtt, builder, arch, job_id, task_id, task):
-    await builder
-    builder = builder.result()
-    LOGGER.debug(f"Sending #{job_id}/{task_id} to {arch} builder {builder}")
-    await mqtt.publish(f"tasks/{arch}/{builder}/{task_id}", task, QOS_2)
-
 async def mqtt_watch_servers(mqtt, builders):
     while True:
         try:
             message = await mqtt.deliver_message()
-            # builders/<arch>/<name>
-            topic = message.topic.split("/")
-            if len(topic) != 3:
-                LOGGER.error(f"Invalid builder topic {message.topic}")
+            res = sanitize_message(message, "builders")
+            if not res:
                 continue
-
-            arch = topic[1]
-            name = topic[2]
-
-            try:
-                data = json.loads(message.data)
-            except json.JSONDecodeError:
-                LOGGER.error(
-                    f"JSON decode error for MQTT data '{message.data}'"
-                    f"on topic {message.topic}")
-                continue
-
-            data["name"] = name
-
-            try:
-                assert_exists(data, "nprocs", int)
-                assert_exists(data, "ram_mb", int)
-                assert_exists(data, "status", str)
-            except json.JSONDecodeError as e:
-                LOGGER.error(f"MQTT payload: {e.msg}")
-                continue
+            _ignore, arch, name, data = res
 
             status = data["status"]
             data["pref"] = calc_builder_preference(data)
