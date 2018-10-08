@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2018 Max Rees
+# See LICENSE for more information.
+import asyncio
+import signal
+from logging import basicConfig
+
+from hbmqtt.mqtt.constants import QOS_1
+from PyIRC.signal import event as event_handler
+from PyIRC.io.asyncio import IRCProtocol
+from PyIRC.extensions import bot_recommended
+
+from abuildd.config import GLOBAL_CONFIG
+from abuildd.mqtt import init_mqtt, sanitize_message
+
+basicConfig(level="DEBUG")
+
+class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
+    def __init__(self, *args, chans=None, colors=False, **kwargs):
+        self.colors = colors
+        self.chans = chans or {}
+        if "builders" not in self.chans:
+            self.chans["builders"] = []
+        if "jobs" not in self.chans:
+            self.chans["jobs"] = []
+        if "tasks" not in self.chans:
+            self.chans["tasks"] = []
+        if "cmd" not in self.chans:
+            self.chans["cmd"] = []
+
+        self.builders = {}
+        kwargs["join"] = [chan for chans in self.chans.values() for chan in chans]
+
+        super().__init__(*args, **kwargs)
+
+    def get_builder_status(self, arches=None, name=None):
+        if not arches:
+            arches = self.builders.keys()
+        elif not isinstance(arches, list):
+            arches = [arches]
+
+        arches = dict.fromkeys(arches)
+
+        for arch in arches:
+            arches[arch] = []
+
+            if arch not in self.builders or not self.builders[arch]:
+                continue
+
+            for builder in self.builders[arch]:
+                if name and builder != name:
+                    continue
+
+                status = self.builders[arch][builder]["status"]
+                job = self.builders[arch][builder]["job"]
+                task = self.builders[arch][builder]["task"]
+
+                if self.colors:
+                    s = f"\x02{builder}\x0f: {status}"
+                else:
+                    s = f"{builder}: {status} with job {job} task {task}"
+
+                arches[arch].append(s)
+
+        return arches
+
+    def cmd_status(self, recipient, nick, cmd):
+        msg = [recipient, f"{nick}:"]
+
+        # <nick>: status
+        if len(cmd) == 2:
+            arch = None
+            name = None
+        # <nick>: status <arch>
+        elif len(cmd) == 3:
+            arch = cmd[2]
+            name = None
+        # <nick>: status <arch> <name>
+        elif len(cmd) == 4:
+            arch = cmd[2]
+            name = cmd[3]
+
+        statuses = self.get_builder_status(arch, name)
+        for arch in statuses:
+            if self.colors:
+                msg[1] += f" \x02[{arch}]\x0f "
+            else:
+                msg[1] += f" [{arch}] "
+
+            if statuses[arch]:
+                msg[1] += ", ".join(statuses[arch])
+            else:
+                msg[1] += "(none)"
+
+        self.send("PRIVMSG", msg)
+
+    @event_handler("commands", "PRIVMSG")
+    def respond(self, _event, line):
+        params = line.params
+        nick = line.hostmask.nick
+
+        if len(params) < 2:
+            return
+
+        recipient = params[0]
+        for chan in self.chans["cmd"]:
+            if self.casecmp(chan, recipient):
+                break
+        else:
+            return
+
+        cmd = params[-1].split()
+        if len(cmd) < 2 or not cmd[0] or not cmd[1]:
+            return
+
+        if not self.casecmp(cmd[0].rstrip(":"), self.basic_rfc.nick):  # pylint: disable=no-member
+            return
+
+        if self.casecmp(cmd[1].strip(), "status"):
+            self.cmd_status(recipient, nick, cmd)
+
+    @event_handler("abuildd", "builders")
+    def post_builder_status(self, _event, arch, name, data):
+        if arch not in self.builders:
+            self.builders[arch] = {}
+
+        # Don't repeat ourselves
+        if name in self.builders[arch]:
+            if data == self.builders[arch][name]:
+                return
+
+        self.builders[arch][name] = data
+        status = data["status"]
+        job = data["job"]
+        task = data["task"]
+
+        # Only bother posting when we're all done connecting
+        if not self.registered:
+            return
+
+        if self.colors:
+            msg = f"\x02[{arch}] {name}\x0f: {status}"
+        else:
+            msg = f"[{arch}] {name}: {status}"
+
+        if status == "idle":
+            msg += f" after completing job {job} task {task}"
+        elif status != "offline":
+            msg += f" with job {job} task {task}"
+
+        for chan in self.chans["builders"]:
+            self.send("PRIVMSG", [chan, msg])
+
+def sigint(*protos):
+    for proto in protos:
+        proto.send("QUIT", ["Terminating due to ctrl-c!"])
+        proto.close()
+
+    print()
+    print("Terminating due to ctrl-c!")
+
+    quit()
+
+async def handle_mqtt(irc, mqtt):
+    while True:
+        message = await mqtt.deliver_message()
+        res = sanitize_message(message)
+        if not res:
+            continue
+
+        irc.call_event("abuildd", res[0], *res[1:])
+
+# pylint: disable=invalid-name
+
+proto_kwargs = {
+    "serverport": (
+        GLOBAL_CONFIG["irc"]["server"], GLOBAL_CONFIG.getint("irc", "port")
+    ),
+    "ssl": GLOBAL_CONFIG.getboolean("irc", "ssl"),
+    "nick": GLOBAL_CONFIG["irc"]["nick"],
+    "username": GLOBAL_CONFIG["irc"]["username"],
+    "gecos": GLOBAL_CONFIG["irc"]["gecos"],
+    "colors": GLOBAL_CONFIG.getboolean("irc", "colors"),
+    "chans": {
+        "builders": GLOBAL_CONFIG["irc"]["builders_chans"].split("\n"),
+        "jobs": GLOBAL_CONFIG["irc"]["jobs_chans"].split("\n"),
+        "tasks": GLOBAL_CONFIG["irc"]["tasks_chans"].split("\n"),
+        "cmd": GLOBAL_CONFIG["irc"]["cmd_chans"].split("\n"),
+    },
+
+    "extensions": bot_recommended,
+}
+
+topics = [
+    ["builders/#", QOS_1],
+    ["jobs/#", QOS_1],
+    ["tasks/#", QOS_1],
+]
+
+irc_inst = AbuilddIRCProtocol(**proto_kwargs)
+irc_conn = irc_inst.connect()
+
+loop = asyncio.get_event_loop()
+loop.add_signal_handler(signal.SIGINT, sigint, irc_inst)
+
+mqtt_conn = loop.run_until_complete(init_mqtt(topics, loop=loop))
+loop.run_until_complete(irc_inst.connect())
+loop.create_task(handle_mqtt(irc_inst, mqtt_conn))
+loop.run_forever()
+loop.run_until_complete(mqtt_conn.close())
+loop.close()

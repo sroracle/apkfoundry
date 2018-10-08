@@ -55,7 +55,7 @@ $ echo 'CREATE DATABASE abuildd;' | psql -U postgres
 $ psql -U postgres -d abuildd -f abuildd/abuildd.sql
 $ virtualenv /path/to/new/venv
 $ source /path/to/new/venv/bin/activate
-(venv) $ pip install hbmqtt aiohttp asyncpg
+(venv) $ pip install hbmqtt aiohttp asyncpg pyirc
 (venv) $ export PYTHONPATH="$(pwd):/path/to/py3-abuild:$PYTHONPATH"
 ```
 

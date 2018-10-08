@@ -62,11 +62,13 @@ def sanitize_message_builders(message, topic, data):
         assert_exists(data, "nprocs", int)
         assert_exists(data, "ram_mb", int)
         assert_exists(data, "status", str)
+        assert_exists(data, "job", int)
+        assert_exists(data, "task", int)
     except json.JSONDecodeError as e:
         LOGGER.error(f"MQTT {message.topic}: {e.msg}")
         return None
 
-    if data["status"] not in ("idle", "busy", "offline"):
+    if data["status"] not in ("idle", "busy", "offline", "error", "failure"):
         LOGGER.error(f"MQTT {message.topic}: Invalid status {data['status']}")
         return None
 
