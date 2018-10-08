@@ -53,6 +53,7 @@ DEFAULT_CONFIG = {
         "gecos": "abuildd-irc bot",
         "colors": "False",
         "builders_chans": "#abuildd",
+        "builders_statuses": "offline",
         "jobs_chans": "#abuildd",
         "tasks_chans": "#abuildd",
         "cmd_chans": "#abuildd",

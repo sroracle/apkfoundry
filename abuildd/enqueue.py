@@ -178,7 +178,7 @@ class Job:
 
                 task_id = await db_add_task(db, self.id, package, arch)
                 task = {
-                    "task_id": task_id, "job_id": self.id,
+                    "status": "unbuilt", "job_id": self.id,
                     "event": self.event, "priority": self.priority,
                     "project": self.project, "url": self.url,
                     "branch": self.branch, "commit": self.commit,

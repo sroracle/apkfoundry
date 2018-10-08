@@ -17,9 +17,11 @@ from abuildd.mqtt import init_mqtt, sanitize_message
 basicConfig(level="DEBUG")
 
 class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
-    def __init__(self, *args, chans=None, colors=False, **kwargs):
+    def __init__(self, *args, chans=None, statuses=None, colors=False, **kwargs):
         self.colors = colors
         self.chans = chans or {}
+        self.statuses = statuses or {}
+
         if "builders" not in self.chans:
             self.chans["builders"] = []
         if "jobs" not in self.chans:
@@ -28,6 +30,8 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
             self.chans["tasks"] = []
         if "cmd" not in self.chans:
             self.chans["cmd"] = []
+        if "builders" not in self.statuses:
+            self.statuses["builders"] = []
 
         self.builders = {}
         kwargs["join"] = [chan for chans in self.chans.values() for chan in chans]
@@ -135,8 +139,11 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
         job = data["job"]
         task = data["task"]
 
-        # Only bother posting when we're all done connecting
+        # Only bother posting when we're all done connecting and joining
         if not self.registered:
+            return
+
+        if status not in self.statuses["builders"]:
             return
 
         if self.colors:
@@ -187,6 +194,9 @@ proto_kwargs = {
         "jobs": GLOBAL_CONFIG["irc"]["jobs_chans"].split("\n"),
         "tasks": GLOBAL_CONFIG["irc"]["tasks_chans"].split("\n"),
         "cmd": GLOBAL_CONFIG["irc"]["cmd_chans"].split("\n"),
+    },
+    "statuses": {
+        "builders": GLOBAL_CONFIG["irc"]["builders_statuses"].split("\n"),
     },
 
     "extensions": bot_recommended,
