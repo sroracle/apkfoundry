@@ -13,6 +13,30 @@ from abuildd.utility import assert_exists
 
 LOGGER = logging.getLogger(__name__)
 
+BUILDERS_STATUSES = (
+    "idle",
+    "busy",
+    "offline",
+    "error",
+    "failure",
+)
+
+# c.f. abuildd.sql job_status_enum
+JOBS_STATUSES = (
+    "new",
+    "rejected",
+    "building",
+    "success",
+    "error",
+    "failure",
+)
+
+JOBS_EVENTS = (
+    "push",
+    "merge_request",
+    "note",
+)
+
 async def init_mqtt(topics, loop=None):
     mqtt = MQTTClient(loop=loop)
     try:
@@ -43,6 +67,8 @@ def sanitize_message(message, mtype=None):
 
     if mtype == "builders":
         res = sanitize_message_builders(message, topic, data)
+    elif mtype == "tasks":
+        res = sanitize_message_tasks(message, topic, data)
     else:
         res = None
 
@@ -52,12 +78,11 @@ def sanitize_message_builders(message, topic, data):
     # builders/<arch>/<name>
     if len(topic) != 3:
         LOGGER.error(f"Invalid builders topic {message.topic}")
+        return None
 
-    arch = topic[1]
-    name = topic[2]
+    _ignore, arch, name = topic
 
     data["name"] = name
-
     try:
         assert_exists(data, "nprocs", int)
         assert_exists(data, "ram_mb", int)
@@ -68,14 +93,71 @@ def sanitize_message_builders(message, topic, data):
         LOGGER.error(f"MQTT {message.topic}: {e.msg}")
         return None
 
-    if data["status"] not in ("idle", "busy", "offline", "error", "failure"):
+    if data["status"] not in BUILDERS_STATUSES:
         LOGGER.error(f"MQTT {message.topic}: Invalid status {data['status']}")
         return None
 
     return ("builders", arch, name, data)
 
-async def mqtt_send_task(mqtt, builder, arch, job_id, task_id, task):
+def sanitize_message_tasks(message, topic, data):
+    # tasks/<arch>/<builder>/<task>
+    if len(topic) != 4:
+        LOGGER.error(f"Invalid tasks topic {message.topic}")
+        return None
+
+    _ignore, arch, builder, task = topic
+    try:
+        assert_exists(data, "job_id", int)
+        assert_exists(data, "status", str)
+        assert_exists(data, "shortmsg", str)
+        assert_exists(data, "msg", str)
+        assert_exists(data, "repo", str)
+        assert_exists(data, "package", str)
+        assert_exists(data, "version", str)
+        assert_exists(data, "maintainer", str)
+        # Repeated information from job
+        assert_exists(data, "priority", int)
+        assert_exists(data, "project", str)
+        assert_exists(data, "url", str)
+        assert_exists(data, "branch", str)
+        assert_exists(data, "commit", str)
+        assert_exists(data, "mr_id", int)
+        assert_exists(data, "event", str)
+    except json.JSONDecodeError as e:
+        LOGGER.error(f"MQTT {message.topic}: {e.msg}")
+        return None
+
+    if data["status"] not in JOBS_STATUSES:
+        LOGGER.error(f"MQTT {message.topic}: Invalid status {data['status']}")
+        return None
+
+    if data["event"] not in JOBS_EVENTS:
+        LOGGER.error(f"MQTT {message.topic}: Invalid event {data['event']}")
+        return None
+
+    return ("tasks", arch, builder, task, data)
+
+def create_task(job, package, status="new", shortmsg="", msg=""):
+    return {
+        "job_id": job.id,
+        # Variable information
+        "status": status, "shortmsg": shortmsg, "msg": msg,
+        # Package information
+        "repo": package.repo, "package": package.pkgname,
+        "version": f"{package.pkgver}-r{package.pkgrel}",
+        "maintainer": package.maintainer[0],
+        # Repeated information from job
+        "priority": job.priority, "project": job.project, "url": job.url,
+        "branch": job.branch, "commit": job.commit, "mr_id": job.mr,
+        "event": job.event,
+    }
+
+async def send_task(mqtt, arch, builder, job_id, task_id, task):
     await builder
     builder = builder.result()
-    LOGGER.debug(f"Sending #{job_id}/{task_id} to {arch} builder {builder}")
+    LOGGER.debug(
+        f"{task['status']} #{job_id}/{task_id} @ {arch} builder {builder}")
+
+    task = json.dumps(task).encode("utf-8")
+
     await mqtt.publish(f"tasks/{arch}/{builder}/{task_id}", task, QOS_2)

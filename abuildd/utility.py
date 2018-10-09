@@ -42,6 +42,15 @@ def assert_exists(level, path, asserttype=None):
 
     return level
 
+def maybe_exists(level, path, asserttype=None, default=None):
+    if asserttype and default and not isinstance(asserttype, default):
+        raise ValueError("default must an instance of asserttype")
+
+    try:
+        return assert_exists(level, path, asserttype=asserttype)
+    except json.JSONDecodeError:
+        return default
+
 async def run_blocking_command(arglist, env=None, log=None):
     if not log:
         log = asyncio.subprocess.PIPE

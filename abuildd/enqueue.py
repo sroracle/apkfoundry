@@ -3,7 +3,6 @@
 # See LICENSE for more information.
 import asyncio   # CancelledError, Condition, ensure_future
 import fnmatch   # fnmatchcase
-import json      # dumps, loads, JSONDecodeError
 import logging   # getLogger, basicConfig
 import shlex     # quote
 import traceback # format_exc
@@ -13,12 +12,12 @@ from abuild.config import SHELLEXPAND_PATH
 from abuild.file import APKBUILD
 import abuild.exception as exc
 
+import abuildd.mqtt as amqtt
+import abuildd.db as adb
 from abuildd.config import GLOBAL_CONFIG
 from abuildd.utility import get_command_output, run_blocking_command
-from abuildd.mqtt import init_mqtt, sanitize_message, mqtt_send_task
-from abuildd.db import init_pgpool, db_add_job, db_reject_job, db_add_task
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("abuildd")
 LOGGER.setLevel("DEBUG")
 logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
 
@@ -79,7 +78,7 @@ class Job:
                 e.msg = f"{package}: {e.msg}"
                 raise
 
-            self.packages[package] = expanded.meta
+            self.packages[package] = expanded
 
         return self.packages
 
@@ -105,12 +104,12 @@ class Job:
         # TODO: add a setting for project priority
 
         if self.priority < 0:
-            await db_reject_job(db, self, "Invalid priority")
+            await adb.db_reject_job(db, self, "Invalid priority")
             return
 
         user_priority = self.user_priority()
         if user_priority < 0:
-            await db_reject_job(
+            await adb.db_reject_job(
                 db, self, "Unauthorized user or invalid priority")
             return
         self.priority += user_priority
@@ -119,7 +118,7 @@ class Job:
         if hasattr(self, "branch_priority"):
             branch_priority = self.branch_priority()  # pylint: disable=no-member
             if branch_priority < 0:
-                await db_reject_job(
+                await adb.db_reject_job(
                     db, self, "Unauthorized branch or invalid priority")
                 return
         self.priority += branch_priority
@@ -134,7 +133,7 @@ class Job:
             else:
                 status = "error"
 
-            await db_reject_job(
+            await adb.db_reject_job(
                 db, self, str(e), status, traceback.format_exc())
             return
 
@@ -143,7 +142,7 @@ class Job:
             if self.priority < 0:
                 return
 
-            await db_add_job(db, self)
+            await adb.db_add_job(db, self)
 
         # Collect all needed arches first. It is possible that there are
         # intra-job dependencies (between different tasks of a single job) and
@@ -151,7 +150,7 @@ class Job:
         # each arch involved.
         all_arches = {}
         for package in self.packages:
-            arches = self.packages[package]["arch"]
+            arches = self.packages[package].arch
             if "all" in arches or "noarch" in arches:
                 arches += self.config["builders"]["arches"].split("\n")
             all_arches.update({arch: None for arch in arches})
@@ -168,7 +167,7 @@ class Job:
 
         for package in self.packages:
             package = self.packages[package]
-            arches = package["arch"]
+            arches = package.arch
 
             for arch in arches:
                 if arch.startswith("!") or "!" + arch in arches:
@@ -176,22 +175,14 @@ class Job:
                 if arch in ("all", "noarch"):
                     continue
 
-                task_id = await db_add_task(db, self.id, package, arch)
-                task = {
-                    "status": "unbuilt", "job_id": self.id,
-                    "event": self.event, "priority": self.priority,
-                    "project": self.project, "url": self.url,
-                    "branch": self.branch, "commit": self.commit,
-                    "package": package["pkgname"], "mr_id": self.mr,
-                }
-                task = json.dumps(task).encode("utf-8")
-
+                task_id = await adb.db_add_task(db, self.id, package, arch)
                 builder = all_arches[arch]
+                task = amqtt.create_task(self, package, status="new")
 
                 # Again, don't block here - the builder may still not be
                 # available yet
                 asyncio.ensure_future(
-                    mqtt_send_task(mqtt, builder, arch, self.id, task_id, task))
+                    amqtt.send_task(mqtt, arch, builder, self.id, task_id, task))
 
 class PushJob(Job):
     def __init__(self, *args, **kwargs):
@@ -268,8 +259,8 @@ class MRJob(Job):
 async def init_conns(loop=None):
     LOGGER.info("Initializing connections...")
 
-    pgpool = await init_pgpool(loop=loop)
-    mqtt = await init_mqtt([["builders/#", QOS_1]], loop=loop)
+    pgpool = await adb.init_pgpool(loop=loop)
+    mqtt = await amqtt.init_mqtt([["builders/#", QOS_1]], loop=loop)
 
     LOGGER.info("Done!")
     return (pgpool, mqtt)
@@ -278,7 +269,7 @@ async def mqtt_watch_servers(mqtt, builders):
     while True:
         try:
             message = await mqtt.deliver_message()
-            res = sanitize_message(message, "builders")
+            res = amqtt.sanitize_message(message, "builders")
             if not res:
                 continue
             _ignore, arch, name, data = res
@@ -296,7 +287,7 @@ async def mqtt_watch_servers(mqtt, builders):
                 LOGGER.info(f"{arch} builder {name} joined ({status})")
 
             elif arch_collection[name]["status"] != status:
-                LOGGER.info(f"{arch} builder {name} becomes {status}")
+                LOGGER.info(f"{arch} builder {name}: {status}")
 
             async with arch_collection.any_available:
                 arch_collection[name] = data

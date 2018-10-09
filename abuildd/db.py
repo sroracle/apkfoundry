@@ -26,7 +26,7 @@ async def init_pgpool(loop=None):
 
     return pgpool
 
-async def db_add_job(db, job, status="unbuilt", shortmsg="", msg=""):
+async def db_add_job(db, job, status="new", shortmsg="", msg=""):
     job_row = await db.fetchrow(
         """INSERT INTO job(status, shortmsg, msg, priority,
         project, url, branch,
@@ -50,7 +50,7 @@ async def db_add_task(db, job_id, package, arch):
         """INSERT INTO task(job_id, package, version, arch, maintainer)
         VALUES($1, $2, $3, $4, $5)
         RETURNING task_id AS id;""",
-        job_id, package["pkgname"], package["pkgver"], arch,
-        package["maintainer"][0])
+        job_id, package.pkgname, package.pkgver, arch,
+        package.maintainer[0])
 
     return task_row["id"]

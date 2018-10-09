@@ -16,22 +16,23 @@ from abuildd.mqtt import init_mqtt, sanitize_message
 
 basicConfig(level="DEBUG")
 
+def _set_default(category, my_type):
+    if my_type not in category:
+        category[my_type] = []
+    elif len(category[my_type]) == 1 and not category[my_type][0]:
+        category[my_type] = []
+
 class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
     def __init__(self, *args, chans=None, statuses=None, colors=False, **kwargs):
         self.colors = colors
         self.chans = chans or {}
         self.statuses = statuses or {}
 
-        if "builders" not in self.chans:
-            self.chans["builders"] = []
-        if "jobs" not in self.chans:
-            self.chans["jobs"] = []
-        if "tasks" not in self.chans:
-            self.chans["tasks"] = []
-        if "cmd" not in self.chans:
-            self.chans["cmd"] = []
-        if "builders" not in self.statuses:
-            self.statuses["builders"] = []
+        _set_default(self.chans, "builders")
+        _set_default(self.chans, "jobs")
+        _set_default(self.chans, "tasks")
+        _set_default(self.chans, "cmd")
+        _set_default(self.statuses, "builders")
 
         self.builders = {}
         kwargs["join"] = [chan for chans in self.chans.values() for chan in chans]
@@ -63,7 +64,10 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
                 if self.colors:
                     s = f"\x02{builder}\x0f: {status}"
                 else:
-                    s = f"{builder}: {status} with job {job} task {task}"
+                    s = f"{builder}: {status}"
+
+                if status != "offline":
+                    s += f" with job {job} task {task}"
 
                 arches[arch].append(s)
 
@@ -125,7 +129,7 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
             self.cmd_status(recipient, nick, cmd)
 
     @event_handler("abuildd", "builders")
-    def post_builder_status(self, _event, arch, name, data):
+    def announce_builders(self, _event, arch, name, data):
         if arch not in self.builders:
             self.builders[arch] = {}
 
@@ -157,6 +161,30 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
             msg += f" with job {job} task {task}"
 
         for chan in self.chans["builders"]:
+            self.send("PRIVMSG", [chan, msg])
+
+    @event_handler("abuildd", "tasks")
+    def announce_tasks(self, _event, arch, builder, task, data):
+        data["arch"] = arch
+        data["builder"] = builder
+        data["task_id"] = task
+
+        msg = data["project"]
+
+        if data["event"] in ("note", "merge_request"):
+            msg += " [MR #{mr_id} / branch {branch}]".format(**data)
+        elif data["event"] == "push":
+            msg += " [{branch} {commit}]".format(**data)
+
+        if self.colors:
+            msg += " \x02Job {job_id} task {task_id}:\x0f".format(**data)
+        else:
+            msg += " Job {job_id} task {task_id}:".format(**data)
+
+        msg += " {repo}/{package} {version}".format(**data)
+        msg += ": {status} on {arch}/{builder}".format(**data)
+
+        for chan in self.chans["tasks"]:
             self.send("PRIVMSG", [chan, msg])
 
 def sigint(*protos):

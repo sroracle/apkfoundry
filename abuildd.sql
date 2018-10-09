@@ -35,8 +35,9 @@ COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 -- Name: job_status_enum; Type: TYPE; Schema: public; Owner: postgres
 --
 CREATE TYPE job_status_enum AS ENUM (
-    'unbuilt',
+    'new',
     'rejected',
+    'building',
     'success',
     'error',
     'failure'
@@ -48,7 +49,7 @@ ALTER TYPE job_status_enum OWNER TO postgres;
 --
 CREATE TABLE job (
     job_id integer NOT NULL,
-    status job_status_enum DEFAULT 'unbuilt'::job_status_enum NOT NULL,
+    status job_status_enum DEFAULT 'new'::job_status_enum NOT NULL,
     created timestamptz NOT NULL DEFAULT NOW(),
     updated timestamptz NOT NULL DEFAULT NOW(),
     shortmsg text,
@@ -98,11 +99,11 @@ ALTER TABLE ONLY job
 CREATE TABLE task (
     task_id integer NOT NULL,
     job_id integer NOT NULL,
-    status job_status_enum DEFAULT 'unbuilt'::job_status_enum NOT NULL,
-    shortmsg text,
-    msg text,
+    status job_status_enum DEFAULT 'new'::job_status_enum NOT NULL,
     created timestamptz NOT NULL DEFAULT NOW(),
     updated timestamptz NOT NULL DEFAULT NOW(),
+    shortmsg text,
+    msg text,
     package character varying(255) NOT NULL,
     version character varying(255) NOT NULL,
     arch character varying(255) NOT NULL,
