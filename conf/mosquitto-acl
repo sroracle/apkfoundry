@@ -1,0 +1,30 @@
+# Anonymous sub
+topic read $SYS/#
+topic read builders/#
+topic read jobs/+
+topic read tasks/#
+topic read cancel/#
+
+# Builder pub/sub - copy for each builder
+user arch/name
+topic readwrite builders/arch/name
+topic readwrite tasks/arch/name/+
+topic readwrite jobs/+
+topic read cancel/#
+
+# IRC pub/sub
+user irc
+topic read builders/#
+topic read jobs/+
+topic read tasks/#
+topic readwrite cancel/#
+
+# enqueue pub/sub
+user enqueue
+topic readwrite builders/#
+topic readwrite jobs/+
+topic readwrite tasks/#
+topic readwrite cancel/#
+
+# All clients
+pattern write $SYS/broker/connection/%c/state
