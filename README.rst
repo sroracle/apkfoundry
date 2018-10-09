@@ -57,6 +57,9 @@ Base set
 ``abuildd-agentd``
    * `bubblewrap <https://github.com/projectatomic/bubblewrap>`_
 
+``abuildd-irc``
+   * `PyIRC <https://code.foxkit.us/IRC/PyIRC>`_
+
 PPAs
 ----
 
