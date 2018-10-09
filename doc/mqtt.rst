@@ -12,6 +12,9 @@ The following users should be created:
    * read/write ``tasks/#``
    * read/write ``cancel/#``
 
+   The username ``enqueue`` and password should be given as part of the MQTT
+   URI in the ``enqueue.mqtt`` configuration option.
+
 ``irc``
    For use by the IRC bot. It should have access to the following topics:
 
@@ -19,6 +22,9 @@ The following users should be created:
    * read ``jobs/+``
    * read ``tasks/#``
    * read/write ``cancel/#``
+
+   The username ``irc`` and password should be given as part of the MQTT URI in
+   the ``irc.mqtt`` configuration option.
 
 ``<arch>/<name>``
    For each builder, there should exist a user of the form
@@ -29,6 +35,9 @@ The following users should be created:
    * read/write ``jobs/+``
    * read/write ``tasks/<arch>/<name>/+``
    * read ``cancel/#``
+
+   The username ``<arch>/<name>`` and password should be given as part of the
+   MQTT URI in the ``agent.mqtt`` configuration option on each builder.
 
 Anonymous clients
    Any anonymous clients (if anonymous connections are enabled) may have access
