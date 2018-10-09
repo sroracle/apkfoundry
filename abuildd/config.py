@@ -16,9 +16,6 @@ DEFAULT_CONFIG = {
         "passfile": "~/.pgpass",
         "name": "abuildd",
     },
-    "mqtt": {
-        "uri": "mqtt://localhost",
-    },
     "push": {
         "enabled": "True",
         "priority": "500",
@@ -44,7 +41,14 @@ DEFAULT_CONFIG = {
         "loglevel": "DEBUG",
         "endpoint": "/abuildd/webhook",
     },
+    "enqueue": {
+        "mqtt": "mqtt://enqueue@localhost/",
+    },
+    "agent": {
+        "mqtt": "mqtt://arch/name@localhost/",
+    },
     "irc": {
+        "mqtt": "mqtt://irc@localhost/",
         "server": "irc.example.com",
         "port": "6667",
         "ssl": "False",

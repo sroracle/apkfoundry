@@ -37,10 +37,10 @@ JOBS_EVENTS = (
     "note",
 )
 
-async def init_mqtt(topics, loop=None):
+async def init_mqtt(uri, topics, loop=None):
     mqtt = MQTTClient(loop=loop)
     try:
-        await mqtt.connect(GLOBAL_CONFIG["mqtt"]["uri"])
+        await mqtt.connect(uri)
         await mqtt.subscribe(topics)
     except ConnectException as e:
         LOGGER.error(f"Could not connect to MQTT broker: {e}")

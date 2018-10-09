@@ -262,7 +262,8 @@ async def init_conns(loop=None):
     LOGGER.info("Initializing connections...")
 
     pgpool = await adb.init_pgpool(loop=loop)
-    mqtt = await amqtt.init_mqtt([["builders/#", QOS_1]], loop=loop)
+    mqtt = await amqtt.init_mqtt(
+        GLOBAL_CONFIG["enqueue"]["mqtt"], [["builders/#", QOS_1]], loop=loop)
 
     LOGGER.info("Done!")
     return (pgpool, mqtt)

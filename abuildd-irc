@@ -287,7 +287,8 @@ irc_conn = irc_inst.connect()
 loop = asyncio.get_event_loop()
 loop.add_signal_handler(signal.SIGINT, sigint, irc_inst)
 
-mqtt_conn = loop.run_until_complete(init_mqtt(topics, loop=loop))
+mqtt_conn = loop.run_until_complete(
+    init_mqtt(GLOBAL_CONFIG["irc"]["mqtt"], topics, loop=loop))
 loop.run_until_complete(irc_inst.connect())
 loop.create_task(handle_mqtt(irc_inst, mqtt_conn))
 loop.run_forever()
