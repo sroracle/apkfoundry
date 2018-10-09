@@ -143,10 +143,6 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
         job = data["job"]
         task = data["task"]
 
-        # Only bother posting when we're all done connecting and joining
-        if not self.registered:
-            return
-
         if status not in self.statuses["builders"]:
             return
 
@@ -237,7 +233,8 @@ async def handle_mqtt(irc, mqtt):
     while True:
         message = await mqtt.deliver_message()
         res = sanitize_message(message)
-        if not res:
+        # Only bother posting when we're all done connecting and joining
+        if not res or not irc.registered:
             continue
 
         irc.call_event("abuildd", res[0], *res[1:])
