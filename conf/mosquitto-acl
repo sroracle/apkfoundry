@@ -21,7 +21,7 @@ topic readwrite cancel/#
 
 # enqueue pub/sub
 user enqueue
-topic readwrite builders/#
+topic read builders/#
 topic readwrite jobs/+
 topic readwrite tasks/#
 topic readwrite cancel/#
