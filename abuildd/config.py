@@ -55,7 +55,9 @@ DEFAULT_CONFIG = {
         "builders_chans": "#abuildd",
         "builders_statuses": "offline",
         "jobs_chans": "#abuildd",
+        "jobs_statuses": "rejected",
         "tasks_chans": "#abuildd",
+        "tasks_statuses": "new\nrejected\nbuilding\nsuccess\nerror\nfailure",
         "cmd_chans": "#abuildd",
     },
     "builders": {

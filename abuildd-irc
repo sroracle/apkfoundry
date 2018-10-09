@@ -171,6 +171,9 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
 
         msg = data["project"]
 
+        if data["status"] not in self.statuses["tasks"]:
+            return
+
         if data["event"] in ("note", "merge_request"):
             msg += " [MR #{mr_id} / branch {branch}]".format(**data)
         elif data["event"] == "push":
@@ -198,6 +201,9 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
     def announce_jobs(self, _event, job, data):
         data["job_id"] = job
         msg = data["project"]
+
+        if data["status"] not in self.statuses["jobs"]:
+            return
 
         if data["event"] in ("note", "merge_request"):
             msg += " [MR #{mr_id} / branch {branch}]".format(**data)
@@ -255,6 +261,8 @@ proto_kwargs = {
     },
     "statuses": {
         "builders": GLOBAL_CONFIG["irc"]["builders_statuses"].split("\n"),
+        "jobs": GLOBAL_CONFIG["irc"]["jobs_statuses"].split("\n"),
+        "tasks": GLOBAL_CONFIG["irc"]["tasks_statuses"].split("\n"),
     },
 
     "extensions": bot_recommended,
