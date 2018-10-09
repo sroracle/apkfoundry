@@ -231,8 +231,11 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
 
 def sigint(*protos):
     for proto in protos:
-        proto.send("QUIT", ["Terminating due to ctrl-c!"])
-        proto.close()
+        try:
+            proto.send("QUIT", ["Terminating due to ctrl-c!"])
+            proto.close()
+        except Exception:
+            pass
 
     print()
     print("Terminating due to ctrl-c!")
