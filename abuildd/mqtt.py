@@ -69,6 +69,8 @@ def sanitize_message(message, mtype=None):
         res = sanitize_message_builders(message, topic, data)
     elif mtype == "tasks":
         res = sanitize_message_tasks(message, topic, data)
+    elif mtype == "jobs":
+        res = sanitize_message_jobs(message, topic, data)
     else:
         res = None
 
@@ -120,7 +122,7 @@ def sanitize_message_tasks(message, topic, data):
         assert_exists(data, "project", str)
         assert_exists(data, "url", str)
         assert_exists(data, "branch", str)
-        assert_exists(data, "commit", str)
+        assert_exists(data, "commit_id", str)
         assert_exists(data, "mr_id", int)
         assert_exists(data, "event", str)
     except json.JSONDecodeError as e:
@@ -137,6 +139,39 @@ def sanitize_message_tasks(message, topic, data):
 
     return ("tasks", arch, builder, task, data)
 
+def sanitize_message_jobs(message, topic, data):
+    # jobs/<job>
+    if len(topic) != 2:
+        LOGGER.error(f"Invalid jobs topic {message.topic}")
+        return None
+
+    _ignore, job = topic
+
+    try:
+        assert_exists(data, "status", str)
+        assert_exists(data, "shortmsg", str)
+        assert_exists(data, "msg", str)
+        assert_exists(data, "priority", int)
+        assert_exists(data, "project", str)
+        assert_exists(data, "url", str)
+        assert_exists(data, "branch", str)
+        assert_exists(data, "commit_id", str)
+        assert_exists(data, "mr_id", int)
+        assert_exists(data, "event", str)
+    except json.JSONDecodeError as e:
+        LOGGER.error(f"MQTT {message.topic}: {e.msg}")
+        return None
+
+    if data["status"] not in JOBS_STATUSES:
+        LOGGER.error(f"MQTT {message.topic}: Invalid status {data['status']}")
+        return None
+
+    if data["event"] not in JOBS_EVENTS:
+        LOGGER.error(f"MQTT {message.topic}: Invalid event {data['event']}")
+        return None
+
+    return ("jobs", job, data)
+
 def create_task(job, package, status="new", shortmsg="", msg=""):
     return {
         "job_id": job.id,
@@ -148,7 +183,15 @@ def create_task(job, package, status="new", shortmsg="", msg=""):
         "maintainer": package.maintainer[0],
         # Repeated information from job
         "priority": job.priority, "project": job.project, "url": job.url,
-        "branch": job.branch, "commit": job.commit, "mr_id": job.mr,
+        "branch": job.branch, "commit_id": job.commit, "mr_id": job.mr,
+        "event": job.event,
+    }
+
+def create_job(job, status="new", shortmsg="", msg=""):
+    return {
+        "status": status, "shortmsg": shortmsg, "msg": msg,
+        "priority": job.priority, "project": job.project, "url": job.url,
+        "branch": job.branch, "commit_id": job.commit, "mr_id": job.mr,
         "event": job.event,
     }
 
@@ -161,3 +204,10 @@ async def send_task(mqtt, arch, builder, job_id, task_id, task):
     task = json.dumps(task).encode("utf-8")
 
     await mqtt.publish(f"tasks/{arch}/{builder}/{task_id}", task, QOS_2)
+
+async def send_job(mqtt, job_id, job):
+    LOGGER.debug(f"{job['status']} #{job_id}")
+
+    job = json.dumps(job).encode("utf-8")
+
+    await mqtt.publish(f"jobs/{job_id}", job, QOS_2)

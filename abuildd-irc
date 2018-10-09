@@ -174,7 +174,7 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
         if data["event"] in ("note", "merge_request"):
             msg += " [MR #{mr_id} / branch {branch}]".format(**data)
         elif data["event"] == "push":
-            msg += " [{branch} {commit}]".format(**data)
+            msg += " [{branch} {commit_id}]".format(**data)
 
         if self.colors:
             msg += " \x02Job {job_id} task {task_id}:\x0f".format(**data)
@@ -182,7 +182,37 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
             msg += " Job {job_id} task {task_id}:".format(**data)
 
         msg += " {repo}/{package} {version}".format(**data)
-        msg += ": {status} on {arch}/{builder}".format(**data)
+        msg += " {status} on {arch}/{builder}".format(**data)
+
+        if data["status"] in ("rejected", "failure", "error"):
+            msg2 = "Reason: {shortmsg}".format(**data)
+        else:
+            msg2 = None
+
+        for chan in self.chans["tasks"]:
+            self.send("PRIVMSG", [chan, msg])
+            if msg2:
+                self.send("PRIVMSG", [chan, msg2])
+
+    @event_handler("abuildd", "jobs")
+    def announce_jobs(self, _event, job, data):
+        data["job_id"] = job
+        msg = data["project"]
+
+        if data["event"] in ("note", "merge_request"):
+            msg += " [MR #{mr_id} / branch {branch}]".format(**data)
+        elif data["event"] == "push":
+            msg += " [{branch} {commit_id}]".format(**data)
+
+        if self.colors:
+            msg += " \x02Job {job_id}:\x0f".format(**data)
+        else:
+            msg += " Job {job_id}:".format(**data)
+
+        msg += " {status}".format(**data)
+
+        if data["status"] in ("rejected", "failure", "error"):
+            msg += " - {shortmsg}".format(**data)
 
         for chan in self.chans["tasks"]:
             self.send("PRIVMSG", [chan, msg])

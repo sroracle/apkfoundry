@@ -39,6 +39,11 @@ def priorityspec(entries):
 
     return d
 
+async def reject_job(db, mqtt, job, shortmsg, msg=""):
+    await adb.db_reject_job(db, job, shortmsg, msg=msg)
+    job_dump = amqtt.create_job(job, "rejected", shortmsg, msg)
+    await amqtt.send_job(mqtt, job.id, job_dump)
+
 class ArchCollection(dict):
     def __init__(self, *args, loop=None, **kwargs):
         self.any_available = asyncio.Condition(loop=loop)
@@ -100,17 +105,17 @@ class Job:
 
         return DEFAULT_PRIORITY
 
-    async def calc_priority(self, db):
+    async def calc_priority(self, db, mqtt):
         # TODO: add a setting for project priority
 
         if self.priority < 0:
-            await adb.db_reject_job(db, self, "Invalid priority")
+            await reject_job(db, mqtt, self, "Invalid priority")
             return
 
         user_priority = self.user_priority()
         if user_priority < 0:
-            await adb.db_reject_job(
-                db, self, "Unauthorized user or invalid priority")
+            await reject_job(
+                db, mqtt, self, "Unauthorized user or invalid priority")
             return
         self.priority += user_priority
 
@@ -118,8 +123,8 @@ class Job:
         if hasattr(self, "branch_priority"):
             branch_priority = self.branch_priority()  # pylint: disable=no-member
             if branch_priority < 0:
-                await adb.db_reject_job(
-                    db, self, "Unauthorized branch or invalid priority")
+                await reject_job(
+                    db, mqtt, self, "Unauthorized branch or invalid priority")
                 return
         self.priority += branch_priority
 
@@ -128,21 +133,18 @@ class Job:
         try:
             await self.analyze_packages()
         except exc.abuildException as e:
-            if isinstance(e, exc.abuildFailure):
-                status = "failure"
-            else:
-                status = "error"
-
-            await adb.db_reject_job(
-                db, self, str(e), status, traceback.format_exc())
+            await reject_job(db, mqtt, self, str(e), traceback.format_exc())
             return
 
         async with db.transaction():
-            await self.calc_priority(db)
+            await self.calc_priority(db, mqtt)
             if self.priority < 0:
                 return
 
             await adb.db_add_job(db, self)
+
+        job_dump = amqtt.create_job(self, status="new")
+        await amqtt.send_job(mqtt, self.id, job_dump)
 
         # Collect all needed arches first. It is possible that there are
         # intra-job dependencies (between different tasks of a single job) and
