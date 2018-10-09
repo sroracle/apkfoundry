@@ -19,7 +19,7 @@ lines are included in the assignments, and so assignments continue until the
 next comment or assignment.
 
 The ``conf/mosquitto-acl`` file is an example access control list file for use
-with the `mosquitto(8) <https://mosquitto.org/>` MQTT broker. See the
+with the `mosquitto(8) <https://mosquitto.org/>`_ MQTT broker. See the
 ``doc/mosquitto.rst`` file for more information.
 
 .. code-block:: console

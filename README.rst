@@ -17,24 +17,24 @@ Synopsis
 ``abuildd`` contains multiple components that replaces the entire Alpine
 archive management software. These are:
 
-   * ``abuildd-build``: runs a build and stages artifacts to a
-     designated location
-   * ``abuildd-agentd``: runs as an agent and consumes MQTT messages for
-     build requests
-   * ``abuildd-collect``: retrieves artifacts from a build server for a
-     specific build
-   * ``abuildd-compose``: gathers all collected artifacts and composes a
-     repository or distribution
-   * ``abuildd-enqueue``: enqueues new packages for building with
-     dependency resolution
-   * ``abuildd-git-hook``: runs ``abuild-enqueue`` as necessary when new git
-     commits are received
-   * ``abuildd-monitord``: a monitoring daemon which watches the MQTT server
-     for feedback from the build servers
-   * ``abuildd-webhook``: a webhook implementation which enqueues new
-     packages based on changeset notifications
-   * ``abuildd-status``: an ``aiohttp.web`` application which shows the
-     current status of the build servers, also includes ``abuildd-webhook``
+* ``abuildd-build``: runs a build and stages artifacts to a
+  designated location
+* ``abuildd-agentd``: runs as an agent and consumes MQTT messages for
+  build requests
+* ``abuildd-collect``: retrieves artifacts from a build server for a
+  specific build
+* ``abuildd-compose``: gathers all collected artifacts and composes a
+  repository or distribution
+* ``abuildd-enqueue``: enqueues new packages for building with
+  dependency resolution
+* ``abuildd-git-hook``: runs ``abuild-enqueue`` as necessary when new git
+  commits are received
+* ``abuildd-monitord``: a monitoring daemon which watches the MQTT server
+  for feedback from the build servers
+* ``abuildd-webhook``: a webhook implementation which enqueues new
+  packages based on changeset notifications
+* ``abuildd-status``: an ``aiohttp.web`` application which shows the
+  current status of the build servers, also includes ``abuildd-webhook``
 
 Dependencies
 ------------
@@ -55,7 +55,7 @@ Base set
    * `aiohttp <https://aiohttp.readthedocs.io/en/stable/>`_
 
 ``abuildd-agentd``
-   * `bubblewrap <https://github.com/projectatomic/bubblewrap>`
+   * `bubblewrap <https://github.com/projectatomic/bubblewrap>`_
 
 PPAs
 ----
