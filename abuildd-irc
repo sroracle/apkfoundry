@@ -76,6 +76,11 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
     def cmd_status(self, recipient, nick, cmd):
         msg = [recipient, f"{nick}:"]
 
+        if cmd[1] != "status":
+            msg[1] += " usage: status [arch [name]] (get status of builder(s))"
+            self.send("PRIVMSG", msg)
+            return
+
         # <nick>: status
         if len(cmd) == 2:
             arch = None
@@ -101,6 +106,9 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
             else:
                 msg[1] += "(none)"
 
+        if msg[1] == f"{nick}:":
+            msg[1] += " no builders to be found"
+
         self.send("PRIVMSG", msg)
 
     @event_handler("commands", "PRIVMSG")
@@ -125,7 +133,9 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
         if not self.casecmp(cmd[0].rstrip(":"), self.basic_rfc.nick):  # pylint: disable=no-member
             return
 
-        if self.casecmp(cmd[1].strip(), "status"):
+        cmdname = cmd[1].strip()
+
+        if cmdname.startswith("status"):
             self.cmd_status(recipient, nick, cmd)
 
     @event_handler("abuildd", "builders")
