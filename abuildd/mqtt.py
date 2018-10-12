@@ -8,7 +8,6 @@ import json     # loads, JSONDecodeError
 from hbmqtt.client import MQTTClient, ConnectException
 from hbmqtt.mqtt.constants import QOS_2
 
-from abuildd.config import GLOBAL_CONFIG
 from abuildd.utility import assert_exists
 
 LOGGER = logging.getLogger(__name__)
@@ -109,6 +108,12 @@ def sanitize_message_tasks(message, topic, data):
 
     _ignore, arch, builder, task = topic
     try:
+        task = int(task)
+    except ValueError as e:
+        LOGGER.error(f"MQTT {message.topic}: Invalid task {task}")
+        return None
+
+    try:
         assert_exists(data, "job_id", int)
         assert_exists(data, "status", str)
         assert_exists(data, "shortmsg", str)
@@ -146,6 +151,12 @@ def sanitize_message_jobs(message, topic, data):
         return None
 
     _ignore, job = topic
+
+    try:
+        job = int(job)
+    except ValueError as e:
+        LOGGER.error(f"MQTT {message.topic}: Invalid job {job}")
+        return None
 
     try:
         assert_exists(data, "status", str)

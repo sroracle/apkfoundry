@@ -66,7 +66,7 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
                 else:
                     s = f"{builder}: {status}"
 
-                if status != "offline":
+                if status != "offline" and job > 0 and task > 0:
                     s += f" with job {job} task {task}"
 
                 arches[arch].append(s)
@@ -161,9 +161,9 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
         else:
             msg = f"[{arch}] {name}: {status}"
 
-        if status == "idle":
+        if status == "idle" and job > 0 and task > 0:
             msg += f" after completing job {job} task {task}"
-        elif status != "offline":
+        elif status != "offline" and job > 0 and task > 0:
             msg += f" with job {job} task {task}"
 
         for chan in self.chans["builders"]:
@@ -178,6 +178,9 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
         msg = data["project"]
 
         if data["status"] not in self.statuses["tasks"]:
+            return
+
+        if data["job_id"] <= 0 or data["task_id"] <= 0:
             return
 
         if data["event"] in ("note", "merge_request"):
@@ -211,6 +214,9 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
         if data["status"] not in self.statuses["jobs"]:
             return
 
+        if data["job_id"] <= 0:
+            return
+
         if data["event"] in ("note", "merge_request"):
             msg += " [MR #{mr_id} / branch {branch}]".format(**data)
         elif data["event"] == "push":
@@ -234,7 +240,7 @@ def sigint(*protos):
         try:
             proto.send("QUIT", ["Terminating due to ctrl-c!"])
             proto.close()
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             pass
 
     print()
