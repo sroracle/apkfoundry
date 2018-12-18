@@ -6,7 +6,7 @@ topic read tasks/#
 topic read cancel/#
 
 # Builder pub/sub - copy for each builder
-user arch/name
+user arch_name
 topic readwrite builders/arch/name
 topic readwrite tasks/arch/name/+
 topic readwrite jobs/+

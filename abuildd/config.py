@@ -45,7 +45,9 @@ DEFAULT_CONFIG = {
         "mqtt": "mqtt://enqueue@localhost/",
     },
     "agent": {
-        "mqtt": "mqtt://arch/name@localhost/",
+        "mqtt": "mqtt://arch_name@localhost/",
+        "arch": "ppc64",
+        "name": "builder-ppc64",
     },
     "irc": {
         "mqtt": "mqtt://irc@localhost/",
