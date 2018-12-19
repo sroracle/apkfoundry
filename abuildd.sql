@@ -31,10 +31,18 @@ CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
 COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 
 
+CREATE OR REPLACE FUNCTION update_timestamp_col()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 --
--- Name: job_status_enum; Type: TYPE; Schema: public; Owner: postgres
+-- Name: status_enum; Type: TYPE; Schema: public; Owner: postgres
 --
-CREATE TYPE job_status_enum AS ENUM (
+CREATE TYPE status_enum AS ENUM (
     'new',
     'rejected',
     'building',
@@ -42,19 +50,32 @@ CREATE TYPE job_status_enum AS ENUM (
     'error',
     'failure'
 );
-ALTER TYPE job_status_enum OWNER TO postgres;
+ALTER TYPE status_enum OWNER TO postgres;
 
 --
--- Name: job; Type: TABLE; Schema: public; Owner: postgres
+-- Name: event_category_enum; Type: TYPE; Schema: public; Owner: postgres
 --
-CREATE TABLE job (
-    job_id integer NOT NULL,
-    status job_status_enum DEFAULT 'new'::job_status_enum NOT NULL,
+CREATE TYPE event_category_enum AS ENUM (
+    'push',
+    'merge_request',
+    'note',
+    'irc',
+    'manual'
+);
+ALTER TYPE event_category_enum OWNER TO postgres;
+
+
+--
+-- Name: event; Type: TABLE; Schema: public; Owner: postgres
+--
+CREATE TABLE event (
+    id integer NOT NULL,
     created timestamptz NOT NULL DEFAULT NOW(),
     updated timestamptz NOT NULL DEFAULT NOW(),
+    category event_category_enum NOT NULL,
+    status status_enum DEFAULT 'new'::status_enum NOT NULL,
     shortmsg text,
     msg text,
-    priority integer NOT NULL,
     project character varying(255) NOT NULL,
     url character varying(255) NOT NULL,
     branch character varying(255) DEFAULT 'master'::character varying NOT NULL,
@@ -62,88 +83,147 @@ CREATE TABLE job (
     mr_id integer NOT NULL DEFAULT 0,
     username character varying(255) NOT NULL
 );
-ALTER TABLE job OWNER TO postgres;
+ALTER TABLE event OWNER TO postgres;
 
 --
--- Name: job_job_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: event_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
-CREATE SEQUENCE job_job_id_seq
+CREATE SEQUENCE event_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER TABLE job_job_id_seq OWNER TO postgres;
+ALTER TABLE event_id_seq OWNER TO postgres;
 
 --
--- Name: job_job_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: event_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
-ALTER SEQUENCE job_job_id_seq OWNED BY job.job_id;
+ALTER SEQUENCE event_id_seq OWNED BY event.id;
 
 --
--- Name: job job_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: event id; Type: DEFAULT; Schema: public; Owner: postgres
 --
-ALTER TABLE ONLY job ALTER COLUMN job_id SET DEFAULT nextval('job_job_id_seq'::regclass);
+ALTER TABLE ONLY event ALTER COLUMN id SET DEFAULT nextval('event_id_seq'::regclass);
+
+--
+-- Name: event event_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+ALTER TABLE ONLY event
+    ADD CONSTRAINT event_pkey PRIMARY KEY (id);
+
+CREATE TRIGGER event_update_timestamp BEFORE UPDATE
+    ON event FOR EACH ROW EXECUTE PROCEDURE update_timestamp_col();
+
+
+--
+-- Name: job; Type: TABLE; Schema: public; Owner: postgres
+--
+CREATE TABLE job (
+    id integer NOT NULL,
+    created timestamptz NOT NULL DEFAULT NOW(),
+    updated timestamptz NOT NULL DEFAULT NOW(),
+    event_id integer NOT NULL,
+    status status_enum DEFAULT 'new'::status_enum NOT NULL,
+    shortmsg text,
+    msg text,
+    priority integer NOT NULL,
+    arch character varying(255) NOT NULL
+);
+ALTER TABLE job OWNER TO postgres;
+
+--
+-- Name: job_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+CREATE SEQUENCE job_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+ALTER TABLE job_id_seq OWNER TO postgres;
+
+--
+-- Name: job_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+ALTER SEQUENCE job_id_seq OWNED BY job.id;
+
+--
+-- Name: job id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+ALTER TABLE ONLY job ALTER COLUMN id SET DEFAULT nextval('job_id_seq'::regclass);
 
 --
 -- Name: job job_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 ALTER TABLE ONLY job
-    ADD CONSTRAINT job_pkey PRIMARY KEY (job_id);
+    ADD CONSTRAINT job_pkey PRIMARY KEY (id);
+
+--
+-- Name: job job_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+ALTER TABLE ONLY job
+    ADD CONSTRAINT job_event_id_fkey FOREIGN KEY (event_id) REFERENCES event(id);
+
+CREATE TRIGGER job_update_timestamp BEFORE UPDATE
+    ON job FOR EACH ROW EXECUTE PROCEDURE update_timestamp_col();
 
 
 --
 -- Name: task; Type: TABLE; Schema: public; Owner: postgres
 --
 CREATE TABLE task (
-    task_id integer NOT NULL,
+    id integer NOT NULL,
     job_id integer NOT NULL,
-    status job_status_enum DEFAULT 'new'::job_status_enum NOT NULL,
+    status status_enum DEFAULT 'new'::status_enum NOT NULL,
     created timestamptz NOT NULL DEFAULT NOW(),
     updated timestamptz NOT NULL DEFAULT NOW(),
     shortmsg text,
     msg text,
     package character varying(255) NOT NULL,
     version character varying(255) NOT NULL,
-    arch character varying(255) NOT NULL,
     maintainer character varying(255)
 );
 ALTER TABLE task OWNER TO postgres;
 
 --
--- Name: task_task_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: task_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
-CREATE SEQUENCE task_task_id_seq
+CREATE SEQUENCE task_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER TABLE task_task_id_seq OWNER TO postgres;
+ALTER TABLE task_id_seq OWNER TO postgres;
 
 --
--- Name: task_task_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: task_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
-ALTER SEQUENCE task_task_id_seq OWNED BY task.task_id;
+ALTER SEQUENCE task_id_seq OWNED BY task.id;
 
 --
--- Name: task task_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: task id; Type: DEFAULT; Schema: public; Owner: postgres
 --
-ALTER TABLE ONLY task ALTER COLUMN task_id SET DEFAULT nextval('task_task_id_seq'::regclass);
+ALTER TABLE ONLY task ALTER COLUMN id SET DEFAULT nextval('task_id_seq'::regclass);
 
 --
 -- Name: task task_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 ALTER TABLE ONLY task
-    ADD CONSTRAINT task_pkey PRIMARY KEY (task_id);
+    ADD CONSTRAINT task_pkey PRIMARY KEY (id);
 
 --
 -- Name: task task_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 ALTER TABLE ONLY task
-    ADD CONSTRAINT task_job_id_fkey FOREIGN KEY (job_id) REFERENCES job(job_id);
+    ADD CONSTRAINT task_job_id_fkey FOREIGN KEY (job_id) REFERENCES job(id);
+
+CREATE TRIGGER task_update_timestamp BEFORE UPDATE
+    ON task FOR EACH ROW EXECUTE PROCEDURE update_timestamp_col();
 
 
 --
@@ -188,7 +268,7 @@ ALTER TABLE ONLY job_artifact
 -- Name: job_artifact job_artifact_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 ALTER TABLE ONLY job_artifact
-    ADD CONSTRAINT job_artifact_job_id_fkey FOREIGN KEY (job_id) REFERENCES job(job_id);
+    ADD CONSTRAINT job_artifact_job_id_fkey FOREIGN KEY (job_id) REFERENCES job(id);
 
 
 --
@@ -233,13 +313,13 @@ ALTER TABLE ONLY job_dependency
 -- Name: job_dependency job_dependency_dependent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 ALTER TABLE ONLY job_dependency
-    ADD CONSTRAINT job_dependency_dependent_id_fkey FOREIGN KEY (dependent_id) REFERENCES job(job_id);
+    ADD CONSTRAINT job_dependency_dependent_id_fkey FOREIGN KEY (dependent_id) REFERENCES job(id);
 
 --
 -- Name: job_dependency job_dependency_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 ALTER TABLE ONLY job_dependency
-    ADD CONSTRAINT job_dependency_job_id_fkey FOREIGN KEY (job_id) REFERENCES job(job_id);
+    ADD CONSTRAINT job_dependency_job_id_fkey FOREIGN KEY (job_id) REFERENCES job(id);
 
 
 --

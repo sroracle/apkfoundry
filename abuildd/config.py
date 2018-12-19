@@ -69,7 +69,6 @@ DEFAULT_CONFIG = {
     "builders": {
         "arches": "x86_64\npmmx\nppc\nppc64\naarch64",
         "coeff_proc": 1,
-        "coeff_ram": "0.001",
     },
 }
 
