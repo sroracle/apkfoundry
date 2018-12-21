@@ -40,7 +40,7 @@ async def choose_builder(builders, arch):
             await builders[arch].any_available.wait()
             avail = get_avail_builders(builders, arch)
 
-        avail.sort(key=lambda x: x._pref, reverse=True)
+        avail.sort(key=lambda x: x._pref, reverse=True)  # pylint: disable=protected-access
         builder = avail[0]
         builder.status = "busy"
 
