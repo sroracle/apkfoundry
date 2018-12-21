@@ -8,6 +8,7 @@ The following users should be created:
    to the following topics:
 
    * read ``builders/#``
+   * read/write ``events/#``
    * read/write ``jobs/#``
    * read/write ``tasks/+``
    * read/write ``cancel/#``
@@ -19,6 +20,7 @@ The following users should be created:
    For use by the IRC bot. It should have access to the following topics:
 
    * read ``builders/#``
+   * read ``events/#``
    * read ``jobs/#``
    * read ``tasks/+``
    * read/write ``cancel/#``
@@ -32,6 +34,7 @@ The following users should be created:
    topics:
 
    * read/write ``builders/<arch>/<name>``
+   * read ``events/#``
    * read ``jobs/<arch>/<name>/+``
    * read/write ``tasks/+``
    * read ``cancel/#``
@@ -44,6 +47,7 @@ Anonymous clients
    to the following topics:
 
    * read ``builders/#``
+   * read ``events/#``
    * read ``jobs/#``
    * read ``tasks/+``
    * read ``cancel/#``

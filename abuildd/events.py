@@ -58,8 +58,9 @@ class Event:
     )
 
     # pylint: disable=redefined-builtin
-    def __init__(self, *, config, category, project, url, branch, commit, user,
-                 id=None, status="new", shortmsg="", msg="", loop=None):
+    def __init__(self, *, category, project, url, branch, commit, user,
+                 id=None, status="new", shortmsg="", msg="", loop=None,
+                 config=None):
         self.id = id
         self.category = category
         self.status = status
@@ -72,9 +73,13 @@ class Event:
         self.user = user
 
         self._loop = loop
-        self._config = config
         self._packages = {}
-        self._priority = self._config.getint(self.category, "priority")
+        self._config = config
+
+        if self._config:
+            self._priority = self._config.getint(self.category, "priority")
+        else:
+            self._priority = None
 
     @classmethod
     def fromGLWebhook(cls, project, config, payload, loop=None):
@@ -106,7 +111,7 @@ class Event:
                 if not slot.startswith("_")}
 
     async def db_add(self, db):
-        mr = getattr(self, "mr", 0)
+        mr_id = getattr(self, "mr_id", 0)
 
         event_row = await db.fetchrow(
             """INSERT INTO event(category, status, shortmsg, msg,
@@ -116,7 +121,7 @@ class Event:
             RETURNING id;""",
             self.category, self.status, self.shortmsg, self.msg,
             self.project, self.url, self.branch,
-            self.commit, mr, self.user)
+            self.commit, mr_id, self.user)
 
         self.id = event_row["id"]
 
@@ -141,13 +146,13 @@ class Event:
     async def reject(self, db, mqtt, shortmsg, msg=""):
         self.set_status("rejected", shortmsg, msg)
         self._priority = -1
-        LOGGER.error(f"Rejecting event #{self.id}: {self.shortmsg}")
         await self.db_add(db)
         await self.mqtt_send(mqtt)
+        LOGGER.error(f"Rejecting event #{self.id}: {self.shortmsg}")
 
     async def mqtt_send(self, mqtt):
         dump = json.dumps(self.to_dict()).encode("utf-8")
-        await mqtt.publish(f"events/{self.id}", dump, QOS_2)
+        await mqtt.publish(f"events/{self.category}/{self.id}", dump, QOS_2)
 
     async def get_packages(self):
         raise NotImplementedError
@@ -271,6 +276,18 @@ class PushEvent(Event):
         self.before = before
         self.after = after
 
+    def to_dict(self):
+        d = {slot: getattr(self, slot) for slot in self.__slots__}
+        d.update({slot: getattr(self, slot) for slot in super().__slots__
+                  if not slot.startswith("_")})
+        return d
+
+    @staticmethod
+    def validate_dict(data):
+        Event.validate_dict(data)
+        assert_exists(data, "before", str)
+        assert_exists(data, "after", str)
+
     @classmethod
     def fromGLWebhook(cls, project, config, payload, loop=None):
         before = assert_exists(payload, "before", str)
@@ -342,12 +359,24 @@ class PushEvent(Event):
         return self._packages
 
 class MREvent(Event):
-    __slots__ = ("mr", "target")
+    __slots__ = ("mr_id", "target")
 
-    def __init__(self, *, mr, target, **kwargs):
+    def __init__(self, *, mr_id, target, **kwargs):
         super().__init__(**kwargs)
-        self.mr = mr
+        self.mr_id = mr_id
         self.target = target
+
+    def to_dict(self):
+        d = {slot: getattr(self, slot) for slot in self.__slots__}
+        d.update({slot: getattr(self, slot) for slot in super().__slots__
+                  if not slot.startswith("_")})
+        return d
+
+    @staticmethod
+    def validate_dict(data):
+        Event.validate_dict(data)
+        assert_exists(data, "mr_id", int)
+        assert_exists(data, "target", str)
 
     @classmethod
     def fromGLWebhook(cls, project, config, payload, loop=None):
@@ -371,7 +400,7 @@ class MREvent(Event):
                 LOGGER.debug(f"[{project}] Skipping merge event with state {state}")
                 return None
 
-        mr = assert_exists(payload, f"{root}/iid", int)
+        mr_id = assert_exists(payload, f"{root}/iid", int)
         # GitLab 8: force pushes to MRs do not update the merge-request/x/head refs
         url = assert_exists(payload, f"{root}/source/http_url", str)
         branch = assert_exists(payload, f"{root}/source_branch", str)
@@ -380,9 +409,9 @@ class MREvent(Event):
         user = assert_exists(payload, "user/username", str)
 
         if note:
-            LOGGER.info(f"[{project}] Note #{mr}: up to {commit} -> {target}")
+            LOGGER.info(f"[{project}] Note #{mr_id}: up to {commit} -> {target}")
         else:
-            LOGGER.info(f"[{project}] Merge #{mr}: up to {commit} -> {target}")
+            LOGGER.info(f"[{project}] Merge #{mr_id}: up to {commit} -> {target}")
 
         event = {
             "loop": loop,
@@ -393,7 +422,7 @@ class MREvent(Event):
             "branch": branch,
             "commit": commit,
             "user": user,
-            "mr": mr,
+            "mr_id": mr_id,
             "target": target,
         }
 
@@ -407,10 +436,10 @@ class MREvent(Event):
              f"{self.target}:{self.target}"])
         await run_blocking_command(
             ["git", "-C", self.project, "fetch", self.url,
-             f"{self.branch}:mr-{self.mr}"])
+             f"{self.branch}:mr-{self.mr_id}"])
         base = await get_command_output(
             ["git", "-C", self.project, "merge-base", self.target,
-             f"mr-{self.mr}"])
+             f"mr-{self.mr_id}"])
         filenames = await get_command_output(
             ["git", "-C", self.project, "diff-tree", "-r", "--name-only",
              "--diff-filter", "d", f"{base}..{self.commit}"])
@@ -420,7 +449,7 @@ class MREvent(Event):
                 self._packages[filename.replace("/APKBUILD", "", 1)] = None
 
         LOGGER.debug(
-            f"[{self.project}] Merge #{self.mr}: "
+            f"[{self.project}] Merge #{self.mr_id}: "
             " ".join(self._packages.keys()))
 
         return self._packages

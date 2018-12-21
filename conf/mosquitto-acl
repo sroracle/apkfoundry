@@ -1,6 +1,7 @@
 # Anonymous sub
 topic read $SYS/#
 topic read builders/#
+topic read events/#
 topic read jobs/#
 topic read tasks/+
 topic read cancel/#
@@ -8,6 +9,7 @@ topic read cancel/#
 # Builder pub/sub - copy for each builder
 user arch_name
 topic readwrite builders/arch/name
+topic read events/#
 topic read jobs/arch/name/+
 topic readwrite tasks/+
 topic read cancel/#
@@ -15,6 +17,7 @@ topic read cancel/#
 # IRC pub/sub
 user irc
 topic read builders/#
+topic read events/#
 topic read jobs/#
 topic read tasks/+
 topic readwrite cancel/#
@@ -22,6 +25,7 @@ topic readwrite cancel/#
 # enqueue pub/sub
 user enqueue
 topic read builders/#
+topic readwrite events/#
 topic readwrite jobs/#
 topic readwrite tasks/+
 topic readwrite cancel/#
