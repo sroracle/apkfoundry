@@ -6,9 +6,8 @@ import logging  # getLogger
 import json     # loads, JSONDecodeError
 
 from abuildd.builders import Builder, get_avail_builders
-from abuildd.events import PushEvent, MREvent, NoteEvent
+from abuildd.events import Event
 from abuildd.tasks import Job, Task
-from abuildd.utility import assert_exists
 
 LOGGER = logging.getLogger(__name__)
 
@@ -57,15 +56,7 @@ def sanitize_message_events(message, topic, data):
         return None
 
     try:
-        category = assert_exists(data, "category", str)
-        if category == "push":
-            event = PushEvent.from_dict(data)
-        elif category == "merge_request":
-            event = MREvent.from_dict(data)
-        elif category == "note":
-            event = NoteEvent.from_dict(data)
-        else:
-            raise ValueError(f"Invalid category {category}")
+        event = Event.from_dict_abs(data)
 
     except (ValueError, json.JSONDecodeError) as e:
         LOGGER.error(f"MQTT {message.topic}: {e.msg}")

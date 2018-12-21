@@ -8,6 +8,7 @@ import logging  # getLogger, basicConfig
 from hbmqtt.mqtt.constants import QOS_2
 from abuild.file import APKBUILD
 
+import abuildd.events  # pylint: disable=cyclic-import
 from abuildd.utility import assert_exists
 
 LOGGER = logging.getLogger(__name__)
@@ -28,13 +29,14 @@ class Job:
     __slots__ = (
         "id", "event_id",
         "status", "shortmsg", "msg",
-        "priority", "arch", "builder", "tasks"
+        "priority", "arch", "builder",
+        "event", "tasks",
     )
 
     # pylint: disable=redefined-builtin
     def __init__(self, *, event_id, priority, arch,
                  id=None, status="new", shortmsg="", msg="",
-                 builder=None, tasks=None):
+                 builder=None, event=None, tasks=None):
         self.id = id
         self.event_id = event_id
         self.status = status
@@ -43,6 +45,7 @@ class Job:
         self.priority = priority
         self.arch = arch
         self.builder = builder
+        self.event = event
         if tasks:
             self.tasks = tasks
         else:
@@ -81,17 +84,17 @@ class Job:
         self.tasks.append(task)
 
     def to_dict(self):
-        tasks = []
-        for task in self.tasks:
-            tasks.append(task.to_dict())
-
         d = {slot: getattr(self, slot) for slot in self.__slots__}
-        d["tasks"] = tasks
+        d["event"] = self.event.to_dict()
+        d["tasks"] = [task.to_dict() for task in self.tasks]
 
         return d
 
     @staticmethod
     def validate_dict(data):
+        if not isinstance(data, dict):
+            raise ValueError("data must be of type dict")
+
         assert_exists(data, "id", int)
         assert_exists(data, "event_id", int)
         assert_exists(data, "status", str)
@@ -100,18 +103,21 @@ class Job:
         assert_exists(data, "priority", int)
         assert_exists(data, "arch", str)
         assert_exists(data, "builder", str)
+        assert_exists(data, "event", dict)
         assert_exists(data, "tasks", list)
 
         if data["status"] not in STATUSES:
             raise ValueError("Invalid status")
 
-        for task in data["tasks"]:
-            Task.validate_dict(task)
-
     @classmethod
     def from_dict(cls, data):
         cls.validate_dict(data)
-        return cls(**data)
+
+        inst = cls(**data)
+        inst.tasks = [Task.from_dict(task) for task in inst.tasks]
+        inst.event = abuildd.events.Event.from_dict_abs(inst.event)
+
+        return inst
 
     async def mqtt_send(self, mqtt):
         if isinstance(self.builder, asyncio.Task):
@@ -185,6 +191,9 @@ class Task:
 
     @staticmethod
     def validate_dict(data):
+        if not isinstance(data, dict):
+            raise ValueError("data must be of type dict")
+
         assert_exists(data, "id", int)
         assert_exists(data, "job_id", int)
         assert_exists(data, "status", str)

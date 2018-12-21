@@ -12,8 +12,8 @@ from abuild.config import SHELLEXPAND_PATH
 from abuild.file import APKBUILD
 import abuild.exception as exc
 
+import abuildd.tasks  # pylint: disable=cyclic-import
 from abuildd.builders import choose_builder
-from abuildd.tasks import Job, Task, STATUSES
 from abuildd.utility import get_command_output, run_blocking_command
 from abuildd.utility import assert_exists
 
@@ -87,6 +87,9 @@ class Event:
 
     @staticmethod
     def validate_dict(data):
+        if not isinstance(data, dict):
+            raise ValueError("data must be of type dict")
+
         assert_exists(data, "id", int)
         assert_exists(data, "category", str)
         assert_exists(data, "status", str)
@@ -98,13 +101,27 @@ class Event:
         assert_exists(data, "commit", str)
         assert_exists(data, "user", str)
 
-        if data["status"] not in STATUSES:
+        if data["status"] not in abuildd.tasks.STATUSES:
             raise ValueError("Invalid status")
 
     @classmethod
     def from_dict(cls, data):
         cls.validate_dict(data)
         return cls(**data)
+
+    @classmethod
+    def from_dict_abs(cls, data):
+        category = assert_exists(data, "category", str)
+        if category == "push":
+            inst = PushEvent.from_dict(data)
+        elif category == "merge_request":
+            inst = MREvent.from_dict(data)
+        elif category == "note":
+            inst = NoteEvent.from_dict(data)
+        else:
+            raise ValueError(f"Invalid category {category}")
+
+        return inst
 
     def to_dict(self):
         return {slot: getattr(self, slot) for slot in self.__slots__
@@ -249,8 +266,9 @@ class Event:
                     continue
 
                 if arch not in jobs:
-                    jobs[arch] = Job(
-                        event_id=self.id, priority=self._priority, arch=arch)
+                    jobs[arch] = abuildd.tasks.Job(
+                        event_id=self.id, priority=self._priority, arch=arch,
+                        event=self)
                     await jobs[arch].db_add(db)
 
                     # Use create_task so that we can keep going - there might
@@ -259,7 +277,7 @@ class Event:
                     jobs[arch].builder = self._loop.create_task(
                         choose_builder(builders, arch))
 
-                task = Task.from_APKBUILD(jobs[arch].id, package)
+                task = abuildd.tasks.Task.from_APKBUILD(jobs[arch].id, package)
                 await task.db_add(db)
                 jobs[arch].add_task(task)
 
