@@ -56,7 +56,7 @@ class Builder:
     def __init__(self, *, arch, name, status,
                  nprocs=None, job=0, task=0):
         if nprocs is None:
-            nprocs = os.sched_getaffinity()
+            nprocs = os.sched_getaffinity(0)
             nprocs = len(nprocs) if nprocs else 0
 
         self.arch = arch
