@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2018 Max Rees
 # See LICENSE for more information.
+# pylint: disable=invalid-name
 import asyncio
+import logging
 import signal
-from logging import basicConfig
 
 from hbmqtt.mqtt.constants import QOS_1
 from PyIRC.signal import event as event_handler
@@ -12,9 +13,13 @@ from PyIRC.io.asyncio import IRCProtocol
 from PyIRC.extensions import bot_recommended
 
 from abuildd.config import GLOBAL_CONFIG
-from abuildd.mqtt import init_mqtt, sanitize_message
+from abuildd.connections import init_mqtt
+from abuildd.events import Task
+from abuildd.mqtt import sanitize_message
 
-basicConfig(level="DEBUG")
+LOGGER = logging.getLogger("abuildd")
+LOGGER.setLevel("DEBUG")
+logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
 
 def _set_default(category, my_type):
     if my_type not in category:
@@ -29,13 +34,23 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
         self.statuses = statuses or {}
 
         _set_default(self.chans, "builders")
+        _set_default(self.chans, "events")
         _set_default(self.chans, "jobs")
         _set_default(self.chans, "tasks")
         _set_default(self.chans, "cmd")
         _set_default(self.statuses, "builders")
 
+        self.more = []
+        self.tasks = {}
         self.builders = {}
         kwargs["join"] = [chan for chans in self.chans.values() for chan in chans]
+
+        if self.colors:
+            self.bold = "\x02"
+            self.reset = "\x0f"
+        else:
+            self.bold = ""
+            self.reset = ""
 
         super().__init__(*args, **kwargs)
 
@@ -57,64 +72,93 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
                 if name and builder != name:
                     continue
 
-                status = self.builders[arch][builder]["status"]
-                job = self.builders[arch][builder]["job"]
-                task = self.builders[arch][builder]["task"]
+                builder = self.builders[arch][builder]
 
-                if self.colors:
-                    s = f"\x02{builder}\x0f: {status}"
-                else:
-                    s = f"{builder}: {status}"
+                s = f"{self.bold}{builder.name}{self.reset}: {builder.status}"
 
-                if status != "offline" and job > 0 and task > 0:
-                    s += f" with job {job} task {task}"
+                if builder.status == "idle" and builder.job > 0:
+                    msg += f" after completing job #{builder.job}"
+                elif (builder.status != "offline"
+                      and builder.job > 0 and builder.task > 0):
+                    msg += f" with job #{builder.job} task #{builder.task}"
 
                 arches[arch].append(s)
 
         return arches
 
-    def cmd_status(self, recipient, nick, cmd):
-        msg = [recipient, f"{nick}:"]
+    @event_handler("botcmd", "status")
+    def cmd_status(self, _event, recipient, cmd):
+        msg = [recipient, ""]
 
-        if cmd[1] != "status":
-            msg[1] += " usage: status [arch [name]] (get status of builder(s))"
+        if len(cmd) > 3:
+            msg[1] = "Usage: !status [arch [name]] (get status of builder(s))"
             self.send("PRIVMSG", msg)
             return
 
-        # <nick>: status
-        if len(cmd) == 2:
+        # !status
+        if len(cmd) == 1:
             arch = None
             name = None
-        # <nick>: status <arch>
-        elif len(cmd) == 3:
+        # !status <arch>
+        elif len(cmd) == 2:
             arch = cmd[2]
             name = None
-        # <nick>: status <arch> <name>
-        elif len(cmd) == 4:
+        # !status <arch> <name>
+        elif len(cmd) == 3:
             arch = cmd[2]
             name = cmd[3]
 
         statuses = self.get_builder_status(arch, name)
         for arch in statuses:
-            if self.colors:
-                msg[1] += f" \x02[{arch}]\x0f "
-            else:
-                msg[1] += f" [{arch}] "
+            msg[1] += f" {self.bold}[{arch}]{self.reset} "
 
             if statuses[arch]:
                 msg[1] += ", ".join(statuses[arch])
             else:
-                msg[1] += "(none)"
+                msg[1] += " (none)"
 
-        if msg[1] == f"{nick}:":
-            msg[1] += " no builders to be found"
+        msg[1] = msg[1].strip()
+
+        if not msg[1]:
+            msg[1] = "No builders found"
 
         self.send("PRIVMSG", msg)
+
+    @event_handler("botcmd", "tasks")
+    def cmd_tasks(self, _event, recipient, cmd):
+        msg = [recipient, ""]
+
+        if len(cmd) != 2:
+            msg[1] = "Usage: !tasks <job id> (get tasks associated with job)"
+            self.send("PRIVMSG", msg)
+            return
+
+        try:
+            job_id = int(cmd[1])
+            tasks = self.tasks[job_id]
+        except (ValueError, KeyError):
+            msg[1] = "Invalid job ID"
+            self.send("PRIVMSG", msg)
+            return
+
+        lines = [self.announce_tasks(task) for task in tasks]
+        self.speak_with_restraint(recipient, lines)
+
+    @event_handler("botcmd", "more")
+    def cmd_more(self, _event, recipient, _cmd):
+        self.speak_with_restraint(recipient, self.more)
+
+    def speak_with_restraint(self, recipient, lines):
+        for line in lines[:2]:
+            self.send("PRIVMSG", [recipient, line])
+
+        if len(lines) > 3:
+            self.more = lines[3:]
+            self.send("PRIVMSG", [recipient, "(use '!more' for more)"])
 
     @event_handler("commands", "PRIVMSG")
     def respond(self, _event, line):
         params = line.params
-        nick = line.hostmask.nick
 
         if len(params) < 2:
             return
@@ -127,113 +171,80 @@ class AbuilddIRCProtocol(IRCProtocol):  # pylint: disable=abstract-method
             return
 
         cmd = params[-1].split()
-        if len(cmd) < 2 or not cmd[0] or not cmd[1]:
+        if not cmd or not cmd[0]:
             return
 
-        if not self.casecmp(cmd[0].rstrip(":"), self.basic_rfc.nick):  # pylint: disable=no-member
+        if not cmd[0].startswith("!"):
             return
 
-        cmdname = cmd[1].strip()
+        cmdname = cmd[0].lstrip("!")
+        self.call_event("botcmd", cmdname, recipient, cmd)
 
-        if cmdname.startswith("status"):
-            self.cmd_status(recipient, nick, cmd)
-
-    @event_handler("abuildd", "builders")
-    def announce_builders(self, _event, arch, name, data):
-        if arch not in self.builders:
-            self.builders[arch] = {}
+    def announce_builders(self, builder):
+        if builder.arch not in self.builders:
+            self.builders[builder.arch] = {}
 
         # Don't repeat ourselves
-        if name in self.builders[arch]:
-            if data == self.builders[arch][name]:
-                return
+        if builder.name in self.builders[builder.arch]:
+            if builder == self.builders[builder.arch][builder.name]:
+                return None
 
-        self.builders[arch][name] = data
-        status = data["status"]
-        job = data["job"]
-        task = data["task"]
+        self.builders[builder.arch][builder.name] = builder
 
-        if status not in self.statuses["builders"]:
-            return
+        if builder.status not in self.statuses["builders"]:
+            return None
 
-        if self.colors:
-            msg = f"\x02[{arch}] {name}\x0f: {status}"
-        else:
-            msg = f"[{arch}] {name}: {status}"
+        msg = f"{self.bold}{builder.arch}/{builder.name}{self.reset}:"
+        msg += f" {builder.status}"
 
-        if status == "idle" and job > 0 and task > 0:
-            msg += f" after completing job {job} task {task}"
-        elif status != "offline" and job > 0 and task > 0:
-            msg += f" with job {job} task {task}"
+        if builder.status == "idle" and builder.job > 0:
+            msg += f" after completing job #{builder.job}"
+        elif (builder.status != "offline"
+              and builder.job > 0 and builder.task > 0):
+            msg += f" with job #{builder.job} task #{builder.task}"
 
-        for chan in self.chans["builders"]:
-            self.send("PRIVMSG", [chan, msg])
+        return msg
 
-    @event_handler("abuildd", "tasks")
-    def announce_tasks(self, _event, arch, builder, task, data):
-        data["arch"] = arch
-        data["builder"] = builder
-        data["task_id"] = task
+    def announce_events(self, event):
+        self.tasks = {}
 
-        msg = data["project"]
+        msg = f"[{event.project}] {event.user} created {event.status}"
+        msg += f" {self.bold}event #{event.id}{self.reset}:"
 
-        if data["status"] not in self.statuses["tasks"]:
-            return
+        if event.category == "push":
+            msg += f" {event.before}..{event.after}"
+            msg += f" pushed to branch {event.branch}"
+        elif event.category == "merge_request":
+            msg += f" MR #{event.mr_id} for branch {event.branch}"
+        elif event.category == "note":
+            msg += f" note on MR #{event.mr_id}"
 
-        if data["job_id"] <= 0 or data["task_id"] <= 0:
-            return
+        if event.status in ("rejected", "failure", "error"):
+            msg += f" - {event.shortmsg}"
 
-        if data["event"] in ("note", "merge_request"):
-            msg += " [MR #{mr_id} / branch {branch}]".format(**data)
-        elif data["event"] == "push":
-            msg += " [{branch} {commit_id}]".format(**data)
+        return msg
 
-        if self.colors:
-            msg += " \x02Job {job_id} task {task_id}:\x0f".format(**data)
-        else:
-            msg += " Job {job_id} task {task_id}:".format(**data)
+    def announce_jobs(self, job):
+        msg = f"{self.bold}Job #{job.id}:{self.reset}"
+        msg += f" {job.status} from event #{job.event_id}"
+        msg += f" on {job.arch}/{job.builder} with {len(job.tasks)} tasks"
 
-        msg += " {repo}/{package} {version}".format(**data)
-        msg += " {status} on {arch}/{builder}".format(**data)
+        if job.status in ("failure", "error"):
+            msg += f" - {job.shortmsg}"
 
-        if data["status"] in ("rejected", "failure", "error"):
-            msg2 = "Reason: {shortmsg}".format(**data)
-        else:
-            msg2 = None
+        self.tasks[job.id] = [Task.from_dict(task) for task in job.tasks]
+        return msg
 
-        for chan in self.chans["tasks"]:
-            self.send("PRIVMSG", [chan, msg])
-            if msg2:
-                self.send("PRIVMSG", [chan, msg2])
+    def announce_tasks(self, task):
+        msg = f"{self.bold}Task {task.id}:{self.reset}"
 
-    @event_handler("abuildd", "jobs")
-    def announce_jobs(self, _event, job, data):
-        data["job_id"] = job
-        msg = data["project"]
+        msg += f" {task.repo}/{task.package} (version {task.version})"
+        msg += f" {task.status}"
 
-        if data["status"] not in self.statuses["jobs"]:
-            return
+        if task.status in ("failure", "error"):
+            msg += f" - {task.shortmsg}"
 
-        if data["job_id"] <= 0:
-            return
-
-        if data["event"] in ("note", "merge_request"):
-            msg += " [MR #{mr_id} / branch {branch}]".format(**data)
-        elif data["event"] == "push":
-            msg += " [{branch} {commit_id}]".format(**data)
-
-        if self.colors:
-            msg += " \x02Job {job_id}:\x0f".format(**data)
-        else:
-            msg += " Job {job_id}:".format(**data)
-
-        msg += " {status}".format(**data)
-
-        if data["status"] in ("rejected", "failure", "error"):
-            msg += " - {shortmsg}".format(**data)
-
-        for chan in self.chans["tasks"]:
-            self.send("PRIVMSG", [chan, msg])
+        return msg
 
 def sigint(*protos):
     for proto in protos:
@@ -256,9 +267,22 @@ async def handle_mqtt(irc, mqtt):
         if not res or not irc.registered:
             continue
 
-        irc.call_event("abuildd", res[0], *res[1:])
+        mtype, obj = res
 
-# pylint: disable=invalid-name
+        if mtype != "builders":
+            if obj.status not in irc.statuses[mtype]:
+                continue
+
+            if obj.id <= 0:
+                return
+
+        formatter = getattr(irc, "announce_" + mtype)
+        msg = formatter(obj)
+        if not msg:
+            continue
+
+        for chan in irc.chans[mtype]:
+            irc.send("PRIVMSG", [chan, msg])
 
 proto_kwargs = {
     "serverport": (
@@ -271,12 +295,14 @@ proto_kwargs = {
     "colors": GLOBAL_CONFIG.getboolean("irc", "colors"),
     "chans": {
         "builders": GLOBAL_CONFIG["irc"]["builders_chans"].split("\n"),
+        "events": GLOBAL_CONFIG["irc"]["events_chans"].split("\n"),
         "jobs": GLOBAL_CONFIG["irc"]["jobs_chans"].split("\n"),
         "tasks": GLOBAL_CONFIG["irc"]["tasks_chans"].split("\n"),
         "cmd": GLOBAL_CONFIG["irc"]["cmd_chans"].split("\n"),
     },
     "statuses": {
         "builders": GLOBAL_CONFIG["irc"]["builders_statuses"].split("\n"),
+        "events": GLOBAL_CONFIG["irc"]["events_statuses"].split("\n"),
         "jobs": GLOBAL_CONFIG["irc"]["jobs_statuses"].split("\n"),
         "tasks": GLOBAL_CONFIG["irc"]["tasks_statuses"].split("\n"),
     },
@@ -286,8 +312,9 @@ proto_kwargs = {
 
 topics = [
     ["builders/#", QOS_1],
+    ["events/#", QOS_1],
     ["jobs/#", QOS_1],
-    ["tasks/#", QOS_1],
+    ["tasks/+", QOS_1],
 ]
 
 irc_inst = AbuilddIRCProtocol(**proto_kwargs)
