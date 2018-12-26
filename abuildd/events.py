@@ -379,9 +379,8 @@ class PushEvent(Event):
             if filename.endswith("APKBUILD"):
                 self._packages[filename.replace("/APKBUILD", "", 1)] = None
 
-        _LOGGER.debug(
-            f"[{self.project}] Push {self.after}: "
-            " ".join(self._packages.keys()))
+        pkg_list = " ".join(self._packages.keys())
+        _LOGGER.debug(f"[{self.project}] Push {self.after}: {pkg_list}")
 
         return self._packages
 
@@ -475,9 +474,8 @@ class MREvent(Event):
             if filename.endswith("APKBUILD"):
                 self._packages[filename.replace("/APKBUILD", "", 1)] = None
 
-        _LOGGER.debug(
-            f"[{self.project}] Merge #{self.mr_id}: "
-            " ".join(self._packages.keys()))
+        pkg_list = " ".join(self._packages.keys())
+        _LOGGER.debug(f"[{self.project}] Merge #{self.mr_id}: {pkg_list}")
 
         return self._packages
 
