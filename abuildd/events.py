@@ -14,13 +14,13 @@ from abuild.file import APKBUILD
 import abuild.exception as exc
 
 import abuildd.tasks  # pylint: disable=cyclic-import
+from abuildd.config import DEFAULT_PRIORITY
 from abuildd.utility import get_command_output, run_blocking_command
 from abuildd.utility import assert_exists
 
 _LOGGER = logging.getLogger(__name__)
 
 SHELLEXPAND_PATH = shlex.quote(str(SHELLEXPAND_PATH))
-DEFAULT_PRIORITY = 500
 FAKE_COMMIT_ID = "0000000000000000000000000000000000000000"
 
 # c.f. abuildd.sql event_category_enum
@@ -31,21 +31,6 @@ EVENT_CATEGORIES = (
     "irc",
     "manual",
 )
-
-def _priorityspec(entries):
-    d = {}
-
-    if entries == [""]:
-        return d
-
-    for entry in entries:
-        entry = entry.split(":", maxsplit=1)
-        if len(entry) == 1:
-            d[entry[0]] = DEFAULT_PRIORITY
-        else:
-            d[entry[0]] = int(entry[1])
-
-    return d
 
 class Event:
     __slots__ = (
@@ -192,9 +177,8 @@ class Event:
         return self._packages
 
     def user_priority(self):
-        allowed_users = self._config[self.category]["allowed_users"].split("\n")
-        allowed_users = _priorityspec(allowed_users)
-        denied_users = self._config[self.category]["denied_users"].split("\n")
+        allowed_users = self._config[self.category].getpriorities("allowed_users")
+        denied_users = self._config[self.category].getlist("denied_users")
 
         if allowed_users:
             for pattern in allowed_users:
@@ -214,7 +198,7 @@ class Event:
             return self._priority
 
         # TODO: add a setting for project priority
-        self._priority = self._config.getint(self.category, "priority")
+        self._priority = self._config[self.category].getint("priority")
 
         if self._priority < 0:
             await self.reject(db, mqtt, "Invalid priority")
@@ -258,7 +242,7 @@ class Event:
         await self.db_add(db)
         await self.mqtt_send(mqtt)
 
-        enabled_arches = self._config["builders"]["arches"].split("\n")
+        enabled_arches = self._config["builders"].getlist("arches")
 
         for package in self._packages:
             package = self._packages[package]
@@ -353,7 +337,7 @@ class PushEvent(Event):
         return cls(**event)
 
     def branch_priority(self):
-        branches = _priorityspec(self._config["push"]["branches"].split("\n"))
+        branches = self._config["push"].getpriorities("branches")
 
         if not branches:
             return DEFAULT_PRIORITY

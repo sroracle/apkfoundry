@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2018 Max Rees
 # See LICENSE for more information.
+import configparser      # ConfigParser
+import functools         # partial
 from glob import glob
-import configparser
 
 SITE_CONF = "/etc/abuildd/*.ini"
 DEFAULT_CONFIG = {
@@ -72,14 +73,44 @@ DEFAULT_CONFIG = {
         "arches": "x86_64\npmmx\nppc\nppc64\naarch64",
         "coeff_proc": 1,
     },
+    "projects": {},
 }
+
+DEFAULT_PRIORITY = 500
+
+def _list(value):
+    return value.split("\n")
+
+def _priorityspec(value):
+    value = value.split("\n")
+    d = {}
+
+    if not value or value == [""]:
+        return d
+
+    for entry in value:
+        entry = entry.split(":", maxsplit=1)
+        if len(entry) == 1:
+            d[entry[0]] = DEFAULT_PRIORITY
+        else:
+            d[entry[0]] = int(entry[1])
+
+    return d
 
 _files = glob(SITE_CONF)  # pylint: disable=invalid-name
 _files.sort()
 
-CONFIGS = {}
-CONFIGS["global"] = configparser.ConfigParser(
-    interpolation=None, comment_prefixes=(";",))
-CONFIGS["global"].read_dict(DEFAULT_CONFIG)
-CONFIGS["global"].read(_files)
-GLOBAL_CONFIG = CONFIGS["global"]
+ConfigParser = functools.partial(
+    configparser.ConfigParser,
+    interpolation=None,
+    comment_prefixes=(";",),
+    delimiters=("=",),
+    converters={
+        "priorities": _priorityspec,
+        "list": _list,
+    },
+)
+
+GLOBAL_CONFIG = ConfigParser()
+GLOBAL_CONFIG.read_dict(DEFAULT_CONFIG)
+GLOBAL_CONFIG.read(_files)

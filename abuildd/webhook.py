@@ -3,7 +3,6 @@
 # Copyright (c) 2018 Max Rees
 # See LICENSE for more information.
 import asyncio      # get_event_loop
-import configparser # ConfigParser
 import json         # JSONDecodeError
 import logging      # basicConfig, getLogger
 from pathlib import Path
@@ -12,12 +11,13 @@ import aiohttp.web as web
 
 import abuildd.connections as conn
 from abuildd.events import PushEvent, MREvent, NoteEvent
-from abuildd.config import CONFIGS, GLOBAL_CONFIG
+from abuildd.config import ConfigParser, GLOBAL_CONFIG
 from abuildd.enqueue import setup_arch_queue
 from abuildd.mqtt import mqtt_watch_builders
 from abuildd.utility import assert_exists as _assert_exists_orig
 from abuildd.utility import get_command_output, run_blocking_command
 
+_CONFIGS = {}
 _LOGGER = logging.getLogger(__name__)
 ROUTES = web.RouteTableDef()
 
@@ -48,24 +48,18 @@ HOOKS = {
     ),
 }
 
-async def init_project_config(project):
+async def update_project_config(project):
     if not Path(project).is_dir():
-        raise _bad_request(f"Unknown project {project}")
-
-    config = configparser.ConfigParser(interpolation=None)
-    config.read_dict(GLOBAL_CONFIG)
+        raise _bad_request(f"[{project}] Missing directory")
 
     try:
         await run_blocking_command(
-            ["git", "-C", project, "fetch", "origin",
-             "master:master"])
+            ["git", "-C", project, "fetch", "origin", "master:master"])
         inifile = await get_command_output(
             ["git", "-C", project, "show", "master:.abuildd.ini"])
-        config.read_string(inifile)
+        _CONFIGS[project].read_string(inifile)
     except RuntimeError as e:
-        _LOGGER.debug(f"Could not find .abuildd.ini: {e}")
-
-    return config
+        raise _bad_request(f"[{project}] Could not find .abuildd.ini: {e}")
 
 @ROUTES.post(GLOBAL_CONFIG["webhook"]["endpoint"])
 async def handle_webhook(request):
@@ -76,35 +70,35 @@ async def handle_webhook(request):
     if hook not in HOOKS:
         _bad_request(f"Unsupported hook type {hook}")
 
-    kind, project_path, event_class = HOOKS[hook]
+    kind, uri_path, event_class = HOOKS[hook]
 
     try:
         data = await request.json()
     except json.JSONDecodeError as e:
         _bad_request(f"HTTP payload: {e.msg}")
 
-    project = _assert_exists(data, project_path, str)
-    project = project.replace("https://", "", 1)
-    project = project.replace("/", ".")
-    if project == "global":
-        _bad_request("Project name cannot be exactly 'global'")
-
     object_kind = _assert_exists(data, "object_kind", str)
     if object_kind != kind:
-        _bad_request(f"[{project}] Mismatched event types {object_kind} and {kind}")
+        _bad_request(f"Mismatched types {object_kind} and {kind}")
 
-    if not project in CONFIGS:
-        CONFIGS[project] = await init_project_config(project)
-    config = CONFIGS[project]
+    uri = _assert_exists(data, uri_path, str)
+    if uri not in GLOBAL_CONFIG["projects"]:
+        _bad_request(f"Unknown URI '{uri}'")
+    project = GLOBAL_CONFIG["projects"][uri]
 
-    if not config.getboolean(kind, "enabled"):
+    if not project in _CONFIGS:
+        _CONFIGS[project] = ConfigParser()
+        _CONFIGS[project].read_dict(GLOBAL_CONFIG)
+    await update_project_config(project)
+
+    if not _CONFIGS[project].getboolean(kind, "enabled"):
         _LOGGER.debug(f"[{project}] Ignoring disabled event of type {kind}")
         return web.Response(text="OK")
 
     try:
-        event = event_class(project, config, data, loop)
-    except json.JSONDecodeError as e:
-        _bad_request(f"HTTP payload: {e.msg}")
+        event = event_class(project, _CONFIGS[project], data, loop)
+    except (json.JSONDecodeError, ValueError) as e:
+        _bad_request(f"[{project}] HTTP payload: {e.msg}")
 
     if event:
         async with app["pgpool"].acquire() as db:
