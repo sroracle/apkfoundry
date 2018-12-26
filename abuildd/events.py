@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2018 Max Rees
 # See LICENSE for more information.
+import asyncio    # get_event_loop
 import fnmatch    # fnmatchcase
 import json       # dumps
 import logging    # getLogger, basicConfig
@@ -13,7 +14,6 @@ from abuild.file import APKBUILD
 import abuild.exception as exc
 
 import abuildd.tasks  # pylint: disable=cyclic-import
-from abuildd.builders import choose_builder
 from abuildd.utility import get_command_output, run_blocking_command
 from abuildd.utility import assert_exists
 
@@ -55,6 +55,7 @@ class Event:
         "project", "url", "branch", "commit", "user",
 
         "_loop", "_config", "_packages", "_priority",
+        "_jobs",
     )
 
     # pylint: disable=redefined-builtin
@@ -72,14 +73,15 @@ class Event:
         self.commit = commit
         self.user = user
 
-        self._loop = loop
+        if loop is not None:
+            self._loop = loop
+        else:
+            self._loop = asyncio.get_event_loop()
+
         self._packages = {}
         self._config = config
-
-        if self._config:
-            self._priority = self._config.getint(self.category, "priority")
-        else:
-            self._priority = None
+        self._priority = None
+        self._jobs = None
 
     @classmethod
     def fromGLWebhook(cls, project, config, payload, loop=None):
@@ -210,17 +212,21 @@ class Event:
         return DEFAULT_PRIORITY
 
     async def calc_priority(self, db, mqtt):
+        if self._priority is not None:
+            return self._priority
+
         # TODO: add a setting for project priority
+        self._priority = self._config.getint(self.category, "priority")
 
         if self._priority < 0:
             await self.reject(db, mqtt, "Invalid priority")
-            return
+            return -1
 
         user_priority = self.user_priority()
         if user_priority < 0:
             await self.reject(
                 db, mqtt, "Unauthorized user or invalid priority")
-            return
+            return -1
         self._priority += user_priority
 
         branch_priority = DEFAULT_PRIORITY
@@ -229,10 +235,16 @@ class Event:
             if branch_priority < 0:
                 await self.reject(
                     db, mqtt, "Unauthorized branch or invalid priority")
-                return
+                return -1
         self._priority += branch_priority
 
-    async def enqueue(self, db, mqtt, builders):
+        return self._priority
+
+    async def get_jobs(self, db, mqtt):
+        if self._jobs is not None:
+            return self._jobs
+        self._jobs = {}
+
         await self.get_packages()
         try:
             await self.analyze_packages()
@@ -240,20 +252,22 @@ class Event:
             await self.reject(db, mqtt, str(e), traceback.format_exc())
             return
 
-        await self.calc_priority(db, mqtt)
-        if self._priority < 0:
-            return
+        if self._priority is None:
+            await self.calc_priority(db, mqtt)
+            if self._priority < 0:
+                return
 
         await self.db_add(db)
         await self.mqtt_send(mqtt)
 
-        jobs = {}
+        enabled_arches = self._config["builders"]["arches"].split("\n")
+
         for package in self._packages:
             package = self._packages[package]
 
             arches = package.arch.copy()
             if "all" in arches or "noarch" in package.arch:
-                arches += self._config["builders"]["arches"].split("\n")
+                arches += enabled_arches
 
             for arch in package.arch:
                 if arch.startswith("!"):
@@ -265,26 +279,23 @@ class Event:
                 if arch.startswith("!") or arch == "all" or arch == "noarch":
                     continue
 
-                if arch not in jobs:
-                    jobs[arch] = abuildd.tasks.Job(
+                if arch not in enabled_arches:
+                    LOGGER.warning(
+                        f"{package.pkgname}: skipping disabled arch {arch}")
+                    continue
+
+                if arch not in self._jobs:
+                    self._jobs[arch] = abuildd.tasks.Job(
                         event_id=self.id, priority=self._priority, arch=arch,
                         event=self)
-                    await jobs[arch].db_add(db)
+                    await self._jobs[arch].db_add(db)
 
-                    # Use create_task so that we can keep going - there might
-                    # be no builders available for this arch, but there might
-                    # be some for the next arch!
-                    jobs[arch].builder = self._loop.create_task(
-                        choose_builder(builders, arch))
-
-                task = abuildd.tasks.Task.from_APKBUILD(jobs[arch].id, package)
+                task = abuildd.tasks.Task.from_APKBUILD(
+                    self._jobs[arch].id, package)
                 await task.db_add(db)
-                jobs[arch].add_task(task)
+                self._jobs[arch].add_task(task)
 
-        for job in jobs:
-            # Again, don't block here - the builder may still not be
-            # available yet
-            self._loop.create_task(jobs[job].mqtt_send(mqtt))
+        return self._jobs
 
 class PushEvent(Event):
     __slots__ = ("before", "after")

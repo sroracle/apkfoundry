@@ -31,7 +31,9 @@ class ArchCollection(dict):
         super().__init__(*args, **kwargs)
 
 def get_avail_builders(builders, arch):
-    return [i for i in builders[arch].values() if i.status == "idle"]
+    return sorted(
+        [i for i in builders[arch].values() if i.status == "idle"],
+        key=lambda i: i._pref, reverse=True)  # pylint: disable=protected-access
 
 async def choose_builder(builders, arch):
     async with builders[arch].any_available:
@@ -40,7 +42,6 @@ async def choose_builder(builders, arch):
             await builders[arch].any_available.wait()
             avail = get_avail_builders(builders, arch)
 
-        avail.sort(key=lambda x: x._pref, reverse=True)  # pylint: disable=protected-access
         builder = avail[0]
         builder.status = "busy"
 

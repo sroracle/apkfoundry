@@ -12,8 +12,8 @@ import aiohttp.web as web
 
 import abuildd.connections as conn
 import abuildd.events as enqueue
-from abuildd.builders import ArchCollection
 from abuildd.config import CONFIGS, GLOBAL_CONFIG
+from abuildd.enqueue import setup_arch_queue
 from abuildd.mqtt import mqtt_watch_builders
 from abuildd.utility import assert_exists as _assert_exists
 from abuildd.utility import get_command_output, run_blocking_command
@@ -57,6 +57,25 @@ HOOKS = {
     ),
 }
 
+async def init_project_config(project):
+    if not Path(project).is_dir():
+        raise bad_request(f"Unknown project {project}")
+
+    config = configparser.ConfigParser(interpolation=None)
+    config.read_dict(GLOBAL_CONFIG)
+
+    try:
+        await run_blocking_command(
+            ["git", "-C", project, "fetch", "origin",
+             "master:master"])
+        inifile = await get_command_output(
+            ["git", "-C", project, "show", "master:.abuildd.ini"])
+        config.read_string(inifile)
+    except RuntimeError as e:
+        LOGGER.debug(f"Could not find .abuildd.ini: {e}")
+
+    return config
+
 @ROUTES.post(GLOBAL_CONFIG["webhook"]["endpoint"])
 async def handle_webhook(request):
     if "X-Gitlab-Event" not in request.headers:
@@ -66,50 +85,43 @@ async def handle_webhook(request):
     if hook not in HOOKS:
         bad_request(f"Unsupported hook type {hook}")
 
+    kind, project_path, event_class = HOOKS[hook]
+
     try:
         data = await request.json()
     except json.JSONDecodeError as e:
         bad_request(f"HTTP payload: {e.msg}")
 
-    project = assert_exists(data, HOOKS[hook][1], str)
+    project = assert_exists(data, project_path, str)
     project = project.replace("https://", "", 1)
     project = project.replace("/", ".")
     if project == "global":
         bad_request("Project name cannot be exactly 'global'")
 
     object_kind = assert_exists(data, "object_kind", str)
-    kind = HOOKS[hook][0]
     if object_kind != kind:
-        bad_request(f"[{project}] Mismatched event types {kind} and {kind}")
+        bad_request(f"[{project}] Mismatched event types {object_kind} and {kind}")
 
     if not project in CONFIGS:
-        if not Path(project).is_dir():
-            raise bad_request(f"Unknown project {project}")
-
-        CONFIGS[project] = configparser.ConfigParser(interpolation=None)
-        CONFIGS[project].read_dict(GLOBAL_CONFIG)
-
-        try:
-            await run_blocking_command(
-                ["git", "-C", project, "fetch", "origin",
-                 "master:master"])
-            project_conf = await get_command_output(
-                ["git", "-C", project, "show", "master:.abuildd.ini"])
-            CONFIGS[project].read_string(project_conf)
-        except RuntimeError as e:
-            LOGGER.debug(f"Could not find .abuildd.ini: {e}")
-
+        CONFIGS[project] = await init_project_config(project)
     config = CONFIGS[project]
 
-    if config.getboolean(kind, "enabled"):
-        try:
-            event = HOOKS[hook][2](project, config, data, loop)
-        except json.JSONDecodeError as e:
-            bad_request(f"HTTP payload: {e.msg}")
+    if not config.getboolean(kind, "enabled"):
+        LOGGER.debug(f"[{project}] Ignoring disabled event of type {kind}")
+        return web.Response(text="OK")
 
-        if event:
-            async with app["pgpool"].acquire() as db:
-                await event.enqueue(db, app["mqtt"], app["builders"])
+    try:
+        event = event_class(project, config, data, loop)
+    except json.JSONDecodeError as e:
+        bad_request(f"HTTP payload: {e.msg}")
+
+    if event:
+        async with app["pgpool"].acquire() as db:
+            jobs = await event.get_jobs(db, app["mqtt"])
+
+        for arch in jobs:
+            job = jobs[arch]
+            app["queues"][arch].put_nowait((event._priority, job))  # pylint: disable=protected-access
 
     return web.Response(text="OK")
 
@@ -121,8 +133,15 @@ def handle_bg_exception(future):
 
 async def start_bg_tasks(app):  # pylint: disable=redefined-outer-name
     app["builders"] = {}
+    app["queues"] = {}
+    app["queue_watchers"] = []
+
     for arch in GLOBAL_CONFIG["builders"]["arches"].split("\n"):
-        app["builders"][arch] = ArchCollection(loop=app.loop)
+        queue, watcher = setup_arch_queue(
+            app.loop, app["mqtt"], app["builders"], arch)
+
+        app["queues"][arch] = queue
+        app["queue_watchers"].append(watcher)
 
     app["mqtt_watcher"] = app.loop.create_task(
         mqtt_watch_builders(app["mqtt"], app["builders"]))
@@ -135,6 +154,9 @@ async def end_bg_tasks(app):  # pylint: disable=redefined-outer-name
     await app["mqtt_watcher"]
 
     await app["pgpool"].close()
+
+    for watcher in app["queue_watchers"]:
+        watcher.cancel()
 
 if __name__ == "__main__":
     # pylint: disable=invalid-name

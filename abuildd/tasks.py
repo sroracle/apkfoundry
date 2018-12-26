@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2018 Max Rees
 # See LICENSE for more information.
-import asyncio  # Task
 import json     # dumps
 import logging  # getLogger, basicConfig
 
@@ -119,10 +118,8 @@ class Job:
 
         return inst
 
-    async def mqtt_send(self, mqtt):
-        if isinstance(self.builder, asyncio.Task):
-            await self.builder
-            self.builder = self.builder.result()
+    async def mqtt_send(self, mqtt, builder):
+        self.builder = builder
 
         LOGGER.info(f"Dispatching job #{self.id} to {self.arch}/{self.builder}")
 
