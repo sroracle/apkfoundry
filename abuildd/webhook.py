@@ -151,7 +151,7 @@ async def end_bg_tasks(app):  # pylint: disable=redefined-outer-name
 
 if __name__ == "__main__":
     # pylint: disable=invalid-name
-    _LOGGER.setLevel(GLOBAL_CONFIG["webhook"]["loglevel"])
+    logging.getLogger("abuildd").setLevel(GLOBAL_CONFIG["webhook"]["loglevel"])
     logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
 
     app = web.Application()
