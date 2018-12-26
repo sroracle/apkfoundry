@@ -29,19 +29,19 @@ def sanitize_message(message, mtype=None):
         return res
 
     if mtype == "events":
-        res = sanitize_message_events(message, topic, data)
+        res = _sanitize_message_events(message, topic, data)
     elif mtype == "jobs":
-        res = sanitize_message_jobs(message, topic, data)
+        res = _sanitize_message_jobs(message, topic, data)
     elif mtype == "tasks":
-        res = sanitize_message_tasks(message, topic, data)
+        res = _sanitize_message_tasks(message, topic, data)
     elif mtype == "builders":
-        res = sanitize_message_builders(message, topic, data)
+        res = _sanitize_message_builders(message, topic, data)
     else:
         res = None
 
     return res
 
-def sanitize_message_events(message, topic, data):
+def _sanitize_message_events(message, topic, data):
     # events/<category>/<event_id>
     if len(topic) != 3:
         _LOGGER.error(f"Invalid events topic {message.topic}")
@@ -64,7 +64,7 @@ def sanitize_message_events(message, topic, data):
 
     return ("events", event)
 
-def sanitize_message_jobs(message, topic, data):
+def _sanitize_message_jobs(message, topic, data):
     # jobs/<arch>/<builder>/<job_id>
     if len(topic) != 4:
         _LOGGER.error(f"Invalid jobs topic {message.topic}")
@@ -86,7 +86,7 @@ def sanitize_message_jobs(message, topic, data):
 
     return ("jobs", job)
 
-def sanitize_message_tasks(message, topic, data):
+def _sanitize_message_tasks(message, topic, data):
     # tasks/<task_id>
     if len(topic) != 2:
         _LOGGER.error(f"Invalid tasks topic {message.topic}")
@@ -107,7 +107,7 @@ def sanitize_message_tasks(message, topic, data):
 
     return ("tasks", task)
 
-def sanitize_message_builders(message, topic, data):
+def _sanitize_message_builders(message, topic, data):
     # builders/<arch>/<name>
     if len(topic) != 3:
         _LOGGER.error(f"Invalid builders topic {message.topic}")
@@ -133,7 +133,7 @@ async def mqtt_watch_builders(mqtt, builders):
             arch, name, status = builder.arch, builder.name, builder.status
 
             if arch not in builders:
-                _LOGGER.error(f"Arch '{arch}' is not enabled")
+                _LOGGER.warning(f"Arch '{arch}' is not enabled")
                 continue
 
             arch_collection = builders[arch]

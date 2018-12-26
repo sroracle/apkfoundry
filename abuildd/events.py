@@ -32,7 +32,7 @@ EVENT_CATEGORIES = (
     "manual",
 )
 
-def priorityspec(entries):
+def _priorityspec(entries):
     d = {}
 
     if entries == [""]:
@@ -193,7 +193,7 @@ class Event:
 
     def user_priority(self):
         allowed_users = self._config[self.category]["allowed_users"].split("\n")
-        allowed_users = priorityspec(allowed_users)
+        allowed_users = _priorityspec(allowed_users)
         denied_users = self._config[self.category]["denied_users"].split("\n")
 
         if allowed_users:
@@ -353,7 +353,7 @@ class PushEvent(Event):
         return cls(**event)
 
     def branch_priority(self):
-        branches = priorityspec(self._config["push"]["branches"].split("\n"))
+        branches = _priorityspec(self._config["push"]["branches"].split("\n"))
 
         if not branches:
             return DEFAULT_PRIORITY

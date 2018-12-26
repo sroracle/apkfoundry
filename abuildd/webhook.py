@@ -11,55 +11,46 @@ from pathlib import Path
 import aiohttp.web as web
 
 import abuildd.connections as conn
-import abuildd.events as enqueue
+from abuildd.events import PushEvent, MREvent, NoteEvent
 from abuildd.config import CONFIGS, GLOBAL_CONFIG
 from abuildd.enqueue import setup_arch_queue
 from abuildd.mqtt import mqtt_watch_builders
-from abuildd.utility import assert_exists as _assert_exists
+from abuildd.utility import assert_exists as _assert_exists_orig
 from abuildd.utility import get_command_output, run_blocking_command
 
-FAKE_COMMIT_ID = "0000000000000000000000000000000000000000"
-
-_LOGGER = logging.getLogger("abuildd")
-_LOGGER.setLevel(GLOBAL_CONFIG["webhook"]["loglevel"])
-logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
-
+_LOGGER = logging.getLogger(__name__)
 ROUTES = web.RouteTableDef()
 
-def assert_exists(*args, **kwargs):
+def _assert_exists(*args, **kwargs):
     try:
-        return _assert_exists(*args, **kwargs)
+        return _assert_exists_orig(*args, **kwargs)
     except json.JSONDecodeError as e:
-        bad_request(f"HTTP payload: {e.msg}")
+        _bad_request(f"HTTP payload: {e.msg}")
 
-def bad_request(msg):
+def _bad_request(msg):
     _LOGGER.error(msg)
     raise web.HTTPBadRequest(reason=msg)
-
-def unauthorized(msg):
-    _LOGGER.error(msg)
-    raise web.HTTPUnauthorized(reason=msg)
 
 HOOKS = {
     "Push Hook": (
         "push",
         "repository/git_http_url",
-        enqueue.PushEvent.fromGLWebhook
+        PushEvent.fromGLWebhook
     ),
     "Merge Request Hook": (
         "merge_request",
         "object_attributes/target/http_url",
-        enqueue.MREvent.fromGLWebhook
+        MREvent.fromGLWebhook
     ),
     "Note Hook": (
         "note", "merge_request/target/http_url",
-        enqueue.NoteEvent.fromGLWebhook
+        NoteEvent.fromGLWebhook
     ),
 }
 
 async def init_project_config(project):
     if not Path(project).is_dir():
-        raise bad_request(f"Unknown project {project}")
+        raise _bad_request(f"Unknown project {project}")
 
     config = configparser.ConfigParser(interpolation=None)
     config.read_dict(GLOBAL_CONFIG)
@@ -79,28 +70,28 @@ async def init_project_config(project):
 @ROUTES.post(GLOBAL_CONFIG["webhook"]["endpoint"])
 async def handle_webhook(request):
     if "X-Gitlab-Event" not in request.headers:
-        bad_request("Missing X-Gitlab-Event header")
+        _bad_request("Missing X-Gitlab-Event header")
 
     hook = request.headers["X-Gitlab-Event"]
     if hook not in HOOKS:
-        bad_request(f"Unsupported hook type {hook}")
+        _bad_request(f"Unsupported hook type {hook}")
 
     kind, project_path, event_class = HOOKS[hook]
 
     try:
         data = await request.json()
     except json.JSONDecodeError as e:
-        bad_request(f"HTTP payload: {e.msg}")
+        _bad_request(f"HTTP payload: {e.msg}")
 
-    project = assert_exists(data, project_path, str)
+    project = _assert_exists(data, project_path, str)
     project = project.replace("https://", "", 1)
     project = project.replace("/", ".")
     if project == "global":
-        bad_request("Project name cannot be exactly 'global'")
+        _bad_request("Project name cannot be exactly 'global'")
 
-    object_kind = assert_exists(data, "object_kind", str)
+    object_kind = _assert_exists(data, "object_kind", str)
     if object_kind != kind:
-        bad_request(f"[{project}] Mismatched event types {object_kind} and {kind}")
+        _bad_request(f"[{project}] Mismatched event types {object_kind} and {kind}")
 
     if not project in CONFIGS:
         CONFIGS[project] = await init_project_config(project)
@@ -113,7 +104,7 @@ async def handle_webhook(request):
     try:
         event = event_class(project, config, data, loop)
     except json.JSONDecodeError as e:
-        bad_request(f"HTTP payload: {e.msg}")
+        _bad_request(f"HTTP payload: {e.msg}")
 
     if event:
         async with app["pgpool"].acquire() as db:
@@ -160,6 +151,9 @@ async def end_bg_tasks(app):  # pylint: disable=redefined-outer-name
 
 if __name__ == "__main__":
     # pylint: disable=invalid-name
+    _LOGGER.setLevel(GLOBAL_CONFIG["webhook"]["loglevel"])
+    logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
+
     app = web.Application()
     app.add_routes(ROUTES)
     loop = asyncio.get_event_loop()
