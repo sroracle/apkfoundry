@@ -435,15 +435,19 @@ class MREvent(Event):
         user = assert_exists(payload, "user/username", str)
 
         if note:
-            _LOGGER.info(f"[{project}] Note #{mr_id}: up to {commit} -> {target}")
+            word = "Note"
+            category = "note"
         else:
-            _LOGGER.info(f"[{project}] Merge #{mr_id}: up to {commit} -> {target}")
+            word = "Merge"
+            category = "merge_request"
+
+        _LOGGER.info(f"[{project}] {word} #{mr_id}: up to {commit} -> {target}")
 
         event = {
             "loop": loop,
             "project": project,
             "config": config,
-            "category": "merge_request",
+            "category": category,
             "url": url,
             "branch": branch,
             "commit": commit,
