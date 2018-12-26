@@ -9,7 +9,7 @@ from abuildd.builders import Builder, get_avail_builders
 from abuildd.events import Event
 from abuildd.tasks import Job, Task
 
-LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 def sanitize_message(message, mtype=None):
     topic = message.topic.split("/")
@@ -25,7 +25,7 @@ def sanitize_message(message, mtype=None):
     try:
         data = json.loads(message.data)
     except json.JSONDecodeError as e:
-        LOGGER.error(f"JSON decode error on topic {message.topic}: {e}")
+        _LOGGER.error(f"JSON decode error on topic {message.topic}: {e}")
         return res
 
     if mtype == "events":
@@ -44,7 +44,7 @@ def sanitize_message(message, mtype=None):
 def sanitize_message_events(message, topic, data):
     # events/<category>/<event_id>
     if len(topic) != 3:
-        LOGGER.error(f"Invalid events topic {message.topic}")
+        _LOGGER.error(f"Invalid events topic {message.topic}")
         return None
 
     _ignore, _category, event_id = topic
@@ -52,14 +52,14 @@ def sanitize_message_events(message, topic, data):
     try:
         event_id = int(event_id)
     except ValueError as e:
-        LOGGER.error(f"MQTT {message.topic}: Invalid event {event_id}")
+        _LOGGER.error(f"MQTT {message.topic}: Invalid event {event_id}")
         return None
 
     try:
         event = Event.from_dict_abs(data)
 
     except (ValueError, json.JSONDecodeError) as e:
-        LOGGER.error(f"MQTT {message.topic}: {e.msg}")
+        _LOGGER.error(f"MQTT {message.topic}: {e.msg}")
         return None
 
     return ("events", event)
@@ -67,7 +67,7 @@ def sanitize_message_events(message, topic, data):
 def sanitize_message_jobs(message, topic, data):
     # jobs/<arch>/<builder>/<job_id>
     if len(topic) != 4:
-        LOGGER.error(f"Invalid jobs topic {message.topic}")
+        _LOGGER.error(f"Invalid jobs topic {message.topic}")
         return None
 
     _ignore, _arch, _builder, job_id = topic
@@ -75,13 +75,13 @@ def sanitize_message_jobs(message, topic, data):
     try:
         job_id = int(job_id)
     except ValueError as e:
-        LOGGER.error(f"MQTT {message.topic}: Invalid job {job_id}")
+        _LOGGER.error(f"MQTT {message.topic}: Invalid job {job_id}")
         return None
 
     try:
         job = Job.from_dict(data)
     except (ValueError, json.JSONDecodeError) as e:
-        LOGGER.error(f"MQTT {message.topic}: {e.msg}")
+        _LOGGER.error(f"MQTT {message.topic}: {e.msg}")
         return None
 
     return ("jobs", job)
@@ -89,20 +89,20 @@ def sanitize_message_jobs(message, topic, data):
 def sanitize_message_tasks(message, topic, data):
     # tasks/<task_id>
     if len(topic) != 2:
-        LOGGER.error(f"Invalid tasks topic {message.topic}")
+        _LOGGER.error(f"Invalid tasks topic {message.topic}")
         return None
 
     _ignore, task_id = topic
     try:
         task_id = int(task_id)
     except ValueError as e:
-        LOGGER.error(f"MQTT {message.topic}: Invalid task {task_id}")
+        _LOGGER.error(f"MQTT {message.topic}: Invalid task {task_id}")
         return None
 
     try:
         task = Task.from_dict(data)
     except (ValueError, json.JSONDecodeError) as e:
-        LOGGER.error(f"MQTT {message.topic}: {e.msg}")
+        _LOGGER.error(f"MQTT {message.topic}: {e.msg}")
         return None
 
     return ("tasks", task)
@@ -110,13 +110,13 @@ def sanitize_message_tasks(message, topic, data):
 def sanitize_message_builders(message, topic, data):
     # builders/<arch>/<name>
     if len(topic) != 3:
-        LOGGER.error(f"Invalid builders topic {message.topic}")
+        _LOGGER.error(f"Invalid builders topic {message.topic}")
         return None
 
     try:
         builder = Builder.from_dict(data)
     except json.JSONDecodeError as e:
-        LOGGER.error(f"MQTT {message.topic}: {e.msg}")
+        _LOGGER.error(f"MQTT {message.topic}: {e.msg}")
         return None
 
     return ("builders", builder)
@@ -133,16 +133,16 @@ async def mqtt_watch_builders(mqtt, builders):
             arch, name, status = builder.arch, builder.name, builder.status
 
             if arch not in builders:
-                LOGGER.error(f"Arch '{arch}' is not enabled")
+                _LOGGER.error(f"Arch '{arch}' is not enabled")
                 continue
 
             arch_collection = builders[arch]
 
             if name not in arch_collection:
-                LOGGER.info(f"{arch} builder {name} joined ({status})")
+                _LOGGER.info(f"{arch} builder {name} joined ({status})")
 
             elif arch_collection[name].status != status:
-                LOGGER.info(f"{arch} builder {name}: {status}")
+                _LOGGER.info(f"{arch} builder {name}: {status}")
 
             async with arch_collection.any_available:
                 arch_collection[name] = builder
@@ -151,7 +151,7 @@ async def mqtt_watch_builders(mqtt, builders):
                     arch_collection.any_available.notify()
 
                 elif not get_avail_builders(builders, arch):
-                    LOGGER.warning(f"No builders available for {arch}")
+                    _LOGGER.warning(f"No builders available for {arch}")
 
         except asyncio.CancelledError:
             break

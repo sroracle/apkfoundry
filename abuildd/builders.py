@@ -11,9 +11,7 @@ from hbmqtt.mqtt.constants import QOS_1
 from abuildd.config import GLOBAL_CONFIG
 from abuildd.utility import assert_exists
 
-LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel("DEBUG")
-logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
+_LOGGER = logging.getLogger(__name__)
 
 BUILDERS_STATUSES = (
     "idle",

@@ -10,9 +10,7 @@ from abuild.file import APKBUILD
 import abuildd.events  # pylint: disable=cyclic-import
 from abuildd.utility import assert_exists
 
-LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel("DEBUG")
-logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
+_LOGGER = logging.getLogger(__name__)
 
 # c.f. abuildd.sql status_enum
 STATUSES = (
@@ -121,7 +119,7 @@ class Job:
     async def mqtt_send(self, mqtt, builder):
         self.builder = builder
 
-        LOGGER.info(f"Dispatching job #{self.id} to {self.arch}/{self.builder}")
+        _LOGGER.info(f"Dispatching job #{self.id} to {self.arch}/{self.builder}")
 
         dump = json.dumps(self.to_dict()).encode("utf-8")
         await mqtt.publish(

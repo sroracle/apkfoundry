@@ -8,8 +8,7 @@ import contextlib
 import os
 import logging
 
-LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
+_LOGGER = logging.getLogger(__name__)
 
 @contextlib.contextmanager
 def chdir_context(new_path):

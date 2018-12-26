@@ -17,9 +17,7 @@ import abuildd.tasks  # pylint: disable=cyclic-import
 from abuildd.utility import get_command_output, run_blocking_command
 from abuildd.utility import assert_exists
 
-LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel("DEBUG")
-logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
+_LOGGER = logging.getLogger(__name__)
 
 SHELLEXPAND_PATH = shlex.quote(str(SHELLEXPAND_PATH))
 DEFAULT_PRIORITY = 500
@@ -167,7 +165,7 @@ class Event:
         self._priority = -1
         await self.db_add(db)
         await self.mqtt_send(mqtt)
-        LOGGER.error(f"Rejecting event #{self.id}: {self.shortmsg}")
+        _LOGGER.error(f"Rejecting event #{self.id}: {self.shortmsg}")
 
     async def mqtt_send(self, mqtt):
         dump = json.dumps(self.to_dict()).encode("utf-8")
@@ -280,7 +278,7 @@ class Event:
                     continue
 
                 if arch not in enabled_arches:
-                    LOGGER.warning(
+                    _LOGGER.warning(
                         f"{package.pkgname}: skipping disabled arch {arch}")
                     continue
 
@@ -329,15 +327,15 @@ class PushEvent(Event):
             before = None
 
         if after == FAKE_COMMIT_ID:
-            LOGGER.debug(f"[{project}] Skipping push for deleted ref {branch}")
+            _LOGGER.debug(f"[{project}] Skipping push for deleted ref {branch}")
             return None
 
         if not branch.startswith("refs/heads/"):
-            LOGGER.debug(f"[{project}] Skipping push for non-branch ref {branch}")
+            _LOGGER.debug(f"[{project}] Skipping push for non-branch ref {branch}")
             return None
         branch = branch.replace("refs/heads/", "", 1)
 
-        LOGGER.info(f"[{project}] Push: {branch} {before}..{after}")
+        _LOGGER.info(f"[{project}] Push: {branch} {before}..{after}")
 
         event = {
             "loop": loop,
@@ -381,7 +379,7 @@ class PushEvent(Event):
             if filename.endswith("APKBUILD"):
                 self._packages[filename.replace("/APKBUILD", "", 1)] = None
 
-        LOGGER.debug(
+        _LOGGER.debug(
             f"[{self.project}] Push {self.after}: "
             " ".join(self._packages.keys()))
 
@@ -426,7 +424,7 @@ class MREvent(Event):
             if state not in ("opened", "reopened"):
                 # Specifically we don't care about state == closed. I'm not sure
                 # if there are other states possible.
-                LOGGER.debug(f"[{project}] Skipping merge event with state {state}")
+                _LOGGER.debug(f"[{project}] Skipping merge event with state {state}")
                 return None
 
         mr_id = assert_exists(payload, f"{root}/iid", int)
@@ -438,9 +436,9 @@ class MREvent(Event):
         user = assert_exists(payload, "user/username", str)
 
         if note:
-            LOGGER.info(f"[{project}] Note #{mr_id}: up to {commit} -> {target}")
+            _LOGGER.info(f"[{project}] Note #{mr_id}: up to {commit} -> {target}")
         else:
-            LOGGER.info(f"[{project}] Merge #{mr_id}: up to {commit} -> {target}")
+            _LOGGER.info(f"[{project}] Merge #{mr_id}: up to {commit} -> {target}")
 
         event = {
             "loop": loop,
@@ -477,7 +475,7 @@ class MREvent(Event):
             if filename.endswith("APKBUILD"):
                 self._packages[filename.replace("/APKBUILD", "", 1)] = None
 
-        LOGGER.debug(
+        _LOGGER.debug(
             f"[{self.project}] Merge #{self.mr_id}: "
             " ".join(self._packages.keys()))
 
@@ -488,7 +486,7 @@ class NoteEvent(MREvent):
     def fromGLWebhook(cls, project, config, payload, loop=None):
         note_type = assert_exists(payload, "object_attributes/noteable_type", str)
         if note_type != "MergeRequest":
-            LOGGER.debug(f"[{project}] Skipping note with type {note_type}")
+            _LOGGER.debug(f"[{project}] Skipping note with type {note_type}")
             return None
 
         content = assert_exists(payload, "object_attributes/note", str)

@@ -6,7 +6,7 @@ import functools    # partial
 import logging      # getLogger
 from abuildd.builders import ArchCollection, choose_builder
 
-LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 def setup_arch_queue(loop, mqtt, all_builders, arch):
     queue = asyncio.PriorityQueue(loop=loop)
@@ -29,7 +29,7 @@ def stop_queue(queue, watcher):
         while not queue.empty():
             _priority, job = queue.get_nowait()
             queue.task_done()
-            LOGGER.error(f"Job #{job.id} not dispatched")
+            _LOGGER.error(f"Job #{job.id} not dispatched")
 
     elif watcher.exception():
         watcher.result()

@@ -20,8 +20,8 @@ from abuildd.utility import get_command_output, run_blocking_command
 
 FAKE_COMMIT_ID = "0000000000000000000000000000000000000000"
 
-LOGGER = logging.getLogger("abuildd")
-LOGGER.setLevel(GLOBAL_CONFIG["webhook"]["loglevel"])
+_LOGGER = logging.getLogger("abuildd")
+_LOGGER.setLevel(GLOBAL_CONFIG["webhook"]["loglevel"])
 logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
 
 ROUTES = web.RouteTableDef()
@@ -33,11 +33,11 @@ def assert_exists(*args, **kwargs):
         bad_request(f"HTTP payload: {e.msg}")
 
 def bad_request(msg):
-    LOGGER.error(msg)
+    _LOGGER.error(msg)
     raise web.HTTPBadRequest(reason=msg)
 
 def unauthorized(msg):
-    LOGGER.error(msg)
+    _LOGGER.error(msg)
     raise web.HTTPUnauthorized(reason=msg)
 
 HOOKS = {
@@ -72,7 +72,7 @@ async def init_project_config(project):
             ["git", "-C", project, "show", "master:.abuildd.ini"])
         config.read_string(inifile)
     except RuntimeError as e:
-        LOGGER.debug(f"Could not find .abuildd.ini: {e}")
+        _LOGGER.debug(f"Could not find .abuildd.ini: {e}")
 
     return config
 
@@ -107,7 +107,7 @@ async def handle_webhook(request):
     config = CONFIGS[project]
 
     if not config.getboolean(kind, "enabled"):
-        LOGGER.debug(f"[{project}] Ignoring disabled event of type {kind}")
+        _LOGGER.debug(f"[{project}] Ignoring disabled event of type {kind}")
         return web.Response(text="OK")
 
     try:
