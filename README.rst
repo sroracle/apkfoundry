@@ -8,7 +8,7 @@ an APK-based package build orchestrator and distribution builder
 :Status:
   Alpha
 :Copyright:
-  © 2019 Max Rees. MIT open source licence.
+  © 2019 Max Rees. GPL-2.0 open source licence.
 
 Synopsis
 --------
@@ -23,9 +23,9 @@ Dependencies
 
 Base set
    * Python 3.6+
-   * MQTT broker
    * `attrs <http://attrs.org>`_
    * `paho.mqtt <https://github.com/eclipse/paho.mqtt.python>`_
+   * MQTT broker (e.g. `mosquitto <https://mosquitto.org>`_)
 
 ``af-agentd``
    * `apk-tools <https://gitlab.alpinelinux.org/alpine/apk-tools>`_
@@ -33,9 +33,9 @@ Base set
    * `bubblewrap <https://github.com/projectatomic/bubblewrap>`_
      (installed as non-setuid)
    * Linux kernel with unprivileged user namespace support
+   * `shadow-uidmap <https://github.com/shadow-maint/shadow>`_
    * `skalibs <https://skarnet.org/software/skalibs>`_ (build-time only
      for statically-compiled helper program)
-   * `shadow-uidmap <https://github.com/shadow-maint/shadow>`_
 
 ``af-irc``
    * `PyIRC <https://code.foxkit.us/IRC/PyIRC>`_
