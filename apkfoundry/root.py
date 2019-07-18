@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
@@ -18,7 +17,8 @@ from . import get_config
 from .chroot import chroot, chroot_bootstrap, chroot_init
 
 _LOGGER = logging.getLogger(__name__)
-_SOCK_PATH = get_config("chroot").getpath("socket")
+_CFG = get_config("chroot")
+_SOCK_PATH = _CFG.getpath("socket")
 _NUM_FDS = 3
 _PASSFD_FMT = _NUM_FDS * "i"
 _PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(_PASSFD_FMT))
@@ -446,7 +446,3 @@ def client_init(cdir, bootstrap=False):
         fds = tuple()
 
     return (RootProto(msg[0]), msg[1:], fds)
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    listen()
