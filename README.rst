@@ -28,8 +28,13 @@ Base set
    * `paho.mqtt <https://github.com/eclipse/paho.mqtt.python>`_
 
 ``af-agentd``
+   * `apk-tools <https://gitlab.alpinelinux.org/alpine/apk-tools>`_
+     (``apk.static`` only)
    * `bubblewrap <https://github.com/projectatomic/bubblewrap>`_
      (installed as non-setuid)
+   * Linux kernel with unprivileged user namespace support
+   * `skalibs <https://skarnet.org/software/skalibs>`_ (build-time only
+     for statically-compiled helper program)
    * `shadow-uidmap <https://github.com/shadow-maint/shadow>`_
 
 ``af-irc``
