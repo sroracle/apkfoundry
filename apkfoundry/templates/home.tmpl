@@ -1,0 +1,26 @@
+{# vim: set ft=jinja sts=1 ts=1 sw=1 et: #}
+{#
+   Parameters:
+   * projects: List[str]
+#}
+{% extends "base.tmpl" %}
+{%- set page = "home" -%}
+{%- block title -%}
+ Home
+{%- endblock -%}
+
+{% block content %}
+ Projects:
+ <ul>
+  {% for project in projects %}
+   <li>{{ link("project", project, project) }}</li>
+  {% endfor %}
+ </ul>
+
+ Search pages:
+ <ul>
+  {% for page in ("events", "jobs", "tasks", "arches") %}
+   <li>{{ link(page, page|title) }}</li>
+  {% endfor %}
+ </ul>
+{% endblock %}

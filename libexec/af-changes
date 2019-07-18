@@ -1,0 +1,74 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2018 Max Rees
+# See LICENSE for more information.
+scriptdir="${0%/*}"
+. "$scriptdir/common"
+required_commands git
+
+usage() {
+	printf 'Usage: %s [-q] -p BRANCH BEFORE AFTER\n' "${0##*/}" >&2
+	printf '       %s [-q] -m TARGET COMMITISH\n' "${0##*/}" >&2
+}
+
+while getopts p:mqh opt; do
+case "$opt" in
+p)
+	branch="$OPTARG";;
+m)
+  mr=1;;
+q)
+	QUIET=1;;
+*)
+	usage
+	[ "$opt" = "h" ] && exit 0
+	exit 1;;
+esac
+done
+shift $((OPTIND - 1))
+
+if [ -z "$branch" ] && [ -z "$mr" ]; then
+	usage
+	exit 1
+fi
+if [ -n "$branch" ] && [ -n "$mr" ]; then
+	usage
+	exit 1
+fi
+if [ -n "$mr" ]; then
+	branch="$1"
+fi
+
+before="$1"
+after="$2"
+if [ -z "$before" ] || [ -z "$after" ]; then
+	usage
+	exit 1
+fi
+
+projectdir="${PWD##*/}"
+
+# This is normally not needed when the merging branch is a strict
+# superset of the changesets in the target branch (i.e. it was created
+# based on the target branch and the target branch has had no new
+# commits since then). Otherwise, we want to select only the changesets
+# that the merging branch is trying to perform.
+if [ -n "$mr" ]; then
+	base="$(git merge-base "$before" "$after")"
+	if [ -z "$base" ]; then
+		fatal 4 failed merge base: "$projectdir" "$before" "$after"
+	else
+		notice merge base: "$projectdir" "$before" "$after"
+	fi
+	before="$base"
+fi
+
+notice changed packages: "$projectdir" "$before" "$after"
+
+changes="$(git diff-tree -r --name-only --diff-filter dxu "$before..$after")"
+printf '%s' "$changes" \
+	| grep 'APKBUILD$' | sed 's#/APKBUILD$##' \
+	| while read -r pkg; do
+		notice package: "$pkg"
+		printf '%s\n' "$pkg"
+	done

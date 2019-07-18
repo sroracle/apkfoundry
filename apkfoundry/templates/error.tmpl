@@ -1,0 +1,10 @@
+{# vim: set ft=jinja sts=1 ts=1 sw=1 et: #}
+{#
+   Parameters:
+   * title: str
+#}
+{% extends "base.tmpl" %}
+{%- set page = "error" -%}
+{%- block title -%}
+ Error: {{ title }}
+{%- endblock -%}

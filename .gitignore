@@ -1,3 +1,7 @@
+archive/
+libexec/af-req-root
+*.bak
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

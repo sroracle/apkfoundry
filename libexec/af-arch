@@ -1,0 +1,73 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2019 Max Rees
+# See LICENSE for more information.
+scriptdir="${0%/*}"
+. "$scriptdir/common"
+required_commands join mktemp
+
+usage() {
+	printf 'Usage: %s [-q] [-b BRANCH] REPO/PKG ...\n' "$PROG" >&2
+}
+
+cleanup() {
+  rm -f "$tmp"
+}
+
+while getopts b:qh opt; do
+case "$opt" in
+b)
+	branch="$OPTARG";;
+q)
+	QUIET=1;;
+*)
+	usage
+	[ "$opt" = "h" ] && exit 0
+	exit 1
+esac
+done
+shift $((OPTIND - 1))
+
+if [ -z "$branch" ]; then
+	branch="$(get_branch)"
+fi
+
+for startdir in "$@"; do
+  any=0
+	repo="${startdir%/*}"
+
+	APKBUILD="$startdir/APKBUILD"
+	[ -e "$APKBUILD" ] || fatal 1 missing APKBUILD: "$APKBUILD"
+
+	archfile=".apkfoundry/$branch/arch.$repo"
+	if ! [ -e "$archfile" ]; then
+		archfile=".apkfoundry/$branch/arch"
+	fi
+	[ -e "$archfile" ] || fatal 1 missing configuration: "$archfile"
+
+	arch="$(grep '^arch=' "$APKBUILD" \
+    | sed "s/^arch=//; s/'//g; s/\"//g; s/#.*\$//")"
+
+  for i in $(cat "$archfile"); do
+    needs_build=0
+    for j in $arch; do
+      case "$j" in
+      all | noarch)
+        needs_build=1;;
+      "$i")
+        needs_build=1;;
+      "!$i")
+        needs_build=0
+        break;;
+      esac
+    done
+
+    if [ "$needs_build" -eq 1 ]; then
+      any=1
+      printf '%s %s\n' "$i" "$startdir"
+    fi
+  done
+  if [ "$any" -eq 0 ]; then
+    notice warning: "$startdir" is disabled on all architectures
+  fi
+done

@@ -1,0 +1,99 @@
+{# vim: set ft=jinja sts=1 ts=1 sw=1 et: #}
+{%- if pretty -%}
+ {% set sep0 = "" %}
+ {% set sep1 = "/" %}
+ {% set sep2 = "?" %}
+{%- else -%}
+ {% set sep0 = "?" %}
+ {% set sep1 = "=" %}
+ {% set sep2 = "&" %}
+{%- endif -%}
+
+{%- macro link(page, text, iid=none) -%}
+ {%- if page == "home" -%}
+  {% set href = "" %}
+ {%- endif -%}
+ {%- if iid is not none -%}
+  {% set href = sep0 ~ page ~ sep1 ~ iid %}
+ {%- else -%}
+  {%- if kwargs -%}
+   {% set href = sep0 ~ page ~ sep2 ~ kwargs|urlencode %}
+  {%- else -%}
+   {% set href = sep0 ~ page %}
+  {%- endif -%}
+ {%- endif -%}
+ <a href="{{ href }}">{{ text }}</a>
+{%- endmacro -%}
+
+{%- macro time(datetime) -%}
+ <time datetime="{{ datetime[0] }}" title="{{ datetime[0] }}">
+  {{ datetime[1] }} ago
+ </time>
+{%- endmacro -%}
+
+{%- macro obj_info(label) -%}
+ <li>
+  {{ label }}:
+  {{ caller() }}
+ </li>
+{%- endmacro -%}
+
+{%- macro input(name, label, value=none, type="text") -%}
+ {%- if value is none -%}
+  {% set value = query[name] or "" %}
+ {%- endif -%}
+ <label for="{{ name }}">{{ label }}:</label>&nbsp;
+ <input type="{{ type }}" name="{{ name }}" value="{{ value }}"><br>
+{%- endmacro -%}
+
+{%- macro fselect(name, label, options, value=none) -%}
+ {%- if value is none -%}
+  {% set value = query[name] or "" %}
+ {%- endif -%}
+ <label for="{{ name }}">{{ label }}:</label>&nbsp;
+ <select name="{{ name }}">
+  {% for option in options %}
+   <option{% if option == value %} selected{% endif %}>{{ option }}</option>
+  {% endfor %}
+   <option{% if value == "" %} selected{% endif %}></option>
+ </select>
+{%- endmacro -%}
+
+{%- macro searchform() -%}
+ <form action="{{ me }}" method="get">
+  {% if not pretty %}
+   <input name="{{ page }}" type="hidden">
+  {% endif %}
+  {{ caller() }}
+  <input type="submit" value="Search">
+  (*) supports globbing
+ </form>
+{%- endmacro -%}
+
+{#
+   Parameters:
+   * css: str
+   * home: str
+   * pretty: bool
+   * me: str
+
+   * query: dict
+#}
+
+<!DOCTYPE html>
+<html>
+ <head>
+  <title>
+   {% filter striptags %}{{ self.title() }}{% endfilter %} - APK Foundry
+  </title>
+  <link rel="stylesheet" href="{{ css }}" type="text/css">
+  <base href="{{ home }}">
+ </head>
+ <body>
+  <h1>{% block title %}{% endblock %}</h1>
+  {% if page != "home" %}
+   <a href="">Home</a><br><br>
+  {% endif %}
+  {% block content %}{% endblock %}
+ </body>
+</html>

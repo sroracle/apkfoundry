@@ -1,0 +1,82 @@
+{# vim: set ft=jinja sts=1 ts=1 sw=1 et: #}
+{#
+   Parameters:
+   * title: str
+   * arches: List[
+       arch: str,
+       new: int,
+       started: int,
+       builders: List[
+         builder: str or None,
+         cur_job: Job or None,
+         prev_job: Job or None,
+       ],
+     ]
+#}
+{% extends "base.tmpl" %}
+{%- set page = "arches" -%}
+{%- block title -%}
+ {{ title }}
+{%- endblock -%}
+
+{% block content %}
+ {% call searchform() %}
+  {{ input("arch", "Arch (*)") }}<br>
+  {{ input("builder", "Builder (*)") }}<br>
+ {% endcall %}
+
+ <table>
+  <thead>
+   <tr>
+    <th>Arch</th>
+    <th>Waiting</th>
+    <th>Running</th>
+    <th>Builder</th>
+    <th>Current job</th>
+    <th>Previous job</th>
+   </tr>
+  </thead>
+  <tbody>
+   {% for arch, new, started, builders in arches %}
+    <tr>
+     <td>{{ link("jobs", arch, arch=arch) }}</td>
+     <td>{{ new }}</td>
+     <td>{{ started }}</td>
+     <td colspan="3"></td>
+    </tr>
+    {% for builder, cur_job, prev_job in builders %}
+     <tr>
+      <td colspan="4">
+       {{ link("jobs", builder, builder=builder, arch=arch) }}
+      </td>
+      {% if builder is none %}
+       <td colspan="2">
+        {% if cur_job %}
+         {{ link("jobs", "#" ~ cur_job.id ~ ": new", cur_job.id) }}<br>
+         {{ time(cur_job.updated) }}
+        {% endif %}
+       </td>
+      {% else %}
+       {% if cur_job %}
+        <td class="status status-{{ cur_job.status }}">
+         {{ link("jobs", "#" ~ cur_job.id, cur_job.id) }}<br>
+         {{ time(cur_job.updated) }}
+        </td>
+       {% else %}
+        <td></td>
+       {% endif %}
+       {% if prev_job %}
+        <td class="status status-{{ prev_job.status }}">
+         {{ link("Jobs", "#" ~ prev_job.id ~ ": " ~ prev_job.status, prev_job.id) }}<br>
+         {{ time(prev_job.updated) }}
+        </td>
+       {% else %}
+        <td></td>
+       {% endif %}
+      {% endif %}
+     </tr>
+    {% endfor %}
+   {% endfor %}
+  </tbody>
+ </table>
+{% endblock %}

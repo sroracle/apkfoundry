@@ -1,0 +1,54 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2018 Max Rees
+# See LICENSE for more information.
+scriptdir="${0%/*}"
+. "$scriptdir/common"
+
+usage() {
+	printf 'Usage: %s REPO ...\n' "$PROG" >&2
+}
+
+while getopts h opt; do
+case "$opt" in
+*)
+	usage
+	[ "$opt" = "h" ] && exit 0
+	exit 1
+esac
+done
+shift $((OPTIND - 1))
+
+if [ -z "$1" ]; then
+	usage
+	exit 1
+fi
+
+for repo; do
+	APKBUILDS="$APKBUILDS $repo/*/APKBUILD"
+done
+
+. /usr/share/abuild/functions.sh
+
+for APKBUILD in $APKBUILDS; do
+	# Assumption: APKBUILD will be of the form REPO/PKGNAME/APKBUILD
+	[ -e "$APKBUILD" ] || continue
+
+	pkgname=
+	subpackages=
+	provides=
+	. "$APKBUILD"
+	dirname="${APKBUILD%/APKBUILD}"
+
+	# If there isn't even a package name, let's move along
+	[ -z "$pkgname" ] && continue
+
+	for name in $pkgname $subpackages $provides; do
+		name="${name%%:*}"
+		name="${name%%[<>=~]*}"
+		[ -z "$name" ] && continue
+
+		# Assumption: $name will appear once amongst all $repo
+		printf '%s %s\n' "$name" "$dirname"
+	done
+done | sort

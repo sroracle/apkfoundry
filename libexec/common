@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2019 Max Rees
+# See LICENSE for more information.
+# vi: ft=sh:
+set -e
+PROG="${0##*/}"
+
+notice() {
+	[ -n "$QUIET" ] && return
+	printf '%s: %s\n' "$PROG" "$*" >&2
+}
+
+error() {
+	QUIET= notice error: "$@"
+}
+
+fatal() {
+	local status="$1"
+	shift
+	QUIET= notice fatal: "$@"
+	exit "$status"
+}
+
+required_commands() {
+	local errors=0
+	while [ "$#" -gt 0 ]; do
+		if ! command -v "$1" >/dev/null 2>&1; then
+			notice missing command: "$1"
+			errors=2
+		fi
+		shift
+	done
+
+	return $errors
+}
+
+required_args() {
+	local errors=0
+
+	while [ "$#" -gt 0 ]; do
+		if [ -z "$(eval "printf '%s' \$$1")" ]; then
+			notice missing argument: "$1"
+			errors=1
+		fi
+		shift
+	done
+
+	return $errors
+}
+
+list_has() {
+	local needle="$1"
+	local i
+	shift
+	for i in "$@"; do
+		[ "$needle" = "$i" ] && return 0
+		[ "$needle" = "!$i" ] && return 1
+	done
+	return 1
+}
+
+get_branch() {
+	git rev-parse --abbrev-ref HEAD
+}
