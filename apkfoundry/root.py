@@ -44,6 +44,11 @@ def _abuild_fetch(argv):
         "-d"
     )
 
+    getopts.add_argument(
+        "url", metavar="URL",
+        nargs=1,
+    )
+
     opts = getopts.parse_args(argv)
 
 def _abuild_addgroup(argv):
