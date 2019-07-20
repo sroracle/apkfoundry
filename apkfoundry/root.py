@@ -123,6 +123,17 @@ def _apk_fetch(argv):
         "packages", metavar="PACKAGE",
         nargs="+",
     )
+    fetch.add_argument(
+        "--quiet", "-q",
+        action="store_true",
+    )
+    fetch.add_argument(
+        "--repositories-file",
+    )
+    fetch.add_argument(
+        "--simulate", "-s",
+        action="store_true",
+    )
 
     opts = getopts.parse_args(argv)
 
@@ -248,6 +259,7 @@ def _abuild_apk(argv):
             getopts.error("can only remove makedepends virtual packages")
 
 _parse = {
+    "apk": ("apk", _apk_fetch),
     "abuild-apk": ("apk", _abuild_apk),
     "abuild-fetch": ("abuild-fetch", _abuild_fetch),
     "abuild-addgroup": ("addgroup", _abuild_addgroup),
