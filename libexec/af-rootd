@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 
 rootid = get_config("chroot").getint("rootid")
-if os.getuid() != _ROOTID:
+if os.getuid() != rootid:
     _LOGGER.critical(f"Must be run as user {rootid}")
     sys.exit(1)
 
