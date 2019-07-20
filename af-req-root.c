@@ -75,21 +75,24 @@ void empty_ret_r(int ret_r) {
 	);
 }
 
-void read_root_r(int root_r) {
+void read_root_r(int fd_out, int root_r) {
 	char buf[BUF_SIZE];
 	ssize_t len = 0;
 
 	errno = 0;
 	switch ((len = fd_read(root_r, buf, BUF_SIZE))) {
 		case -1:
-			strerr_diefu1x(errno, "read from AF_ROOT_R");
+			if (fd_out == 1)
+				strerr_diefu1x(errno, "read from AF_STDOUT_R");
+			else
+				strerr_diefu1x(errno, "read from AF_STDERR_R");
 			break;
 		case 0:
 			strerr_dief1x(2, "lost connection with server");
 			break;
 	}
 
-	fd_write(1, buf, len);
+	fd_write(fd_out, buf, len);
 }
 
 int read_ret_r(int ret_r) {
@@ -125,8 +128,9 @@ int main(int argc, char *argv[]) {
 	int start;
 	int user_w;
 	iopause_fd sel_fds[2];
-	iopause_fd *sel_root = &sel_fds[0];
-	iopause_fd *sel_ret = &sel_fds[1];
+	iopause_fd *sel_stdout = &sel_fds[0];
+	iopause_fd *sel_stderr = &sel_fds[1];
+	iopause_fd *sel_ret = &sel_fds[2];
 
 	if (argc == 0)
 		strerr_dieusage(1, USAGE);
@@ -141,8 +145,10 @@ int main(int argc, char *argv[]) {
 		strerr_dieusage(1, USAGE);
 
 	user_w = fd_from_env("AF_USER_W");
-	sel_root->fd = fd_from_env("AF_ROOT_R");
-	sel_root->events = IOPAUSE_READ;
+	sel_stdout->fd = fd_from_env("AF_STDOUT_R");
+	sel_stdout->events = IOPAUSE_READ;
+	sel_stderr->fd = fd_from_env("AF_STDERR_R");
+	sel_stderr->events = IOPAUSE_READ;
 	sel_ret->fd = fd_from_env("AF_RET_R");
 	sel_ret->events = IOPAUSE_READ;
 
@@ -152,16 +158,21 @@ int main(int argc, char *argv[]) {
 	for (;;) {
 		FATAL_IF(
 			iopause(sel_fds, sizeof(sel_fds), 0, 0) == -1,
-			"poll AF_ROOT_R/AF_RET_R"
+			"poll"
 		);
 
+		if (sel_stdout->revents & IOPAUSE_EXCEPT)
+			strerr_diefu1x(2, "read AF_STDOUT_R");
+		if (sel_stdout->revents & IOPAUSE_EXCEPT)
+			strerr_diefu1x(2, "read AF_STDERR_R");
 		if (sel_ret->revents & IOPAUSE_EXCEPT)
 			strerr_diefu1x(2, "read AF_RET_R");
-		if (sel_root->revents & IOPAUSE_EXCEPT)
-			strerr_diefu1x(2, "read AF_ROOT_R");
 
-		if (sel_root->revents & IOPAUSE_READ)
-			read_root_r(sel_root->fd);
+		if (sel_stdout->revents & IOPAUSE_READ)
+			read_root_r(1, sel_stdout->fd);
+
+		if (sel_stderr->revents & IOPAUSE_READ)
+			read_root_r(2, sel_stderr->fd);
 
 		if (sel_ret->revents & IOPAUSE_READ)
 			exit(read_ret_r(sel_ret->fd));

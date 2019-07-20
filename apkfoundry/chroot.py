@@ -251,8 +251,9 @@ def chroot(cmd,
         kwargs["pass_fds"].extend(root_fds)
         args.extend((
             "--setenv", "AF_USER_W", str(root_fds[0]),
-            "--setenv", "AF_ROOT_R", str(root_fds[1]),
-            "--setenv", "AF_RET_R", str(root_fds[2]),
+            "--setenv", "AF_STDOUT_R", str(root_fds[1]),
+            "--setenv", "AF_STDERR_R", str(root_fds[2]),
+            "--setenv", "AF_RET_R", str(root_fds[3]),
         ))
 
     if not net:

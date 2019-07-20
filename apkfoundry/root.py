@@ -19,7 +19,7 @@ from .chroot import chroot, chroot_bootstrap, chroot_init
 _LOGGER = logging.getLogger(__name__)
 _CFG = get_config("chroot")
 _SOCK_PATH = _CFG.getpath("socket")
-_NUM_FDS = 3
+_NUM_FDS = 4
 _PASSFD_FMT = _NUM_FDS * "i"
 _PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(_PASSFD_FMT))
 _BUF_SIZE = 4096
@@ -276,7 +276,7 @@ class RootProto(enum.IntFlag):
     BOOTSTRAP = CLIENT | 4
     AMEND = CLIENT | 8
 
-def _handle_pipe(sel, cdir, user_r, root_w, ret_w):
+def _handle_pipe(sel, cdir, user_r, stdout_w, stderr_w, ret_w):
     user_f = open(
         user_r, buffering=1,
         encoding="utf-8", errors="replace",
@@ -292,7 +292,7 @@ def _handle_pipe(sel, cdir, user_r, root_w, ret_w):
             _LOGGER.info("EOF - closing pipe")
             user_f.close()
             sel.unregister(user_r)
-            for fd in (user_r, root_w, ret_w):
+            for fd in (user_r, stdout_w, stderr_w, ret_w):
                 os.close(fd)
             return
 
@@ -308,11 +308,11 @@ def _handle_pipe(sel, cdir, user_r, root_w, ret_w):
         rc = chroot(
             argv, cdir,
             net=True, ro_root=False,
-            stdout=root_w, stderr=root_w
+            stdout=stdout_w, stderr=stderr_w
         )
 
     except (_ParseOrRaise.Error, NotImplementedError, OSError) as e:
-        os.write(root_w, (str(e) + "\n").encode("utf-8", errors="replace"))
+        os.write(stderr_w, (str(e) + "\n").encode("utf-8", errors="replace"))
         os.write(ret_w, b"001\n")
 
     else:
@@ -385,10 +385,11 @@ class RootConn(socketserver.StreamRequestHandler):
         chroot_init(cdir)
 
         user_r, user_w = os.pipe()
-        root_r, root_w = os.pipe()
+        stdout_r, stdout_w = os.pipe()
+        stderr_r, stderr_w = os.pipe()
         ret_r, ret_w = os.pipe()
-        sent = (user_w, root_r, ret_r)
-        kept = (user_r, root_w, ret_w)
+        sent = (user_w, stdout_r, stderr_r, ret_r)
+        kept = (user_r, stdout_w, stderr_w, ret_w)
 
         _pass_fds(self.request, bytes([RootProto.OK]), sent)
         for fd in sent:
@@ -396,7 +397,10 @@ class RootConn(socketserver.StreamRequestHandler):
 
         if bootstrap:
             try:
-                rc = chroot_bootstrap(cdir, log=root_w)
+                rc = chroot_bootstrap(
+                    cdir,
+                    stdout=stdout_w, stderr=stderr_w,
+                )
                 os.write(ret_w, b"%03d\n" % rc)
             except BrokenPipeError:
                 for fd in kept:
