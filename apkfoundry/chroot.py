@@ -45,18 +45,14 @@ def _idmap(userid):
         str(userid),
         str(userid),
         "1",
-    #]
 
-    #args.extend([
         "1",
         str(_SUBID + 1),
         str(userid - 2 + 1),
-    #])
-    #args.extend([
+
         str(userid + 1),
         str(_SUBID + userid + 1),
         str(65534 - (userid + 1)),
-    #])
     ]
 
     assert len(args) % 3 == 0, "map must have 3 entries per line"
@@ -178,6 +174,13 @@ def chroot_init(cdir):
 
     abuild_f = _checkfile(Path(f"/etc/apkfoundry/abuild.{arch}.conf"))
     shutil.copy(abuild_f, cdir / "etc/abuild.conf")
+
+    localtime = cdir / "etc/localtime"
+    try:
+        localtime.symlink_to("../usr/share/zoneinfo/UTC")
+    except FileExistsError:
+        localtime.unlink()
+        localtime.symlink_to("../usr/share/zoneinfo/UTC")
 
     shutil.copy("/etc/passwd", cdir / "etc")
     shutil.copy("/etc/group", cdir / "etc")
