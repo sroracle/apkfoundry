@@ -7,7 +7,7 @@ import logging                  # getLogger
 import paho.mqtt.client as mqtt
 
 from . import get_config, db_queue, dispatch_queue, af_exit
-from .types import AFStatus, Job
+from .objects import AFStatus, Job
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@
 import logging # getLogger
 
 from . import db_queue, get_config
-from .types import AFStatus, JSONSchema, Push, MergeRequest
+from .objects import AFStatus, JSONSchema, Push, MergeRequest
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ from pathlib import Path
 import jinja2 # Environment, FileSystemBytecodeCache, PackageLoader
 
 from . import get_config
-from .types import AFEventType, AFStatus, Event, Job, Task
+from .objects import AFEventType, AFStatus, Event, Job, Task
 
 PRETTY = get_config("web").getboolean("pretty")
 LIMIT = 50
