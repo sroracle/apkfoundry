@@ -305,7 +305,7 @@ def _handle_pipe(sel, cdir, user_r, stdout_w, stderr_w, ret_w):
         _parse[cmd][1](argv[1:])
         argv[0] = _parse[cmd][0]
 
-        rc = chroot(
+        rc, _ = chroot(
             argv, cdir,
             net=True, ro_root=False,
             stdout=stdout_w, stderr=stderr_w

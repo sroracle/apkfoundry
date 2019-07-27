@@ -109,7 +109,7 @@ def chroot_bootstrap(cdir, log=None):
     # Database must be initialized before repositories are added.
     shutil.copy(_APK_STATIC, cdir)
     args = ["/apk.static", "add", "--initdb"]
-    rc = chroot(args, cdir=cdir, ro_root=False, net=True, log=log)
+    rc, _ = chroot(args, cdir=cdir, ro_root=False, net=True, log=log)
     if rc:
         return rc
 
@@ -126,7 +126,7 @@ def chroot_bootstrap(cdir, log=None):
             print(line, end="")
 
     args = ["/apk.static", "--update-cache", "add", "--upgrade", "--latest"]
-    rc = chroot(args, cdir=cdir, ro_root=False, net=True, log=log)
+    rc, _ = chroot(args, cdir=cdir, ro_root=False, net=True, log=log)
 
     # Cleanup bootstrap files
     (cdir / "apk.static").unlink()
@@ -304,4 +304,4 @@ def chroot(cmd,
     if not success:
         _LOGGER.error("chroot failed with status %r!", retcodes)
 
-    return max(abs(i) for i in retcodes)
+    return (max(abs(i) for i in retcodes), proc)
