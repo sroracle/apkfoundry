@@ -32,23 +32,26 @@ if [ -z "$branch" ]; then
 	branch="$(get_branch)"
 fi
 
-for startdir in "$@"; do
+for startdir; do
   any=0
 	repo="${startdir%/*}"
 
 	APKBUILD="$startdir/APKBUILD"
 	[ -e "$APKBUILD" ] || fatal 1 missing APKBUILD: "$APKBUILD"
 
-	archfile=".apkfoundry/$branch/arch.$repo"
-	if ! [ -e "$archfile" ]; then
-		archfile=".apkfoundry/$branch/arch"
-	fi
+  archfile=".apkfoundry/$branch/arch"
 	[ -e "$archfile" ] || fatal 1 missing configuration: "$archfile"
 
 	arch="$(grep '^arch=' "$APKBUILD" \
     | sed "s/^arch=//; s/'//g; s/\"//g; s/#.*\$//")"
 
-  for i in $(cat "$archfile"); do
+  want_arches="$(grep "^$repo" "$archfile" | cut -d ' ' -f 2-)"
+  if [ -z "$want_arches" ]; then
+    notice warning: repository "'$repo'" is not enabled
+    continue
+  fi
+
+  for i in $want_arches; do
     needs_build=0
     for j in $arch; do
       case "$j" in

@@ -124,22 +124,26 @@ define which architectures the special ``arch`` values ``"all"`` and
 separated by line feeds (``\n``). Each line should contain a single
 architecture. For example, if ``master/arch`` contains the following::
 
-    ppc
-    ppc64
-    pmmx
-    x86_64
+    system ppc ppc64 pmmx x86_64
+    user ppc64 x86_64
 
-Then events that modify APKBUILDs in the ``master`` branch will generate
-jobs for the ``ppc``, ``ppc64``, ``pmmx``, and ``x86_64`` architectures
-as appropriate. If an architecture is not listed in these files, then no
-builds will occur for that architecture, even if changed APKBUILDs have
-``arch="all"``, ``arch="noarch"``, or even specifically name that
-architecture.
+Then, for events that modify APKBUILDs in the ``master`` branch:
 
-The file can also be suffixed by a repository name to specify
-architectures for that repository, e.g. ``master/arch.system``. Such a
-file will completely override the repository-independent configuration
-file.
+* If the APKBUILD is in the ``system`` repository, then jobs will be
+  generated for the ``ppc``, ``ppc64``, ``pmmx``, and ``x86_64``
+  architectures.
+* If the APKBUILD is in the ``user`` repository, then jobs will be
+  generated for the ``ppc64`` and ``x86_64`` architectures.
+* The ordering of lines in the file is significant. Here, all builds in
+  the ``system`` repository will occur before builds in the ``user``
+  repository.
+
+If an architecture is not listed in this file, then no builds will occur
+for that architecture, even if changed APKBUILDs have ``arch="all"``,
+``arch="noarch"``, or even specifically name that architecture.
+
+If a repository is not listed in this file, then no builds will occur
+for that repository.
 
 branch/ignore
 ^^^^^^^^^^^^^
