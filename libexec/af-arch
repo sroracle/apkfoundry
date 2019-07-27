@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
+# vi: noet
 scriptdir="${0%/*}"
 . "$scriptdir/common"
 required_commands join mktemp
@@ -11,7 +12,7 @@ usage() {
 }
 
 cleanup() {
-  rm -f "$tmp"
+	rm -f "$tmp"
 }
 
 while getopts b:qh opt; do
@@ -33,44 +34,44 @@ if [ -z "$branch" ]; then
 fi
 
 for startdir; do
-  any=0
+	any=0
 	repo="${startdir%/*}"
 
 	APKBUILD="$startdir/APKBUILD"
 	[ -e "$APKBUILD" ] || fatal 1 missing APKBUILD: "$APKBUILD"
 
-  archfile=".apkfoundry/$branch/arch"
+	archfile=".apkfoundry/$branch/arch"
 	[ -e "$archfile" ] || fatal 1 missing configuration: "$archfile"
 
 	arch="$(grep '^arch=' "$APKBUILD" \
-    | sed "s/^arch=//; s/'//g; s/\"//g; s/#.*\$//")"
+		| sed "s/^arch=//; s/'//g; s/\"//g; s/#.*\$//")"
 
-  want_arches="$(grep "^$repo" "$archfile" | cut -d ' ' -f 2-)"
-  if [ -z "$want_arches" ]; then
-    notice warning: repository "'$repo'" is not enabled
-    continue
-  fi
+	want_arches="$(grep "^$repo" "$archfile" | cut -d ' ' -f 2-)"
+	if [ -z "$want_arches" ]; then
+		notice warning: repository "'$repo'" is not enabled
+		continue
+	fi
 
-  for i in $want_arches; do
-    needs_build=0
-    for j in $arch; do
-      case "$j" in
-      all | noarch)
-        needs_build=1;;
-      "$i")
-        needs_build=1;;
-      "!$i")
-        needs_build=0
-        break;;
-      esac
-    done
+	for i in $want_arches; do
+		needs_build=0
+		for j in $arch; do
+			case "$j" in
+			all | noarch)
+				needs_build=1;;
+			"$i")
+				needs_build=1;;
+			"!$i")
+				needs_build=0
+				break;;
+			esac
+		done
 
-    if [ "$needs_build" -eq 1 ]; then
-      any=1
-      printf '%s %s\n' "$i" "$startdir"
-    fi
-  done
-  if [ "$any" -eq 0 ]; then
-    notice warning: "$startdir" is disabled on all architectures
-  fi
+		if [ "$needs_build" -eq 1 ]; then
+			any=1
+			printf '%s %s\n' "$i" "$startdir"
+		fi
+	done
+	if [ "$any" -eq 0 ]; then
+		notice warning: "$startdir" is disabled on all architectures
+	fi
 done
