@@ -373,13 +373,16 @@ class RootConn(socketserver.StreamRequestHandler):
                 continue
             argv[0] = _parse[cmd][0]
 
-            rc, _ = chroot(
-                argv, self.cdir,
-                net=True, ro_root=False,
-                stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
-            )
+            try:
+                rc, _ = chroot(
+                    argv, self.cdir,
+                    net=True, ro_root=False,
+                    stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
+                )
 
-            _send_retcode(self.request, rc)
+                _send_retcode(self.request, rc)
+            except ConnectionError:
+                pass
 
     def _init(self, argv):
         getopts = _ParseOrRaise(
