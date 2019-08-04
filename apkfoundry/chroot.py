@@ -193,7 +193,7 @@ def chroot(cmd,
         ro_git=True,
         delete=ChrootDelete.NEVER,
         log=None,
-        root_fds=None,
+        root_fd=None,
         **kwargs):
 
     if log:
@@ -250,13 +250,10 @@ def chroot(cmd,
         "--chdir", "/git",
     ]
 
-    if root_fds:
-        kwargs["pass_fds"].extend(root_fds)
+    if root_fd:
+        kwargs["pass_fds"].append(root_fd)
         args.extend((
-            "--setenv", "AF_USER_W", str(root_fds[0]),
-            "--setenv", "AF_STDOUT_R", str(root_fds[1]),
-            "--setenv", "AF_STDERR_R", str(root_fds[2]),
-            "--setenv", "AF_RET_R", str(root_fds[3]),
+            "--setenv", "AF_ROOT_FD", str(root_fd),
         ))
 
     if not net:

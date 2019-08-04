@@ -1,16 +1,15 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-import argparse     # action, ArgumentParser
-import enum         # Flag
+import argparse     # ArgumentParser
 import logging      # getLogger
-import os           # pipe, unlink
-import selectors    # DefaultSelector
-import shlex        # split
-import socket       # CMSG_SPACE, SCM_RIGHTS, SOL_SOCKET
-import socketserver # StreamRequestHandler, UnixStreamServer
-import struct       # calcsize, pack, Struct
-import sys          # exc_info
+import os           # umask, write
+import selectors    # DefaultSelector, EVENT_READ
+import shlex        # quote, split
+import socket       # socket, various constants
+import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
+import struct       # calcsize, pack, Struct, unpack
+import sys          # exc_info, exit, std*
 from pathlib import Path
 
 from . import get_config
@@ -18,10 +17,12 @@ from .chroot import chroot, chroot_bootstrap, chroot_init
 
 _LOGGER = logging.getLogger(__name__)
 _CFG = get_config("chroot")
+_ROOTID = _CFG.getint("rootid")
 _SOCK_PATH = _CFG.getpath("socket")
-_NUM_FDS = 4
+_NUM_FDS = 3
 _PASSFD_FMT = _NUM_FDS * "i"
 _PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(_PASSFD_FMT))
+_RC_FMT = "i"
 _BUF_SIZE = 4096
 
 class _ParseOrRaise(argparse.ArgumentParser):
@@ -266,61 +267,28 @@ _parse = {
     "abuild-adduser": ("adduser", _abuild_adduser),
 }
 
-@enum.unique
-class RootProto(enum.IntFlag):
-    SERVER = 1
-    OK = SERVER | 4
-    ERROR = SERVER | 8
+def _recv_retcode(conn):
+    rc, _, _, _ = conn.recvmsg(_BUF_SIZE)
+    (rc,) = struct.unpack(_RC_FMT, rc)
+    return rc
 
-    CLIENT = 2
-    BOOTSTRAP = CLIENT | 4
-    AMEND = CLIENT | 8
-
-def _handle_pipe(sel, cdir, user_r, stdout_w, stderr_w, ret_w):
-    user_f = open(
-        user_r, buffering=1,
-        encoding="utf-8", errors="replace",
-        closefd=False,
+def _send_retcode(conn, rc):
+    conn.sendmsg(
+        [struct.pack(_RC_FMT, rc)],
     )
 
-    try:
-        argv = user_f.readline()
-        argv = argv.strip()
-        argv = shlex.split(argv)
-
-        if not argv:
-            _LOGGER.info("EOF - closing pipe")
-            user_f.close()
-            sel.unregister(user_r)
-            for fd in (user_r, stdout_w, stderr_w, ret_w):
-                os.close(fd)
-            return
-
-        cmd = argv[0]
-
-        if cmd not in _parse:
-            raise _ParseOrRaise.Error("Invalid command: " + cmd)
-        _LOGGER.info("Received command: %r", argv)
-
-        _parse[cmd][1](argv[1:])
-        argv[0] = _parse[cmd][0]
-
-        rc, _ = chroot(
-            argv, cdir,
-            net=True, ro_root=False,
-            stdout=stdout_w, stderr=stderr_w
-        )
-
-    except (_ParseOrRaise.Error, NotImplementedError, OSError) as e:
-        os.write(stderr_w, (str(e) + "\n").encode("utf-8", errors="replace"))
-        os.write(ret_w, b"001\n")
-
+def _recv_fds(anc):
+    if anc:
+        anc = anc[0]
+        assert anc[0] == socket.SOL_SOCKET
+        assert anc[1] == socket.SCM_RIGHTS
+        fds = struct.unpack(_PASSFD_FMT, anc[2])
     else:
-        os.write(ret_w, b"%03d\n" % rc)
+        fds = tuple()
 
-    user_f.close()
+    return fds
 
-def _pass_fds(conn, msg, fds):
+def _send_fds(conn, msg, fds):
     assert len(fds) == _NUM_FDS
     assert len(msg) <= _BUF_SIZE
 
@@ -344,76 +312,135 @@ def _get_creds(conn):
         ),
     )
 
-def _send_err(conn, msg):
-    msg = msg.encode("utf-8")
-    if len(msg) > _BUF_SIZE - 1:
-        msg = msg[:-3] + b"..."
-    conn.sendall(bytes([RootProto.ERROR]) + msg)
-
-class RootException(Exception):
+class RootExc(Exception):
     pass
 
 class RootConn(socketserver.StreamRequestHandler):
-    def handle(self):
-        cdir, _, _, _ = self.request.recvmsg(_BUF_SIZE)
-        pid, uid, _ = _get_creds(self.request)
+    def setup(self):
+        super().setup()
+        self.cdir = None
+        self.stdin = self.stdout = self.stderr = None
+        self.pid = self.uid = -1
 
-        if not cdir:
+    def handle(self):
+        announced = False
+
+        while True:
+            try:
+                argv, anc, _, _ = self.request.recvmsg(
+                    _BUF_SIZE, _PASSFD_SIZE
+                )
+                self.pid, self.uid, _ = _get_creds(self.request)
+            except ConnectionError:
+                _LOGGER.info("[%d:%d] Disconnected", self.uid, self.pid)
+                break
+            if not argv:
+                _LOGGER.info("[%d:%d] Disconnected", self.uid, self.pid)
+                break
+
+            if not announced:
+                _LOGGER.info("[%d:%d] Connected", self.uid, self.pid)
+                announced = True
+
+            fds = _recv_fds(anc)
+            if not fds:
+                self._err("No file descriptors given")
+                continue
+            self.stdin, self.stdout, self.stderr = fds
+
+            argv = argv.decode("utf-8")
+            argv = shlex.split(argv)
+            cmd = argv[0]
+
+            if cmd == "af-init":
+                argv = argv[1:]
+                self._init(argv)
+                continue
+            elif not self.cdir:
+                self._err("Must call af-init first")
+                continue
+
+            if cmd not in _parse:
+                self._err("Command not allowed: " + cmd)
+                continue
+
+            _LOGGER.info("[%d:%d] Received command: %r", self.uid, self.pid, argv)
+
+            try:
+                _parse[cmd][1](argv[1:])
+            except _ParseOrRaise.Error as e:
+                self._err(str(e))
+                continue
+            argv[0] = _parse[cmd][0]
+
+            rc, _ = chroot(
+                argv, self.cdir,
+                net=True, ro_root=False,
+                stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
+            )
+
+            _send_retcode(self.request, rc)
+
+    def _init(self, argv):
+        getopts = _ParseOrRaise(
+            allow_abbrev=False,
+            add_help=False,
+        )
+        getopts.add_argument(
+            "--bootstrap",
+            action="store_true",
+        )
+        getopts.add_argument(
+            "cdir", metavar="CDIR",
+        )
+        try:
+            opts = getopts.parse_args(argv)
+        except _ParseOrRaise.Error as e:
+            self._err(e)
             return
 
-        if len(cdir) < len(b"x /"):
-            raise RootException(f"[{pid}] Message too short: {cdir!r}")
+        opts.cdir = Path(opts.cdir)
 
-        if cdir[0] == RootProto.BOOTSTRAP:
-            bootstrap = True
-        elif cdir[0] == RootProto.AMEND:
-            bootstrap = False
-        else:
-            raise RootException(f"[{pid}] Invalid message type: {cdir!r}")
-        cdir = Path(cdir[1:].decode("utf-8", "replace"))
+        if not opts.cdir.is_absolute():
+            self._err(f"Relative path: {opts.cdir}")
+            return
 
-        if not cdir.is_absolute():
-            raise RootException(f"[{pid}] Relative path: {cdir}")
+        if not opts.cdir.is_dir():
+            self._err(f"Nonexistent chroot: {opts.cdir}")
+            return
 
-        if not cdir.is_dir():
-            raise RootException(f"[{pid}] Nonexistent chroot: {cdir}")
+        owner = opts.cdir.stat().st_uid
+        if self.uid != owner and self.uid != _ROOTID:
+            self._err(f"{opts.cdir} belongs to {owner}")
+            return
 
-        owner = cdir.stat().st_uid
-        if uid != owner:
-            raise RootException(f"[{pid}] Chroot belongs to {owner}")
+        self.cdir = opts.cdir
+        chroot_init(self.cdir)
+        rc = 0
 
-        chroot_init(cdir)
+        if opts.bootstrap:
+            rc = chroot_bootstrap(
+                self.cdir,
+                stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
+            )
 
-        user_r, user_w = os.pipe()
-        stdout_r, stdout_w = os.pipe()
-        stderr_r, stderr_w = os.pipe()
-        ret_r, ret_w = os.pipe()
-        sent = (user_w, stdout_r, stderr_r, ret_r)
-        kept = (user_r, stdout_w, stderr_w, ret_w)
+        _send_retcode(self.request, rc)
 
-        _pass_fds(self.request, bytes([RootProto.OK]), sent)
-        for fd in sent:
-            os.close(fd)
+    def _err(self, msg):
+        try:
+            os.write(self.stderr, msg.encode("utf-8") + b"\n")
+        except OSError:
+            pass
 
-        if bootstrap:
-            try:
-                rc = chroot_bootstrap(
-                    cdir,
-                    stdout=stdout_w, stderr=stderr_w,
-                )
-                os.write(ret_w, b"%03d\n" % rc)
-            except BrokenPipeError:
-                for fd in kept:
-                    os.close(fd)
-                _LOGGER.debug(f"[{pid}] Client exited prematurely")
-                return
+        try:
+            _send_retcode(self.request, 1)
+        except ConnectionError:
+            pass
 
-        self.server.sel.register(
-            user_r, selectors.EVENT_READ,
-            (_handle_pipe, self.server.sel, cdir, *kept),
-        )
+        msg = f"[{self.uid}:{self.pid}] {msg}"
+        _LOGGER.error(msg)
 
-class RootServer(socketserver.UnixStreamServer):
+class RootServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     def __init__(self, sel):
         self.sel = sel
 
@@ -427,11 +454,11 @@ class RootServer(socketserver.UnixStreamServer):
 
     def handle_error(self, request, _):
         _, exc, _ = sys.exc_info()
-        _LOGGER.error("%s", exc)
+        _LOGGER.exception("%s", exc)
 
         try:
-            _send_err(request, exc)
-        except:
+            _send_retcode(request, 1)
+        except ConnectionError:
             pass
 
 def listen():
@@ -448,22 +475,28 @@ def listen():
             key.data[0](*key.data[1:])
 
 def client_init(cdir, bootstrap=False):
-    cdir = Path(cdir)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(str(_SOCK_PATH))
 
-    msgtype = RootProto.BOOTSTRAP if bootstrap else RootProto.AMEND
-    msg = bytes([msgtype]) + bytes(cdir)
-    assert len(msg) <= _BUF_SIZE
+    argv = "af-init"
+    if bootstrap:
+        argv += " --bootstrap"
+    argv += " " + shlex.quote(cdir)
+    argv = argv.encode("utf-8")
+    msg = argv
 
-    sock.sendall(msg)
-    msg, anc, _, _ = sock.recvmsg(_BUF_SIZE, _PASSFD_SIZE)
-    if anc:
-        anc = anc[0]
-        assert anc[0] == socket.SOL_SOCKET
-        assert anc[1] == socket.SCM_RIGHTS
-        fds = struct.unpack(_PASSFD_FMT, anc[2])
-    else:
-        fds = tuple()
+    _send_fds(
+        sock,
+        msg,
+        [
+            sys.stdin.fileno(),
+            sys.stdout.fileno(),
+            sys.stderr.fileno(),
+        ],
+    )
 
-    return (RootProto(msg[0]), msg[1:], fds)
+    rc = _recv_retcode(sock)
+    if rc != 0:
+        sys.exit(rc)
+
+    return sock

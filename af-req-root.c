@@ -1,15 +1,19 @@
 char const *PROG = "af-req-root";
 char const *USAGE = "af-req-root COMMAND [ARGS ...]";
 #define BUF_SIZE 4096
-#include <errno.h>                // errno
-#include <fcntl.h>                // fcntl, F_GETFL, F_SETFL, O_NONBLOCK
-#include <libgen.h>               // basename
-#include <stdlib.h>               // getenv, strtol
+#define NUM_FDS 3
 
-#include <skalibs/bytestr.h>      // str_equal, str_len
-#include <skalibs/iopause.h>      // iopause, iopause_fd
-#include <skalibs/strerr2.h>      // strerr_*
-#include <skalibs/allreadwrite.h> // allread, allwrite, fd_read, fd_write
+#include <errno.h>                /* errno                   */
+#include <libgen.h>               /* basename                */
+#include <stdlib.h>               /* getenv, strtol          */
+#include <stdio.h>                /* snprintf                */
+#include <string.h>               /* memcpy                  */
+#include <sys/socket.h>           /* sendmsg                 */
+#include <unistd.h>               /* *_FILENO                */
+
+#include <skalibs/bytestr.h>      /* str_equal               */
+#include <skalibs/strerr2.h>      /* strerr_*                */
+#include <skalibs/webipc.h>       /* ipc_connect             */
 
 #define FATAL_IF(what, why) \
 	errno = 0; \
@@ -32,105 +36,58 @@ int fd_from_env(char *name) {
 	return fd;
 }
 
-void write_user_w(int user_w, int argc, char *argv[], int start) {
-	size_t len;
-
-	for (int i = start; i < argc; i++) {
-		len = str_len(argv[i]);
-		FATAL_IF(
-			allwrite(user_w, argv[i], len) == -1,
-			"write to AF_USER_W"
-		);
-		FATAL_IF(allwrite(user_w, " ", 1) == -1, "write to AF_USER_W");
-	}
-	FATAL_IF(allwrite(user_w, "\n", 1) == -1, "write to AF_USER_W");
-}
-
-void empty_ret_r(int ret_r) {
-	int old_flags;
-	char rc[3];
-
-	FATAL_IF(
-		(old_flags = fcntl(ret_r, F_GETFL)) < 0,
-		"get AF_RET_R flags"
-	);
-	FATAL_IF(
-		fcntl(ret_r, F_SETFL, old_flags | O_NONBLOCK) == -1,
-		"set AF_RET_R as nonblocking"
-	);
-
-	for (;;) {
-		errno = 0;
-		if (fd_read(ret_r, rc, sizeof(rc)) == -1) {
-			if (errno == EAGAIN)
-				break;
-			else
-				strerr_diefu1sys(errno, "read from AF_RET_R");
-		}
-	}
-
-	FATAL_IF(
-		fcntl(ret_r, F_SETFL, old_flags) == -1,
-		"set AF_RET_R as blocking"
-	);
-}
-
-void read_root_r(int fd_out, int root_r) {
+void send_cmd(int sock_fd, int my_fds[NUM_FDS], int argc, int start, char *argv[]) {
 	char buf[BUF_SIZE];
-	ssize_t len = 0;
+	int i, written, remaining, added;
+	struct iovec iov;
+	struct msghdr msg;
+	struct cmsghdr *cmsg;
+	unsigned char cbuf[CMSG_SPACE(NUM_FDS * sizeof(int))];
 
-	errno = 0;
-	switch ((len = fd_read(root_r, buf, BUF_SIZE))) {
-		case -1:
-			if (fd_out == 1)
-				strerr_diefu1x(errno, "read from AF_STDOUT_R");
-			else
-				strerr_diefu1x(errno, "read from AF_STDERR_R");
-			break;
-		case 0:
-			strerr_dief1x(2, "lost connection with server");
-			break;
+	written = 0;
+	for (i = start; i < argc; i++) {
+		remaining = BUF_SIZE - written;
+		added = snprintf(buf + written, remaining, "%s ", argv[i]);
+		if (added >= remaining)
+			strerr_dief1x(2, "argv too long");
+		else if (added < 0)
+			strerr_diefu1x(3, "snprintf argv");
+
+		written += added;
 	}
 
-	fd_write(fd_out, buf, len);
+	iov.iov_base = buf;
+	iov.iov_len = written;
+
+	msg.msg_namelen = 0;
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = cbuf;
+	msg.msg_controllen = sizeof(cbuf);
+	msg.msg_flags = 0;
+
+	cmsg = CMSG_FIRSTHDR(&msg);
+	cmsg->cmsg_len = CMSG_LEN(NUM_FDS * sizeof(int));
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_RIGHTS;
+	memcpy(CMSG_DATA(cmsg), my_fds, NUM_FDS * sizeof(int));
+
+	FATAL_IF(sendmsg(sock_fd, &msg, 0) == -1, "send cmd");
 }
 
-int read_ret_r(int ret_r) {
-	int rc_i;
-	char rc_s[5];
-	rc_s[4] = 0;
+int recv_retcode(int sock_fd) {
+	char buf[BUF_SIZE];
+	int *rc;
 
-	errno = 0;
-	switch (allread(ret_r, rc_s, sizeof(rc_s) - 1)) {
-		case -1:
-			strerr_diefu1x(errno, "read from AF_RET_R");
-			break;
-		case 0:
-			strerr_dief1x(2, "lost connection with server");
-			break;
-		case sizeof(rc_s) - 1:
-			break;
-		default:
-			strerr_dief1x(2, "partial read from AF_RET_R");
-			break;
-	}
-
-	errno = 0;
-	rc_i = (int) strtol(rc_s, 0, 10);
-	if (errno != 0)
-		strerr_dieinvalid(2, "retcode from AF_RET_R");
-
-	return rc_i;
+	FATAL_IF(recv(sock_fd, buf, BUF_SIZE, 0) == -1, "receive retcode");
+	rc = (int *) buf;
+	return *rc;
 }
 
 int main(int argc, char *argv[]) {
+	int start, sock_fd;
 	char *cmd;
-	int start;
-	int user_w;
-	iopause_fd sel_fds[2];
-	iopause_fd *sel_stdout = &sel_fds[0];
-	iopause_fd *sel_stderr = &sel_fds[1];
-	iopause_fd *sel_ret = &sel_fds[2];
+	int my_fds[NUM_FDS] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO};
 
 	if (argc == 0)
 		strerr_dieusage(1, USAGE);
@@ -144,37 +101,8 @@ int main(int argc, char *argv[]) {
 	if (argc - start == 0)
 		strerr_dieusage(1, USAGE);
 
-	user_w = fd_from_env("AF_USER_W");
-	sel_stdout->fd = fd_from_env("AF_STDOUT_R");
-	sel_stdout->events = IOPAUSE_READ;
-	sel_stderr->fd = fd_from_env("AF_STDERR_R");
-	sel_stderr->events = IOPAUSE_READ;
-	sel_ret->fd = fd_from_env("AF_RET_R");
-	sel_ret->events = IOPAUSE_READ;
+	sock_fd = fd_from_env("AF_ROOT_FD");
 
-	empty_ret_r(sel_ret->fd);
-	write_user_w(user_w, argc, argv, start);
-
-	for (;;) {
-		FATAL_IF(
-			iopause(sel_fds, sizeof(sel_fds), 0, 0) == -1,
-			"poll"
-		);
-
-		if (sel_stdout->revents & IOPAUSE_EXCEPT)
-			strerr_diefu1x(2, "read AF_STDOUT_R");
-		if (sel_stdout->revents & IOPAUSE_EXCEPT)
-			strerr_diefu1x(2, "read AF_STDERR_R");
-		if (sel_ret->revents & IOPAUSE_EXCEPT)
-			strerr_diefu1x(2, "read AF_RET_R");
-
-		if (sel_stdout->revents & IOPAUSE_READ)
-			read_root_r(1, sel_stdout->fd);
-
-		if (sel_stderr->revents & IOPAUSE_READ)
-			read_root_r(2, sel_stderr->fd);
-
-		if (sel_ret->revents & IOPAUSE_READ)
-			exit(read_ret_r(sel_ret->fd));
-	}
+	send_cmd(sock_fd, my_fds, argc, start, argv);
+	return recv_retcode(sock_fd);
 }
