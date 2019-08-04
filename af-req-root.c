@@ -47,7 +47,7 @@ void send_cmd(int sock_fd, int my_fds[NUM_FDS], int argc, int start, char *argv[
 	written = 0;
 	for (i = start; i < argc; i++) {
 		remaining = BUF_SIZE - written;
-		added = snprintf(buf + written, remaining, "%s ", argv[i]);
+		added = snprintf(buf + written, remaining, "%s", argv[i]) + 1;
 		if (added >= remaining)
 			strerr_dief1x(2, "argv too long");
 		else if (added < 0)
@@ -55,6 +55,7 @@ void send_cmd(int sock_fd, int my_fds[NUM_FDS], int argc, int start, char *argv[
 
 		written += added;
 	}
+	written -= 1;
 
 	iov.iov_base = buf;
 	iov.iov_len = written;

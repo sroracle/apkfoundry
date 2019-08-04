@@ -349,7 +349,7 @@ class RootConn(socketserver.StreamRequestHandler):
             self.stdin, self.stdout, self.stderr = fds
 
             argv = argv.decode("utf-8")
-            argv = shlex.split(argv)
+            argv = argv.split("\0")
             cmd = argv[0]
 
             if cmd == "af-init":
@@ -480,8 +480,8 @@ def client_init(cdir, bootstrap=False):
 
     argv = "af-init"
     if bootstrap:
-        argv += " --bootstrap"
-    argv += " " + shlex.quote(cdir)
+        argv += "\0--bootstrap"
+    argv += "\0" + cdir
     argv = argv.encode("utf-8")
     msg = argv
 
