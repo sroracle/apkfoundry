@@ -103,12 +103,12 @@ def events_page(db, query, project_page=False):
         event.updated = timeelement(event.updated, now)
 
         jobs = db.execute(
-            "SELECT COUNT(*) FROM jobs WHERE event = ?;", (event.id,),
+            "SELECT COUNT(*) FROM jobs WHERE eventid = ?;", (event.id,),
         )
         (jobs,) = jobs.fetchone()
 
         tasks = db.execute(
-            "SELECT COUNT(*) FROM taskfull WHERE event = ?;", (event.id,),
+            "SELECT COUNT(*) FROM tasks_full WHERE eventid = ?;", (event.id,),
         )
         (tasks,) = tasks.fetchone()
 
@@ -124,7 +124,7 @@ def events_page(db, query, project_page=False):
 def jobs_page(db, query, event_page=False):
     event = jinja2.Undefined(name="event")
     if event_page:
-        event = Event.db_search(db, id=query["event"]).fetchone()
+        event = Event.db_search(db, eventid=query["event"]).fetchone()
 
         if event is None:
             error(404, "Unknown event")
@@ -138,7 +138,7 @@ def jobs_page(db, query, event_page=False):
         job.updated = timeelement(job.updated, now)
 
         job.tasks = db.execute(
-            "SELECT COUNT(*) FROM tasks WHERE job = ?;", (job.id,),
+            "SELECT COUNT(*) FROM tasks WHERE jobid = ?;", (job.id,),
         )
         (job.tasks,) = job.tasks.fetchone()
 
@@ -152,7 +152,7 @@ def jobs_page(db, query, event_page=False):
 def tasks_page(db, query, job_page=False):
     job = jinja2.Undefined(name="job")
     if job_page:
-        job = Job.db_search(db, id=query["job"]).fetchone()
+        job = Job.db_search(db, jobid=query["job"]).fetchone()
 
         if job is None:
             error(404, "Unknown job")
@@ -170,7 +170,7 @@ def tasks_page(db, query, job_page=False):
 
         if task.status & AFStatus.DONE:
             task.artifacts = db.execute(
-                "SELECT COUNT(*) FROM artifacts WHERE task = ?;", (task.id,),
+                "SELECT COUNT(*) FROM artifacts WHERE taskid = ?;", (task.id,),
             )
             (task.artifacts,) = task.artifacts.fetchone()
 

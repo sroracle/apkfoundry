@@ -1,14 +1,11 @@
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS events (
-  id          INTEGER PRIMARY KEY,
+  eventid     INTEGER PRIMARY KEY,
   project     TEXT    NOT NULL,
   type        INT     NOT NULL,
   clone       TEXT    NOT NULL,
   target      TEXT    NOT NULL,
-  mrid        INT,
-  mrclone     TEXT,
-  mrbranch    TEXT,
   revision    TEXT    NOT NULL,
   user        TEXT    NOT NULL,
   reason      TEXT    NOT NULL,
@@ -17,18 +14,21 @@ CREATE TABLE IF NOT EXISTS events (
   created     TIMESTAMP NOT NULL
     DEFAULT CURRENT_TIMESTAMP,
   updated     TIMESTAMP NOT NULL
-    DEFAULT CURRENT_TIMESTAMP
+    DEFAULT CURRENT_TIMESTAMP,
+  mrid        INT,
+  mrclone     TEXT,
+  mrbranch    TEXT
 );
 
 CREATE TRIGGER IF NOT EXISTS events_timestamp
   AFTER UPDATE ON events
 FOR EACH ROW BEGIN
-  UPDATE events SET updated = CURRENT_TIMESTAMP WHERE id = OLD.id;
+  UPDATE events SET updated = CURRENT_TIMESTAMP WHERE eventid = OLD.eventid;
 END;
 
 CREATE TABLE IF NOT EXISTS jobs (
-  id          INTEGER PRIMARY KEY,
-  event       INTEGER NOT NULL,
+  jobid       INTEGER PRIMARY KEY,
+  eventid     INTEGER NOT NULL,
   builder     TEXT,
   arch        TEXT    NOT NULL,
   status      INT     NOT NULL
@@ -37,13 +37,13 @@ CREATE TABLE IF NOT EXISTS jobs (
     DEFAULT CURRENT_TIMESTAMP,
   updated     TIMESTAMP NOT NULL
     DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(event) REFERENCES events(id)
+  FOREIGN KEY(eventid) REFERENCES events(eventid)
 );
 
 CREATE TRIGGER IF NOT EXISTS jobs_timestamp
   AFTER UPDATE ON jobs
 FOR EACH ROW BEGIN
-  UPDATE jobs SET updated = CURRENT_TIMESTAMP WHERE id = OLD.id;
+  UPDATE jobs SET updated = CURRENT_TIMESTAMP WHERE jobid = OLD.jobid;
 END;
 
 CREATE TRIGGER IF NOT EXISTS jobs_status
@@ -53,16 +53,16 @@ FOR EACH ROW BEGIN
     CASE
     WHEN NOT EXISTS
       -- (1, 4) = (new, start)
-      (SELECT 1 FROM jobs WHERE status IN (1, 4) AND event = NEW.event)
+      (SELECT 1 FROM jobs WHERE status IN (1, 4) AND eventid = NEW.eventid)
     THEN
         CASE
-        WHEN 56 IN (SELECT DISTINCT status FROM jobs WHERE event = NEW.event)
+        WHEN 56 IN (SELECT DISTINCT status FROM jobs WHERE eventid = NEW.eventid)
         THEN 56 -- cancel
-        WHEN 24 IN (SELECT DISTINCT status FROM jobs WHERE event = NEW.event)
+        WHEN 24 IN (SELECT DISTINCT status FROM jobs WHERE eventid = NEW.eventid)
         THEN 24 -- error
-        WHEN 152 IN (SELECT DISTINCT status FROM jobs WHERE event = NEW.event)
+        WHEN 152 IN (SELECT DISTINCT status FROM jobs WHERE eventid = NEW.eventid)
         THEN 152 -- fail
-        WHEN 312 IN (SELECT DISTINCT status FROM jobs WHERE event = NEW.event)
+        WHEN 312 IN (SELECT DISTINCT status FROM jobs WHERE eventid = NEW.eventid)
         THEN 312 -- depfail
         ELSE 72 -- success
         END
@@ -72,12 +72,12 @@ FOR EACH ROW BEGIN
     -- otherwise no change
     ELSE status
     END
-  WHERE id = NEW.event;
+  WHERE eventid = NEW.eventid;
 END;
 
 CREATE TABLE IF NOT EXISTS tasks (
-  id          INTEGER PRIMARY KEY,
-  job         INTEGER NOT NULL,
+  taskid      INTEGER PRIMARY KEY,
+  jobid       INTEGER NOT NULL,
   repo        TEXT    NOT NULL,
   pkg         TEXT    NOT NULL,
   maintainer  TEXT,
@@ -88,23 +88,23 @@ CREATE TABLE IF NOT EXISTS tasks (
     DEFAULT CURRENT_TIMESTAMP,
   updated     TIMESTAMP NOT NULL
     DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(job) REFERENCES jobs(id)
+  FOREIGN KEY(jobid) REFERENCES jobs(jobid)
 );
 
 CREATE TABLE IF NOT EXISTS artifacts (
-  id          INTEGER PRIMARY KEY,
-  task        INTEGER NOT NULL,
+  artifactid  INTEGER PRIMARY KEY,
+  taskid      INTEGER NOT NULL,
   name        TEXT NOT NULL,
   size        INTEGER NOT NULL,
   created     TIMESTAMP NOT NULL
     DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(task) REFERENCES tasks(id)
+  FOREIGN KEY(taskid) REFERENCES tasks(taskid)
 );
 
 CREATE TRIGGER IF NOT EXISTS tasks_timestamp
   AFTER UPDATE ON tasks
 FOR EACH ROW BEGIN
-  UPDATE tasks SET updated = CURRENT_TIMESTAMP WHERE id = OLD.id;
+  UPDATE tasks SET updated = CURRENT_TIMESTAMP WHERE taskid = OLD.taskid;
 END;
 
 CREATE TRIGGER IF NOT EXISTS tasks_status
@@ -114,16 +114,16 @@ FOR EACH ROW BEGIN
     CASE
     WHEN NOT EXISTS
       -- (1, 4) = (new, start)
-      (SELECT 1 FROM tasks WHERE status IN (1, 4) AND job = NEW.job)
+      (SELECT 1 FROM tasks WHERE status IN (1, 4) AND jobid = NEW.jobid)
     THEN
         CASE
-        WHEN 56 IN (SELECT DISTINCT status FROM jobs WHERE job = NEW.job)
+        WHEN 56 IN (SELECT DISTINCT status FROM jobs WHERE jobid = NEW.jobid)
         THEN 56 -- cancel
-        WHEN 24 IN (SELECT DISTINCT status FROM jobs WHERE job = NEW.job)
+        WHEN 24 IN (SELECT DISTINCT status FROM jobs WHERE jobid = NEW.jobid)
         THEN 24 -- error
-        WHEN 152 IN (SELECT DISTINCT status FROM jobs WHERE job = NEW.job)
+        WHEN 152 IN (SELECT DISTINCT status FROM jobs WHERE jobid = NEW.jobid)
         THEN 152 -- fail
-        WHEN 312 IN (SELECT DISTINCT status FROM jobs WHERE job = NEW.job)
+        WHEN 312 IN (SELECT DISTINCT status FROM jobs WHERE jobid = NEW.jobid)
         THEN 312 -- depfail
         ELSE 72 -- success
         END
@@ -133,19 +133,18 @@ FOR EACH ROW BEGIN
     -- otherwise no change
     ELSE status
     END
-  WHERE id = NEW.job;
+  WHERE jobid = NEW.jobid;
 END;
 
-CREATE VIEW IF NOT EXISTS jobfull AS
+CREATE VIEW IF NOT EXISTS jobs_full AS
 SELECT
-  jobs.id AS id,
-  jobs.event AS event,
+  jobs.jobid AS jobid,
+  jobs.eventid AS eventid,
   jobs.builder AS builder,
   jobs.arch AS arch,
   jobs.status AS status,
   jobs.created AS created,
   jobs.updated AS updated,
-  events.id AS e_id,
   events.project AS project,
   events.type AS type,
   events.clone AS clone,
@@ -156,15 +155,13 @@ SELECT
   events.revision AS revision,
   events.user AS user,
   events.reason AS reason,
-  events.created AS e_created,
-  events.updated AS e_updated
 FROM jobs
-INNER JOIN events ON jobs.event = events.id;
+INNER JOIN events ON jobs.eventid = events.eventid;
 
-CREATE VIEW IF NOT EXISTS taskfull AS
+CREATE VIEW IF NOT EXISTS tasks_full AS
 SELECT
-  tasks.id AS id,
-  tasks.job AS job,
+  tasks.taskid AS taskid,
+  tasks.jobid AS jobid,
   tasks.repo AS repo,
   tasks.pkg AS pkg,
   tasks.maintainer AS maintainer,
@@ -172,25 +169,20 @@ SELECT
   tasks.tail AS tail,
   tasks.created AS created,
   tasks.updated AS updated,
-  jobfull.id AS j_id,
-  jobfull.event AS event,
-  jobfull.builder AS builder,
-  jobfull.arch AS arch,
-  jobfull.status AS status,
-  jobfull.created AS j_created,
-  jobfull.updated AS j_updated,
-  jobfull.e_id as e_id,
-  jobfull.project AS project,
-  jobfull.type AS type,
-  jobfull.clone AS clone,
-  jobfull.target AS target,
-  jobfull.mrid AS mrid,
-  jobfull.mrclone AS mrclone,
-  jobfull.mrbranch AS mrbranch,
-  jobfull.revision AS revision,
-  jobfull.user AS user,
-  jobfull.reason AS reason,
-  jobfull.e_created AS e_created,
-  jobfull.e_updated AS e_updated
+  jobs_full.job AS jobid,
+  jobs_full.event AS eventid,
+  jobs_full.builder AS builder,
+  jobs_full.arch AS arch,
+  jobs_full.status AS status,
+  jobs_full.project AS project,
+  jobs_full.type AS type,
+  jobs_full.clone AS clone,
+  jobs_full.target AS target,
+  jobs_full.mrid AS mrid,
+  jobs_full.mrclone AS mrclone,
+  jobs_full.mrbranch AS mrbranch,
+  jobs_full.revision AS revision,
+  jobs_full.user AS user,
+  jobs_full.reason AS reason,
 FROM tasks
-INNER JOIN jobfull ON tasks.job = jobfull.id;
+INNER JOIN jobs_full ON tasks.job = jobs_full.job;

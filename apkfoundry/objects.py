@@ -10,7 +10,7 @@ import subprocess
 from datetime import datetime
 from typing import List
 
-from attr import attrs, attrib
+import attr
 
 from . import dispatch_queue, get_output, get_config, git_init
 
@@ -39,18 +39,11 @@ class AFStatus(enum.IntFlag):
     def __str__(self):
         return self.name
 
-_ORDERINGS = {
-    "id-asc": "ORDER BY id ASC",
-    "asc": "ORDER BY updated ASC, id ASC",
-    "id-desc": "ORDER BY id DESC",
-    "desc": "ORDER BY updated DESC, id DESC",
-}
-
 _LOGGER = logging.getLogger(__name__)
 
 _PROJECTS_HOME = get_config("dispatch").getpath("projects")
 
-def validate_schema(schema, dct):
+def _validate_schema(schema, dct):
     for (key, value) in schema.items():
         if key.startswith("_"):
             continue
@@ -72,10 +65,10 @@ def validate_schema(schema, dct):
 
         if descend and type(dct[key]) == list:
             for i in dct[key]:
-                validate_schema(value[0], i)
+                _validate_schema(value[0], i)
 
         elif descend and type(dct[key]) == dict:
-            validate_schema(value, dct[key])
+            _validate_schema(value, dct[key])
 
         elif descend:
             assert dct[key] == value, f"{key} must equal {value}"
@@ -83,7 +76,7 @@ def validate_schema(schema, dct):
 class JSONSchema:
     __slots__ = ("full_schema",)
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs):
         self.full_schema = {}
 
         for cls in self.__class__.__mro__:
@@ -93,7 +86,7 @@ class JSONSchema:
             if hasattr(cls, "schema"):
                 self.full_schema.update(cls.schema)
 
-        validate_schema(self.full_schema, kwargs)
+        _validate_schema(self.full_schema, kwargs)
 
         for key in self.full_schema:
             setattr(self, key, kwargs[key])
@@ -101,41 +94,86 @@ class JSONSchema:
     def __getitem__(self, key: str):
         return getattr(self, key)
 
-    def __setitem__(self, key: str, value) -> None:
+    def __setitem__(self, key: str, value):
         setattr(self, key, value)
 
-    def __delitem__(self, key) -> None:
+    def __delitem__(self, key):
         self.__delattr__(key)
 
-    def __iter__(self) -> str:
+    def __iter__(self):
         yield from self.__slots__
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, key):
         return hasattr(self, key)
 
-    def to_dict(self) -> dict:
+    def to_dict(self):
         return {key: self[key] for key in self.full_schema}
 
-@attrs(kw_only=True, slots=True)
+def _db_search(classes, db, where=None, **query):
+    if where is None:
+        where = []
+
+    full = False
+    tables = classes[0]._tables
+
+    for field, value in query.items():
+        if not value or field.startswith("_"):
+            continue
+
+        for cls in classes:
+            fields = attr.fields_dict(cls)
+            if field in fields:
+                if fields[field].type is str:
+                    where.append(f"IFNULL({field}, 'None') GLOB :{field}")
+                else:
+                    where.append(f"{field} = :{field}")
+
+                break
+
+        else:
+            cls = classes[0]
+
+        if cls != classes[0]:
+            full = True
+
+    table = tables[-1] if full else tables[0]
+    sql = f"SELECT * FROM {table}"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+
+    if query.get("limit", None):
+        sql += " LIMIT :limit"
+    if query.get("offset", None):
+        sql += " OFFSET :offset"
+    sql += ";"
+
+    sql += ";"
+
+    old_factory = db.row_factory
+    db.row_factory = cls.from_db_row
+    rows = db.execute(sql, query)
+    db.row_factory = old_factory
+    return rows
+
+@attr.s(kw_only=True, slots=True)
 class Task:
-    id: int = attrib(default=None)
-    job = attrib() # Job or int
-    repo: str = attrib()
-    pkg: str = attrib()
-    maintainer: str = attrib(default=None)
-    tail: str = attrib(default=None)
-    artifacts = attrib(default=None)
+    id: int = attr.ib(default=None)
+    job = attr.ib() # Job or int
+    repo: str = attr.ib()
+    pkg: str = attr.ib()
+    maintainer: str = attr.ib(default=None)
+    tail: str = attr.ib(default=None)
+    artifacts = attr.ib(default=None)
 
-    created: datetime = attrib(default=None)
-    updated: datetime = attrib(default=None)
+    created: datetime = attr.ib(default=None)
+    updated: datetime = attr.ib(default=None)
 
-    _status = attrib(
+    _tables = ("tasks", "tasks_full")
+
+    _status = attr.ib(
         default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
     )
-    _topic = attrib(default=None)
-
-    def __attrs_post_init__(self) -> None:
-        assert self.status in AFStatus, f"Invalid task status {self.status}"
+    _topic = attr.ib(default=None)
 
     def __str__(self) -> str:
         return self.topic
@@ -196,10 +234,10 @@ class Task:
             topic=topic,
         )
 
-    def db_process(self, db: sqlite3.Connection) -> None:
+    def db_process(self, db):
         db.execute(
             """UPDATE tasks SET status = ?, tail = ?
-            WHERE job = ? AND repo = ? AND pkg = ?;""",
+            WHERE jobid = ? AND repo = ? AND pkg = ?;""",
             (self.status, self.tail, self.job, self.repo, self.pkg),
         )
         db.commit()
@@ -220,104 +258,34 @@ class Task:
 
     @classmethod
     def db_search(cls, db, where=None, **query):
-        full = False
+        return _db_search((cls, Job, Event), db, where, **query)
 
-        if where is None:
-            where = []
-
-        if query.get("id", None):
-            where.append("id = :id")
-        if query.get("job", None):
-            where.append("job = :job")
-        if query.get("repo", None):
-            where.append("repo GLOB :repo")
-        if query.get("pkg", None):
-            where.append("pkg GLOB :pkg")
-        if query.get("maintainer", None):
-            where.append("IFNULL(maintainer, 'None') GLOB :maintainer")
-        if query.get("status", None):
-            where.append("status = :status")
-        if query.get("builder", None):
-            full = True
-            where.append("IFNULL(builder, 'None') GLOB :builder")
-        if query.get("arch", None):
-            full = True
-            where.append("arch GLOB :arch")
-        if query.get("event", None):
-            full = True
-            where.append("event = :event")
-        if query.get("project", None):
-            full = True
-            where.append("project GLOB :project")
-        if query.get("type", None):
-            full = True
-            where.append("type = :type")
-        if query.get("clone", None):
-            full = True
-            where.append("clone GLOB :clone")
-        if query.get("target", None):
-            full = True
-            where.append("target GLOB :target")
-        if query.get("mrid", None):
-            full = True
-            where.append("mrid = :mrid")
-        if query.get("mrclone", None):
-            full = True
-            where.append("mrclone GLOB :mrclone")
-        if query.get("mrbranch", None):
-            full = True
-            where.append("mrbranch GLOB :mrbranch")
-        if query.get("user", None):
-            full = True
-            where.append("user GLOB :user")
-
-        if full:
-            sql = f"SELECT * FROM taskfull"
-        else:
-            sql = f"SELECT * FROM tasks"
-
-        if where:
-            sql += " WHERE " + " AND ".join(where)
-        sql += " " + _ORDERINGS.get(
-            query.get("order", None), _ORDERINGS["desc"],
-        )
-
-        if query.get("limit", None):
-            sql += " LIMIT :limit"
-        if query.get("offset", None):
-            sql += " OFFSET :offset"
-        sql += ";"
-
-        old_factory = db.row_factory
-        db.row_factory = cls.from_db_row
-        rows = db.execute(sql, query)
-        db.row_factory = old_factory
-        return rows
-
-@attrs(kw_only=True, slots=True)
+@attr.s(kw_only=True, slots=True)
 class Job:
-    id: int = attrib(default=None)
-    event = attrib() # Event or int
-    builder: str = attrib(default=None)
-    arch: str = attrib()
+    job: int = attr.ib(default=None)
+    event = attr.ib() # Event or int
+    builder: str = attr.ib(default=None)
+    arch: str = attr.ib()
 
-    created: datetime = attrib(default=None)
-    updated: datetime = attrib(default=None)
+    created: datetime = attr.ib(default=None)
+    updated: datetime = attr.ib(default=None)
 
-    tasks = attrib(default=None)
-    payload = attrib(default=None)
-    dir = attrib(default=None)
+    tasks = attr.ib(default=None)
+    payload = attr.ib(default=None)
+    dir = attr.ib(default=None)
 
-    _status = attrib(
+    _tables = ("jobs", "jobs_full")
+
+    _status = attr.ib(
         default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
     )
-    _topic = attrib(default=None)
+    _topic = attr.ib(default=None)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.topic
 
     @property
-    def topic(self, inner: bool=False) -> str:
+    def topic(self, inner=False):
         if self._topic is not None:
             return self._topic
 
@@ -382,112 +350,53 @@ class Job:
             updated=row[6],
         )
 
-    def db_process(self, db: sqlite3.Connection) -> None:
-        db.execute(
-            "UPDATE jobs SET builder = ?, status = ? WHERE id = ?;",
-            (self.builder, self.status, self.id),
-        )
-
-        if self.status & (AFStatus.START | AFStatus.DONE):
-            db.execute(
-                "UPDATE tasks SET status = ? WHERE job = ? AND status = 'new';",
-                (self.status, self.id),
-            )
-
-        db.commit()
+    def db_process(self, db):
+        pass
+        # XXX hmm
+#        db.execute(
+#            "UPDATE jobs SET builder = ?, status = ? WHERE job = ?;",
+#            (self.builder, self.status, self.job),
+#        )
+#
+#        if self.status & (AFStatus.START | AFStatus.DONE):
+#            db.execute(
+#                "UPDATE tasks SET status = ? WHERE job = ? AND status = 'new';",
+#                (self.status, self.job),
+#            )
+#
+#        db.commit()
 
     @classmethod
     def db_search(cls, db, where=None, **query):
-        full = False
-        if where is None:
-            where = []
+        return _db_search((cls, Event), db, where, **query)
 
-        if query.get("id", None):
-            where.append("id = :id")
-        if query.get("event", None):
-            where.append("event = :event")
-        if query.get("builder", None):
-            where.append("IFNULL(builder, 'None') GLOB :builder")
-        if query.get("arch", None):
-            where.append("arch GLOB :arch")
-        if query.get("status", None):
-            where.append("status = :status")
-        if query.get("project", None):
-            full = True
-            where.append("project GLOB :project")
-        if query.get("type", None):
-            full = True
-            where.append("type = :type")
-        if query.get("clone", None):
-            full = True
-            where.append("clone GLOB :clone")
-        if query.get("target", None):
-            full = True
-            where.append("target GLOB :target")
-        if query.get("mrid", None):
-            full = True
-            where.append("mrid = :mrid")
-        if query.get("mrclone", None):
-            full = True
-            where.append("mrclone GLOB :mrclone")
-        if query.get("mrbranch", None):
-            full = True
-            where.append("mrbranch GLOB :mrbranch")
-        if query.get("user", None):
-            full = True
-            where.append("user GLOB :user")
-
-        if full:
-            sql = "SELECT * FROM jobfull"
-        else:
-            sql = "SELECT * FROM jobs"
-
-        if where:
-            sql += " WHERE " + " AND ".join(where)
-        sql += " " + _ORDERINGS.get(
-            query.get("order", None), _ORDERINGS["desc"],
-        )
-
-        if query.get("limit", None):
-            sql += " LIMIT :limit"
-        if query.get("offset", None):
-            sql += " OFFSET :offset"
-        sql += ";"
-
-        old_factory = db.row_factory
-        db.row_factory = cls.from_db_row
-        rows = db.execute(sql, query)
-        db.row_factory = old_factory
-        return rows
-
-@attrs(kw_only=True, slots=True)
+@attr.s(kw_only=True, slots=True)
 class Event:
-    id: int = attrib(default=None)
-    project: str = attrib()
-    type: int = attrib(
-        default=AFEventType.Push, validator=attr.validators.in_(AFEventType)
+    id: int = attr.ib(default=None)
+    project: str = attr.ib()
+    type: int = attr.ib(
+        default=AFEventType.PUSH, validator=attr.validators.in_(AFEventType)
     )
-    clone: str = attrib()
-    target: str = attrib()
-    mrid: int = attrib(default=None)
-    mrclone: str = attrib(default=None)
-    mrbranch: str = attrib(default=None)
-    revision: str = attrib()
-    user: str = attrib()
-    reason: str = attrib()
+    clone: str = attr.ib()
+    target: str = attr.ib()
+    revision: str = attr.ib()
+    user: str = attr.ib()
+    reason: str = attr.ib()
 
-    created: datetime = attrib(default=None)
-    updated: datetime = attrib(default=None)
+    created: datetime = attr.ib(default=None)
+    updated: datetime = attr.ib(default=None)
 
-    _dir = attrib(default=None)
-    _startdirs = attrib(default=None)
-    _arches = attrib(default=None)
-    _jobs = attrib(default=None)
-    _maintainers = attrib(default=None)
-    _status = attrib(
+    mrid: int = attr.ib(default=None)
+    mrclone: str = attr.ib(default=None)
+    mrbranch: str = attr.ib(default=None)
+
+    _tables = ("events",)
+
+    _dir = attr.ib(default=None)
+    _status = attr.ib(
         default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
     )
-    _topic = attrib(default=None)
+    _topic = attr.ib(default=None)
 
     def __attrs_post_init__(self) -> None:
         self._dir = _PROJECTS_HOME / self.project
@@ -496,7 +405,7 @@ class Event:
         return self.topic
 
     @property
-    def topic(self, inner: bool=False) -> str:
+    def topic(self, inner=False):
         if self._topic is not None:
             return self._topic
 
@@ -535,64 +444,24 @@ class Event:
             type=AFEventType(row[2]),
             clone=row[3],
             target=row[4],
-            mrid=row[5],
-            mrclone=row[6],
-            mrbranch=row[7],
-            revision=row[8],
-            user=row[9],
-            reason=row[10],
-            status=AFStatus(row[11]),
-            created=row[12],
-            updated=row[13],
+            revision=row[5],
+            user=row[6],
+            reason=row[7],
+            status=AFStatus(row[8]),
+            created=row[9],
+            updated=row[10],
+
+            mrid=row[11],
+            mrclone=row[12],
+            mrbranch=row[13],
         )
 
     @classmethod
     def db_search(cls, db, where=None, **query):
-        if where is None:
-            where = []
+        return _db_search((cls,), db, where, **query)
 
-        if query.get("id", None):
-            where.append("id = :id")
-        if query.get("project", None):
-            where.append("project GLOB :project")
-        if query.get("user", None):
-            where.append("user GLOB :user")
-        if query.get("type", None):
-            where.append("type = :type")
-        if query.get("clone", None):
-            where.append("clone GLOB :clone")
-        if query.get("target", None):
-            where.append("target GLOB :target")
-        if query.get("mrid", None):
-            where.append("mrid = :mrid")
-        if query.get("mrclone", None):
-            where.append("mrclone GLOB :mrclone")
-        if query.get("mrbranch", None):
-            where.append("mrbranch GLOB :mrbranch")
-        if query.get("status", None):
-            where.append("status = :status")
-
-        sql = "SELECT * FROM events"
-        if where:
-            sql += " WHERE " + " AND ".join(where)
-        sql += " " + _ORDERINGS.get(
-            query.get("order", None), _ORDERINGS["desc"],
-        )
-
-        if query.get("limit", None):
-            sql += " LIMIT :limit"
-        if query.get("offset", None):
-            sql += " OFFSET :offset"
-        sql += ";"
-
-        old_factory = db.row_factory
-        db.row_factory = cls.from_db_row
-        rows = db.execute(sql, query)
-        db.row_factory = old_factory
-        return rows
-
-    def _db_add(self, db: sqlite3.Connection) -> None:
-        assert self.id is None, "_db_add after self.id"
+    def _db_add(self, db):
+        assert self.id is None, "_db_add after Event.id"
         _LOGGER.info("[%s] Adding event to database", str(self))
 
         cursor = db.execute("""
@@ -625,63 +494,61 @@ class Event:
         self.id = cursor.lastrowid
         db.commit()
 
-    def _debug_dump(self) -> None:
+    def _debug_dump(self):
         _LOGGER.debug("[%s] Clone: %s", str(self), self.clone)
         _LOGGER.debug("[%s] Revision: %s", str(self), self.revision)
         _LOGGER.debug("[%s] User: %s", str(self), self.user)
         _LOGGER.debug("[%s] Reason: %s", str(self), self.reason)
 
-    def _git_init(self) -> None:
+    def _calc_startdirs(self):
         raise NotImplementedError
 
-    def _calc_startdirs(self) -> None:
-        raise NotImplementedError
-
-    def _calc_maintainers(self) -> None:
+    def _calc_maintainers(self, startdirs):
         _LOGGER.info("[%s] Retrieving maintainers", str(self))
-        self._maintainers = get_output(
-            "af-maintainer", *self._startdirs, cwd=self._dir,
+        maintainers = get_output(
+            "af-maintainer", *startdirs, cwd=self._dir,
         )
-        self._maintainers = self._maintainers.strip().splitlines()
-        self._maintainers = [line.split(maxsplit=1) for line in self._maintainers]
-        self._maintainers = {line[0]: line[1] for line in self._maintainers if line}
+        maintainers = maintainers.strip().splitlines()
+        maintainers = [line.strip().split(maxsplit=1) for line in maintainers]
+        maintainers = {line[0]: line[1] for line in maintainers if line}
 
-    def _calc_arches(self) -> None:
+        return maintainers
+
+    def _calc_arches(self, startdirs):
         _LOGGER.info("[%s] Generating architecture list", str(self))
         lines = get_output(
             "af-arch", "-b", self.target,
-            *self._startdirs, cwd=self._dir,
+            *startdirs, cwd=self._dir,
         ).strip().splitlines()
 
-        self._arches = {}
-        for line in self._arches:
+        arches = {}
+        for line in arches:
             line = line.strip().split(maxsplit=1)
             if not line or len(line) != 2:
                 continue
 
             arch, startdir = line
-            if arch not in self._arches:
-                self._arches[arch] = []
+            if arch not in arches:
+                arches[arch] = []
 
-            self._arches[arch].append(startdir)
+            arches[arch].append(startdir)
 
-        self._startdirs = None
+        return arches
 
-    def _generate_jobs(self, db: sqlite3.Connection) -> List[Job]:
-        assert self.id is not None, "_generate_jobs before self.id"
-        self._jobs = {}
-        for arch in self._arches:
-            self._jobs[arch] = Job(
+    def _generate_jobs(self, db, arches):
+        assert self.id is not None, "_generate_jobs before Event.id"
+        jobs = {}
+        for arch in arches:
+            jobs[arch] = Job(
                 id=None,
                 event=self,
                 builder=None,
                 arch=arch,
                 status=AFStatus.NEW,
-                tasks=self._arches[arch],
+                tasks=arches[arch],
             )
-        self._arches = None
 
-        rows = [(self.id, arch) for arch in self._jobs]
+        rows = [(self.id, arch) for arch in jobs]
 
         _LOGGER.info("[%s] Adding jobs to database", str(self))
         db.executemany(
@@ -691,25 +558,26 @@ class Event:
         db.commit()
 
         cursor = db.execute(
-            "SELECT arch, id FROM jobs WHERE event = ?;",
+            "SELECT arch, jobid FROM jobs WHERE eventid = ?;",
             (self.id,),
         )
 
         for row in cursor:
-            self._jobs[row[0]].id = row[1]
+            jobs[row[0]].id = row[1]
 
-    def _generate_tasks(self, db: sqlite3.Connection) -> None:
-        assert self.id is not None, "_generate_tasks before self.id"
-        assert self._jobs is not None, "_generate_tasks before self._jobs"
+        return jobs
+
+    def _generate_tasks(self, db, jobs, maintainers):
+        assert self.id is not None, "_generate_tasks before Event.id"
 
         rows = []
-        for arch in self._jobs:
-            job = self._jobs[arch]
-            assert job.id is not None, "_generate_tasks before job.id"
-            assert job.tasks is not None, "_generate_tasks before job.tasks"
+        for arch, job in jobs.items():
+            assert job.id is not None, "_generate_tasks before Job.id"
+            assert job.tasks is not None, "_generate_tasks before Job.tasks"
+
             for startdir in job.tasks:
                 repo, pkg = startdir.split("/", maxsplit=1)
-                maintainer = self._maintainers.get(startdir, None)
+                maintainer = maintainers.get(startdir, None)
                 rows.append((job.id, repo, pkg, maintainer))
 
         _LOGGER.info("[%s] Adding tasks to database", str(self))
@@ -719,11 +587,10 @@ class Event:
         )
         db.commit()
 
-        for arch in self._jobs:
-            job = self._jobs[arch]
+        for job in jobs.values():
             job.tasks = Task.db_search(job=job.id)
 
-    def db_process(self, db: sqlite3.Connection) -> None:
+    def db_process(self, db):
         try:
             self._db_add(db)
             self._debug_dump()
@@ -731,37 +598,41 @@ class Event:
                 self._dir, self.clone, hard=True,
                 mrid=self.mrid, mrclone=self.mrclone, mrbranch=self.mrbranch,
             )
-            self._calc_startdirs()
-            self._calc_maintainers()
-            self._calc_arches()
-            self._generate_jobs(db)
-            self._generate_tasks(db)
+            startdirs = self._calc_startdirs()
+            maintainers = self._calc_maintainers(startdirs)
+            arches = self._calc_arches(startdirs)
+            jobs = self._generate_jobs(db, startdirs)
+            self._generate_tasks(db, jobs, maintainers)
         except (AssertionError, sqlite3.Error, subprocess.CalledProcessError) as e:
             _LOGGER.exception("[%s] exception:", self, exc_info=e)
             return
 
-        for arch in self._jobs:
-            dispatch_queue.put(self._jobs[arch])
+        for job in jobs.values():
+            dispatch_queue.put(job)
 
-@attrs(kw_only=True, slots=True)
+@attr.s(kw_only=True, slots=True)
 class Push(Event):
-    type: int = attrib(default=AFEventType.PUSH)
+    type: int = attr.ib(default=AFEventType.PUSH)
 
-    before: str = attrib()
-    after: str = attrib()
+    before: str = attr.ib()
+    after: str = attr.ib()
 
-    def _calc_startdirs(self) -> None:
+    def _calc_startdirs(self):
         _LOGGER.info("[%s] Analyzing changeset", str(self))
         args = ["-p", self.target, self.before, self.after]
-        self._startdirs = get_output("af-changes", *args, cwd=self._dir)
-        self._startdirs = self._startdirs.strip().splitlines()
+        startdirs = get_output("af-changes", *args, cwd=self._dir)
+        startdirs = startdirs.strip().splitlines()
 
-@attrs(kw_only=True, slots=True)
+        return startdirs
+
+@attr.s(kw_only=True, slots=True)
 class MergeRequest(Event):
-    type: int = attrib(default=AFEventType.MR)
+    type: int = attr.ib(default=AFEventType.MR)
 
-    def _calc_startdirs(self) -> None:
+    def _calc_startdirs(self):
         _LOGGER.info("[%s] Analyzing changeset", str(self))
         args = ["-m", self.mrid, self.target, self.revision]
-        self._startdirs = get_output("af-changes", *args, cwd=self._dir)
-        self._startdirs = self._startdirs.strip().splitlines()
+        startdirs = get_output("af-changes", *args, cwd=self._dir)
+        startdirs = startdirs.strip().splitlines()
+
+        return startdirs
