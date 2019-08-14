@@ -28,8 +28,10 @@ split into restricted files away from more mundane options.
     [agent]
     ; Name of the builder agent.
     name = agent01
-    ; Path to the directory under which to store chroots.
-    chroots = /var/lib/apkfoundry/agent
+    ; Path to the directory under which to store containers.
+    containers = /var/lib/apkfoundry/containers
+    ; Path to the directory under which to store job artifacts.
+    jobs = /var/lib/apkfoundry/jobs
     ; The MQTT username for the builder agent.
     username=agent01
     ; The MQTT password for the builder agent.
@@ -37,7 +39,7 @@ split into restricted files away from more mundane options.
     ; MQTT wildcard topic on which to listen for jobs.
     mask=jobs/#
     ; Number of disjoint jobs allowed to run concurrently.
-    jobs=1
+    concurrency=1
 
     [chroot]
     ; ID of the af-root user.

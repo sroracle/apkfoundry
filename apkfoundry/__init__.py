@@ -45,11 +45,12 @@ _DEFAULT_CONFIG = {
     },
     "agent": {
         "name": "agent01",
-        "chroots": str(_HOME / "agent"),
+        "containers": str(_HOME / "containers"),
+        "jobs": str(_HOME / "jobs"),
         "username": "agent01",
         "password": "password",
         "mask": "jobs/#",
-        "jobs": "1",
+        "concurrency": "1",
     },
     "chroot": {
         "rootid": "1001",
@@ -143,6 +144,8 @@ inbound_queue = IIQueue(sentinel=_exit_event)
 db_queue = IIQueue(sentinel=_exit_event)
 dispatch_queue = IIQueue(sentinel=_exit_event)
 
+agent_queue = IIQueue(sentinel=_exit_event)
+
 def af_exit(recv=False) -> None:
     if not _exit_event.is_set():
         if not recv:
@@ -178,5 +181,5 @@ def git_init(dir, clone, *,
     if mrid:
         run("git", "fetch", mrclone, f"{mrbranch}:mr-{mrid}", cwd=dir)
 
-    run("git", "reset", "--hard", rev, cwd=dir)
-    run("git", "reset", "--hard", "origin/apkfoundry", cwd=dir / ".apkfoundry")
+    run("git", "reset", hard, rev, cwd=dir)
+    run("git", "reset", hard, rev, cwd=dir / ".apkfoundry")

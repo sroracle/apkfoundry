@@ -19,9 +19,10 @@ from . import get_config, LIBEXEC, run
 
 _LOGGER = logging.getLogger(__name__)
 
-_APORTSDIR = "/git"
-_BUILDDIR = "/build"
-_REPODEST = "/packages"
+APORTSDIR = "/af/git"
+BUILDDIR = "/af/build"
+REPODEST = "/af/packages"
+JOBDIR = "/af/jobs"
 
 _CFG = get_config("chroot")
 _ROOTID = _CFG.getint("rootid")
@@ -139,16 +140,16 @@ def chroot_bootstrap(cdir, log=None):
 def chroot_init(cdir):
     cdir = Path(cdir)
 
-    branch = cdir / ".apkfoundry/branch"
+    branch = cdir / "af/info/branch"
     if not branch.is_file():
-        raise FileNotFoundError("/.apkfoundry/branch file is required")
+        raise FileNotFoundError("/af/info/branch file is required")
     branch = branch.read_text().strip()
-    repo = cdir / ".apkfoundry/repo"
+    repo = cdir / "af/info/repo"
     if not repo.is_file():
-        raise FileNotFoundError("/.apkfoundry/repo file is required")
+        raise FileNotFoundError("/af/info/repo file is required")
     repo = repo.read_text().strip()
 
-    conf_d = cdir / "git/.apkfoundry" / branch
+    conf_d = cdir / APORTSDIR.lstrip("/") / ".apkfoundry" / branch
 
     keys_d = _checkdir(conf_d / "keys")
     try:
@@ -160,9 +161,9 @@ def chroot_init(cdir):
         copy_function=shutil.copy,
     )
 
-    arch_f = cdir / ".apkfoundry/arch"
+    arch_f = cdir / "af/info/arch"
     if not arch_f.is_file():
-        raise FileNotFoundError("/.apkfoundry/arch file is required")
+        raise FileNotFoundError("/af/info/arch file is required")
     arch = arch_f.read_text().strip()
     shutil.copy(arch_f, cdir / "etc/apk/arch")
 
@@ -241,13 +242,14 @@ def chroot(cmd,
         "--bind", cdir / "tmp", "/tmp",
         "--bind", cdir / "var/tmp", "/var/tmp",
         "--bind", _SRCDEST, _SRCDEST,
-        git_bind, cdir / _APORTSDIR.lstrip("/"), _APORTSDIR,
-        "--bind", cdir / _BUILDDIR.lstrip("/"), _BUILDDIR,
-        "--bind", cdir / _REPODEST.lstrip("/"), _REPODEST,
+        git_bind, cdir / APORTSDIR.lstrip("/"), APORTSDIR,
+        "--bind", cdir / BUILDDIR.lstrip("/"), BUILDDIR,
+        "--bind", cdir / REPODEST.lstrip("/"), REPODEST,
+        "--ro-bind", cdir / JOBDIR.lstrip("/"), JOBDIR,
         "--ro-bind", str(LIBEXEC), "/usr/libexec/apkfoundry",
-        "--setenv", "REPODEST", _REPODEST,
+        "--setenv", "REPODEST", REPODEST,
         "--setenv", "SRCDEST", _SRCDEST,
-        "--chdir", "/git",
+        "--chdir", APORTSDIR,
     ]
 
     if root_fd:

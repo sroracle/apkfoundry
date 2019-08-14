@@ -1,11 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-import email
-import email.message
-import email.policy
 import enum
 import functools
+import json
 import logging
 import sqlite3
 import subprocess
@@ -40,25 +38,6 @@ class AFStatus(enum.IntFlag):
 
     def __str__(self):
         return self.name
-
-AFPolicy = email.policy.EmailPolicy(
-    max_line_length=None,
-    linesep="\n",
-    raise_on_defect=False,
-    mangle_from_=False,
-    utf8=True,
-    refold_source="None",
-)
-
-AFPayload = functools.partial(
-    email.message.EmailMessage,
-    policy=AFPolicy,
-)
-
-AFParser = functools.partial(
-    email.message_from_bytes,
-    policy=AFPolicy,
-)
 
 _ORDERINGS = {
     "id-asc": "ORDER BY id ASC",
@@ -144,20 +123,28 @@ class Task:
     repo: str = attrib()
     pkg: str = attrib()
     maintainer: str = attrib(default=None)
-    status: int = attrib()
-    tail: str = attrib()
+    tail: str = attrib(default=None)
     artifacts = attrib(default=None)
 
     created: datetime = attrib(default=None)
     updated: datetime = attrib(default=None)
 
+    _status = attrib(
+        default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
+    )
+    _topic = attrib(default=None)
+
     def __attrs_post_init__(self) -> None:
         assert self.status in AFStatus, f"Invalid task status {self.status}"
 
     def __str__(self) -> str:
-        return self.topic()
+        return self.topic
 
+    @property
     def topic(self, inner: bool=False) -> str:
+        if self._topic is not None:
+            return self._topic
+
         if isinstance(self.job, int):
             job_topic = f"@/@/@/@/@/@/{self.job}"
         else:
@@ -175,6 +162,39 @@ class Task:
             self.pkg,
             str(self.id) if self.id else "@",
         ))
+
+    @topic.setter
+    def topic(self, value):
+        self._topic = value
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        self._status = value
+        self._topic = None
+
+    @property
+    def startdir(self):
+        return f"{self.repo}/{self.pkg}"
+
+    def to_mqtt(self):
+        payload = attr.asdict(self, recurse=True)
+        payload = json.dumps(payload)
+        return payload.encode("utf-8")
+
+    @classmethod
+    def from_mqtt(cls, topic, payload):
+        assert topic.startswith("tasks/")
+        payload = payload.decode("utf-8")
+        payload = json.loads(payload)
+
+        return cls(
+            **payload,
+            topic=topic,
+        )
 
     def db_process(self, db: sqlite3.Connection) -> None:
         db.execute(
@@ -288,11 +308,10 @@ class Job:
     payload = attrib(default=None)
     dir = attrib(default=None)
 
-    _status = attrib(default=None)
+    _status = attrib(
+        default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
+    )
     _topic = attrib(default=None)
-
-    def __attrs_post_init__(self) -> None:
-        assert self.status in AFStatus, f"Invalid job status {self.status}"
 
     def __str__(self) -> str:
         return self.topic
@@ -312,7 +331,7 @@ class Job:
         else:
             prefix = ("jobs", str(self.status))
 
-        return "/".join((
+        self._topic = "/".join((
             *prefix,
             event_topic,
             self.builder or "@",
@@ -320,66 +339,35 @@ class Job:
             str(self.id) if self.id else "@",
         ))
 
+        return self._topic
+
     @topic.setter
     def topic(self, value):
         self._topic = value
 
     @property
-    def status(self) -> AFStatus:
+    def status(self):
         return self._status
 
     @status.setter
     def status(self, value):
         self._status = value
         self._topic = None
-        self.topic
 
-    def to_mqtt(self, user="", reason=""):
-        self.payload = payload = AFPayload()
-        if self.status == AFStatus.NEW:
-            payload["Clone"] = self.event.clone
-            payload["Revision"] = self.event.revision
-            payload["User"] = self.event.user
-            payload["Reason"] = self.event.reason
-
-            if self.event.type == AFEventType.MR:
-                payload["MRID"] = self.event.mrid
-                payload["MRClone"] = self.event.mrclone
-                payload["MRBranch"] = self.event.mrbranch
-
-            for task in self.tasks:
-                payload["Task"] = f"{task} {self.tasks[task]}"
-
-        elif self.status == AFStatus.REJECT:
-            payload["Reason"] = reason
-
-        elif self.status == AFStatus.START:
-            for task in self.tasks:
-                payload["Task"] = f"{task} {self.tasks[task]}"
-
-        elif self.status == AFStatus.CANCEL:
-            payload["User"] = user
-            payload["Reason"] = reason
-
-        else:
-            pass
-
-        return payload.as_string()
+    def to_mqtt(self):
+        payload = attr.asdict(self, recurse=True)
+        payload = json.dumps(payload)
+        return payload.encode("utf-8")
 
     @classmethod
     def from_mqtt(cls, topic, payload):
         assert topic.startswith("jobs/")
+        payload = payload.decode("utf-8")
+        payload = json.loads(payload)
 
-        args = topic.split("/", maxsplit=8)
         return cls(
-            status=AFStatus[args[1]],
-            event=int(args[5]) if args[5] != "@" else None,
-            builder=args[6] if args[6] != "@" else None,
-            arch=args[7],
-            id=int(args[8]) if args[8] != "@" else None,
+            **payload,
             topic=topic,
-
-            payload=AFParser(payload),
         )
 
     @classmethod
@@ -392,7 +380,6 @@ class Job:
             status=AFStatus(row[4]),
             created=row[5],
             updated=row[6],
-            tasks=[],
         )
 
     def db_process(self, db: sqlite3.Connection) -> None:
@@ -477,7 +464,9 @@ class Job:
 class Event:
     id: int = attrib(default=None)
     project: str = attrib()
-    type: int = attrib()
+    type: int = attrib(
+        default=AFEventType.Push, validator=attr.validators.in_(AFEventType)
+    )
     clone: str = attrib()
     target: str = attrib()
     mrid: int = attrib(default=None)
@@ -486,7 +475,6 @@ class Event:
     revision: str = attrib()
     user: str = attrib()
     reason: str = attrib()
-    status: int = attrib()
 
     created: datetime = attrib(default=None)
     updated: datetime = attrib(default=None)
@@ -496,28 +484,48 @@ class Event:
     _arches = attrib(default=None)
     _jobs = attrib(default=None)
     _maintainers = attrib(default=None)
+    _status = attrib(
+        default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
+    )
+    _topic = attrib(default=None)
 
     def __attrs_post_init__(self) -> None:
-        assert self.status in AFStatus, f"Invalid event status {self.status}"
-        assert self.type in AFEventType, f"Invalid event type {self.type}"
         self._dir = _PROJECTS_HOME / self.project
 
     def __str__(self) -> str:
-        return self.topic()
+        return self.topic
 
+    @property
     def topic(self, inner: bool=False) -> str:
+        if self._topic is not None:
+            return self._topic
+
         if inner:
             prefix = ()
         else:
             prefix = ("events", str(self.status))
 
-        return "/".join((
+        self._topic = "/".join((
             *prefix,
             self.project,
             str(self.type),
-            self.mrid if self.type == AFEventType.MR else self.target,
+            self.target,
             str(self.id) if self.id else "@",
         ))
+        return self._topic
+
+    @topic.setter
+    def topic(self, value):
+        self._topic = value
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        self._status = value
+        self._topic = None
 
     @classmethod
     def from_db_row(cls, cursor_, row):
@@ -713,13 +721,7 @@ class Event:
 
         for arch in self._jobs:
             job = self._jobs[arch]
-
-            cursor = db.execute(
-                "SELECT repo, pkg, id FROM tasks WHERE job = ?;",
-                (job.id,),
-            )
-
-            job.tasks = {f"{row[0]}/{row[1]}": row[2] for row in cursor}
+            job.tasks = Task.db_search(job=job.id)
 
     def db_process(self, db: sqlite3.Connection) -> None:
         try:
