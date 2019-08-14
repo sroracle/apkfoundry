@@ -12,7 +12,7 @@ _HOOKS = {
     **_GL_HOOKS,
 }
 
-def inbound_thread() -> None:
+def inbound_thread():
     try:
         for eventpath, payload in inbound_queue:
             for prefix in _HOOKS:

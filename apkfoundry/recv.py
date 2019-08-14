@@ -13,7 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 _EVENTDIR = get_config("dispatch").getpath("events")
 _NOTIFYPATH = _EVENTDIR / "notify.fifo"
 
-def _load_eventpath(eventpath) -> None:
+def _load_eventpath(eventpath):
     try:
         with open(eventpath, "r") as eventfile:
             payload = json.load(eventfile)
@@ -28,7 +28,7 @@ def _load_eventpath(eventpath) -> None:
         except Exception:
             pass
 
-def startup_flush() -> None:
+def startup_flush():
     try:
         fd = os.open(_NOTIFYPATH, os.O_RDONLY | os.O_NONBLOCK)
 
@@ -46,7 +46,7 @@ def startup_flush() -> None:
     for eventpath in _EVENTDIR.glob("*.json"):
         _load_eventpath(eventpath)
 
-def recv() -> None:
+def recv():
     try:
         while True:
             txt = read_fifo(_NOTIFYPATH)

@@ -91,10 +91,10 @@ class JSONSchema:
         for key in self.full_schema:
             setattr(self, key, kwargs[key])
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key):
         return getattr(self, key)
 
-    def __setitem__(self, key: str, value):
+    def __setitem__(self, key, value):
         setattr(self, key, value)
 
     def __delitem__(self, key):
@@ -175,11 +175,11 @@ class Task:
     )
     _topic = attr.ib(default=None)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.topic
 
     @property
-    def topic(self, inner: bool=False) -> str:
+    def topic(self, inner=False):
         if self._topic is not None:
             return self._topic
 
@@ -398,10 +398,10 @@ class Event:
     )
     _topic = attr.ib(default=None)
 
-    def __attrs_post_init__(self) -> None:
+    def __attrs_post_init__(self):
         self._dir = _PROJECTS_HOME / self.project
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.topic
 
     @property

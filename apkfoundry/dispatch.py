@@ -31,7 +31,7 @@ class Dispatcher:
         "jobs",
     )
 
-    def __init__(self, host: str, port: int, username: str, password: str) -> None:
+    def __init__(self, host, port, username, password):
         self._mqtt = mqtt.Client()
         self._mqtt.user_data_set(self)
         self._mqtt.username_pw_set(username, password)
@@ -44,7 +44,7 @@ class Dispatcher:
         self.builders = {}
         self.jobs = {}
 
-    def loop(self) -> None:
+    def loop(self):
         try:
             self._mqtt.connect_async(self._host, self._port)
             self._mqtt.loop_start()
@@ -64,7 +64,7 @@ class Dispatcher:
             _LOGGER.critical("exiting")
             af_exit()
 
-    def _add_builder(self, msg: mqtt.MQTTMessage) -> None:
+    def _add_builder(self, msg):
         # builders/{name}/{arch}
         builder = msg.topic.split("/", maxsplit=2)
         if len(builder) != 3:
@@ -88,7 +88,7 @@ class Dispatcher:
             arch, " ".join(self.builders[arch])
         )
 
-    def _job_publish(self, job: Job) -> None:
+    def _job_publish(self, job):
         job.builder = self.builders[job.arch].pop()
         self.builders[job.arch].add(job.builder)
 
@@ -99,7 +99,7 @@ class Dispatcher:
         _LOGGER.info("[%s] publish", str(job))
         self._mqtt.publish(str(job), job.to_mqtt(), 2)
 
-    def _job_recv(self, msg: mqtt.MQTTMessage) -> int:
+    def _job_recv(self, msg):
         try:
             job = Job.from_mqtt(msg.topic, msg.payload)
         except (eerrors.MessageParseError, AssertionError) as e:
@@ -144,7 +144,7 @@ class Dispatcher:
             return job.id
 
     @staticmethod
-    def _on_connect(_client, self, _flags: dict, rc: int) -> None:
+    def _on_connect(_client, self, _flags, rc):
         if rc != 0:
             _LOGGER.critical("connection failed: %s", mqtt.connack_string(rc))
             af_exit()
@@ -152,7 +152,7 @@ class Dispatcher:
         self._mqtt.subscribe(_TOPICS)
 
     @staticmethod
-    def _on_message(_client, self, msg: mqtt.MQTTMessage) -> None:
+    def _on_message(_client, self, msg):
         just_touched_job = 0
         if msg.topic.startswith("jobs"):
             just_touched_job = self._job_recv(msg)
@@ -183,7 +183,7 @@ class Dispatcher:
             if not job.builder and self.builders[arch]:
                 self._job_publish(job)
 
-def dispatch_thread() -> None:
+def dispatch_thread():
     cfg = get_config()
     mqtt_cfg = cfg["mqtt"]
     dispatch_cfg = cfg["dispatch"]

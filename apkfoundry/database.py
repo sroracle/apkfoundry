@@ -11,7 +11,7 @@ SCHEMA = SITE_PACKAGE / "share" / "schema.sql"
 
 _LOGGER = logging.getLogger(__name__)
 
-def db_start(readonly=False) -> sqlite3.Connection:
+def db_start(readonly=False):
     filename = get_config("database").getpath("filename")
 
     if readonly:
@@ -28,7 +28,7 @@ def db_start(readonly=False) -> sqlite3.Connection:
 
     return db
 
-def db_thread() -> None:
+def db_thread():
     db = db_start()
 
     try:

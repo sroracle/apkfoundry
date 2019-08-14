@@ -79,7 +79,7 @@ _DEFAULT_CONFIG = {
     },
 }
 
-def get_config(section=None) -> configparser.ConfigParser:
+def get_config(section=None):
     files = glob.glob(SITE_CONF)
     files.sort()
 
@@ -93,11 +93,11 @@ def get_config(section=None) -> configparser.ConfigParser:
 
     return config
 
-def read_fifo(notifypath) -> str:
+def read_fifo(notifypath):
     with open(notifypath, "r") as notify:
         return notify.read()
 
-def write_fifo(i: str) -> None:
+def write_fifo(i):
     notifypath = get_config("dispatch").getpath("events")
     notifypath = shlex.quote(str(notifypath / "notify.fifo"))
     i = shlex.quote(i)
@@ -146,7 +146,7 @@ dispatch_queue = IIQueue(sentinel=_exit_event)
 
 agent_queue = IIQueue(sentinel=_exit_event)
 
-def af_exit(recv=False) -> None:
+def af_exit(recv=False):
     if not _exit_event.is_set():
         if not recv:
             write_fifo("0")
@@ -156,13 +156,13 @@ def af_exit(recv=False) -> None:
         dispatch_queue.put(_exit_event)
         _exit_event.set()
 
-def run(*argv, **kwargs) -> str:
+def run(*argv, **kwargs):
     argv = [str(arg) for arg in argv]
     sys.stdout.flush()
     sys.stderr.flush()
     return subprocess.check_call(argv, encoding="utf-8", **kwargs)
 
-def get_output(*argv, **kwargs) -> str:
+def get_output(*argv, **kwargs):
     argv = [str(arg) for arg in argv]
     sys.stdout.flush()
     sys.stderr.flush()

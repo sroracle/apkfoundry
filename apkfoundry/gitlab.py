@@ -34,7 +34,7 @@ class GitlabPush(JSONSchema):
 
     __slots__ = tuple(schema.keys())
 
-    def to_event(self, project: str) -> Push:
+    def to_event(self, project):
         return Push(
             id=None,
             project=project,
@@ -49,10 +49,10 @@ class GitlabPush(JSONSchema):
             after=self["after"],
         )
 
-    def get_url(self) -> str:
+    def get_url(self):
         return self["repository"]["git_http_url"]
 
-    def is_valid(self, project, config) -> bool:
+    def is_valid(self, project, config):
         if not self["commits"]:
             _LOGGER.warning("[%s] no commits attached", project)
             return False
@@ -72,7 +72,7 @@ class GitlabPush(JSONSchema):
         return True
 
 class _GitlabAbstractMergeRequest(JSONSchema):
-    def to_event(self, project: str) -> MergeRequest:
+    def to_event(self, project):
         return MergeRequest(
             id=None,
             project=project,
@@ -87,10 +87,10 @@ class _GitlabAbstractMergeRequest(JSONSchema):
             status=AFStatus.NEW,
         )
 
-    def get_url(self) -> str:
+    def get_url(self):
         return self[self._root]["target"]["git_http_url"]
 
-    def is_valid(self, project, config) -> bool:
+    def is_valid(self, project, config):
         raise NotImplementedError
 
 class GitlabMergeRequest(_GitlabAbstractMergeRequest):
@@ -118,7 +118,7 @@ class GitlabMergeRequest(_GitlabAbstractMergeRequest):
     _root = "object_attributes"
     __slots__ = tuple(schema.keys())
 
-    def is_valid(self, project, config) -> bool:
+    def is_valid(self, project, config):
         branches = config.getlist("mr_branches")
         if branches and self["object_attributes"]["target_branch"] not in branches:
             _LOGGER.warning("[%s] mr branch not on allowed list", project)
@@ -160,7 +160,7 @@ class GitlabNote(_GitlabAbstractMergeRequest):
     _root = "merge_request"
     __slots__ = tuple(schema.keys())
 
-    def is_valid(self, project, config) -> bool:
+    def is_valid(self, project, config):
         users = config.getlist("note_users")
         if users and self["user"]["username"] not in users:
             _LOGGER.warning("[%s] note user not on allowed list", project)
@@ -188,7 +188,7 @@ _EVENTS = {
     },
 }
 
-def _handle_gitlab(payload: dict) -> None:
+def _handle_gitlab(payload):
     try:
         assert "object_kind" in payload, \
             "Missing object_kind"
