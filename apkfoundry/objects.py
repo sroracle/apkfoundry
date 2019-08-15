@@ -494,6 +494,7 @@ class Event:
         )
 
         self.id = cursor.lastrowid
+        self._topic = None
         db.commit()
 
     def _debug_dump(self):
