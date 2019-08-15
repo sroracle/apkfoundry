@@ -110,6 +110,7 @@ class Dispatcher:
             return 0
 
         if job.status == AFStatus.NEW:
+            _LOGGER.debug("[%s] received echo", str(job))
             return job.id
 
         db_queue.put(job)
@@ -131,7 +132,6 @@ class Dispatcher:
         elif job.status == AFStatus.START:
             try:
                 del self.jobs[job.arch][0]
-                _LOGGER.info("[%s] starting", str(job))
             except (KeyError, IndexError):
                 _LOGGER.debug("[%s] unknown start", str(job))
 
