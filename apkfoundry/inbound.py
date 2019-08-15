@@ -16,7 +16,7 @@ def inbound_thread():
     try:
         for eventpath, payload in inbound_queue:
             for prefix in _HOOKS:
-                if eventpath.name.startswith(prefix):
+                if eventpath.name.startswith(prefix + "-"):
                     hook = _HOOKS[prefix]
                     break
             else:

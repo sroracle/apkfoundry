@@ -43,7 +43,7 @@ response(200, "text/plain")
 print("Ok")
 
 eventfile = tempfile.NamedTemporaryFile(
-        dir=eventdir, prefix=prefix, suffix=".json",
+        dir=eventdir, prefix=prefix + "-", suffix=".json",
         mode="w", delete=False,
 )
 shutil.copyfileobj(sys.stdin, eventfile)
