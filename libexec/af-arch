@@ -46,7 +46,7 @@ for startdir; do
 	arch="$(grep '^arch=' "$APKBUILD" \
 		| sed "s/^arch=//; s/'//g; s/\"//g; s/#.*\$//")"
 
-	want_arches="$(grep "^$repo" "$archfile" | cut -d ' ' -f 2-)"
+	want_arches="$(grep "^$repo " "$archfile" | cut -d ' ' -f 2-)"
 	if [ -z "$want_arches" ]; then
 		notice warning: repository "'$repo'" is not enabled
 		continue
