@@ -25,6 +25,13 @@ def _mqtt_filter(attribute, value_):
 
     return True
 
+def _enum_normalize(cls):
+    def normalize(value):
+        if isinstance(value, cls):
+            return value
+        return cls(value)
+    return normalize
+
 @enum.unique
 class AFEventType(enum.IntEnum):
     PUSH = 1
@@ -189,9 +196,7 @@ class Task:
     maintainer: str = attr.ib(default=None)
     tail: str = attr.ib(default=None)
     artifacts = attr.ib(default=None)
-    status = attr.ib(
-        default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
-    )
+    status = attr.ib(default=AFStatus.NEW, converter=_enum_normalize(AFStatus))
 
     created: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
     updated: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
@@ -283,9 +288,7 @@ class Job:
     event = attr.ib() # Event or int
     builder: str = attr.ib(default=None)
     arch: str = attr.ib()
-    status = attr.ib(
-        default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
-    )
+    status = attr.ib(default=AFStatus.NEW, converter=_enum_normalize(AFStatus))
     tasks = attr.ib(default=None)
     payload = attr.ib(default=None)
 
@@ -382,17 +385,13 @@ class Job:
 class Event:
     id: int = attr.ib(default=None)
     project: str = attr.ib()
-    type: int = attr.ib(
-        default=AFEventType.PUSH, validator=attr.validators.in_(AFEventType)
-    )
+    type: int = attr.ib(default=AFEventType.PUSH, converter=_enum_normalize(AFEventType))
     clone: str = attr.ib()
     target: str = attr.ib()
     revision: str = attr.ib()
     user: str = attr.ib()
     reason: str = attr.ib()
-    status = attr.ib(
-        default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
-    )
+    status = attr.ib(default=AFStatus.NEW, converter=_enum_normalize(AFStatus))
     mrid: int = attr.ib(default=None)
     mrclone: str = attr.ib(default=None)
     mrbranch: str = attr.ib(default=None)
