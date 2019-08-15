@@ -16,7 +16,10 @@ from pathlib import Path
 SITE_CONF = "/etc/apkfoundry/*.ini"
 SITE_PACKAGE = Path(__file__).parent
 LIBEXEC = (SITE_PACKAGE / "libexec").resolve()
-os.environ["PATH"] = str(LIBEXEC) + os.pathsep + os.environ["PATH"]
+if "PATH" in os.environ:
+    os.environ["PATH"] = str(LIBEXEC) + os.pathsep + os.environ["PATH"]
+else:
+    os.environ["PATH"] = str(LIBEXEC)
 _HOME = Path("/var/lib/apkfoundry")
 
 _LOGGER = logging.getLogger(__name__)
