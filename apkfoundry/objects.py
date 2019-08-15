@@ -151,6 +151,11 @@ def _db_search(classes, db, where=None, **query):
                 where.append(f"{field} = :{field}")
                 break
 
+            if field in ("status", "type"):
+                if hasattr(cls, "status"):
+                    where.append(f"{field} & :{field} == :{field}")
+                    break
+
             fields = attr.fields_dict(cls)
             if field in fields:
                 if fields[field].type is str:
@@ -158,10 +163,6 @@ def _db_search(classes, db, where=None, **query):
                 else:
                     where.append(f"{field} = :{field}")
 
-                break
-
-            if field == "status" and hasattr(cls, "status"):
-                where.append(f"{field} = :{field}")
                 break
 
         else:
