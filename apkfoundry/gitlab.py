@@ -197,6 +197,10 @@ def _handle_gitlab(payload):
         assert isinstance(kind, str), "object_kind must be str"
         assert kind in _EVENTS, f"unknown object_kind {kind}"
 
+        if kind == "note" and "merge_request" not in payload:
+            _LOGGER.debug("skipping note that isn't on an mr")
+            return
+
         payload = _EVENTS[kind]["class"](**payload)
         url = payload.get_url()
         option = _EVENTS[kind]["event"]
