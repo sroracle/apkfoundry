@@ -1,7 +1,10 @@
 table, th, td { border: 1px solid gray; border-collapse: collapse; }
 td { text-align: center; }
-.status-new { background-color: white; }
-.status-start { background-color: lightskyblue; }
-.status-cancel { background-color: yellow; }
-.status-success { background-color: lightgreen; }
-.status-fail { background-color: red; }
+.status-NEW { background-color: white; }
+.status-START { background-color: lightskyblue; }
+.status-CANCEL, .status-DEPFAIL { background-color: yellow; }
+.status-SUCCESS { background-color: lightgreen; }
+.status-FAIL { background-color: red; }
+.status-ERROR { background-color: magenta; }
+.status-ERROR, .status-ERROR a { color: white !important; }
+.status-IGNORE { background-color: lightgray; }
