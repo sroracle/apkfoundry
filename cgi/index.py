@@ -4,6 +4,7 @@ import os     # environ
 from urllib.parse import parse_qsl
 
 import apkfoundry.cgi as cgi
+from apkfoundry.objects import AFEventType, AFStatus
 from apkfoundry.database import db_start
 
 cgitb.enable()
@@ -32,6 +33,18 @@ if "limit" in query:
         error(400, "Invalid limit")
 else:
     query["limit"] = cgi.LIMIT
+
+if "type" in query and query["type"]:
+    try:
+        query["type"] = AFEventType[query["type"]]
+    except KeyError:
+        error(400, "Invalid type")
+
+if "status" in query and query["status"]:
+    try:
+        query["status"] = AFStatus[query["status"]]
+    except KeyError:
+        error(400, "Invalid status")
 
 cgi.setenv("query", query)
 

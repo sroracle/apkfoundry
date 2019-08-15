@@ -23,6 +23,9 @@ class AFEventType(enum.IntEnum):
     def __str__(self):
         return self.name
 
+    def __conform__(self):
+        return int(self)
+
 @enum.unique
 class AFStatus(enum.IntFlag):
     NEW = 1
@@ -38,6 +41,9 @@ class AFStatus(enum.IntFlag):
 
     def __str__(self):
         return self.name
+
+    def __conform__(self):
+        return int(self)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -132,6 +138,10 @@ def _db_search(classes, db, where=None, **query):
                 else:
                     where.append(f"{field} = :{field}")
 
+                break
+
+            if field == "status" and hasattr(cls, "status"):
+                where.append(f"{field} = :{field}")
                 break
 
         else:
