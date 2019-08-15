@@ -260,7 +260,7 @@ class Task:
 
 @attr.s(kw_only=True, slots=True)
 class Job:
-    job: int = attr.ib(default=None)
+    id: int = attr.ib(default=None)
     event = attr.ib() # Event or int
     builder: str = attr.ib(default=None)
     arch: str = attr.ib()
@@ -520,7 +520,7 @@ class Event:
         ).strip().splitlines()
 
         arches = {}
-        for line in arches:
+        for line in lines:
             line = line.strip().split(maxsplit=1)
             if not line or len(line) != 2:
                 continue
@@ -586,7 +586,7 @@ class Event:
         db.commit()
 
         for job in jobs.values():
-            job.tasks = Task.db_search(job=job.id)
+            job.tasks = Task.db_search(db, jobid=job.id)
 
     def db_process(self, db):
         try:
