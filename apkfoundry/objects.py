@@ -147,8 +147,6 @@ def _db_search(classes, db, where=None, **query):
         sql += " OFFSET :offset"
     sql += ";"
 
-    sql += ";"
-
     old_factory = db.row_factory
     db.row_factory = cls.from_db_row
     rows = db.execute(sql, query)

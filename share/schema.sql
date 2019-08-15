@@ -154,7 +154,7 @@ SELECT
   events.mrbranch AS mrbranch,
   events.revision AS revision,
   events.user AS user,
-  events.reason AS reason,
+  events.reason AS reason
 FROM jobs
 INNER JOIN events ON jobs.eventid = events.eventid;
 
@@ -183,6 +183,6 @@ SELECT
   jobs_full.mrbranch AS mrbranch,
   jobs_full.revision AS revision,
   jobs_full.user AS user,
-  jobs_full.reason AS reason,
+  jobs_full.reason AS reason
 FROM tasks
 INNER JOIN jobs_full ON tasks.job = jobs_full.job;
