@@ -362,20 +362,18 @@ class Job:
         )
 
     def db_process(self, db):
-        pass
-        # XXX hmm
-#        db.execute(
-#            "UPDATE jobs SET builder = ?, status = ? WHERE job = ?;",
-#            (self.builder, self.status, self.job),
-#        )
-#
-#        if self.status & (AFStatus.START | AFStatus.DONE):
-#            db.execute(
-#                "UPDATE tasks SET status = ? WHERE job = ? AND status = 'new';",
-#                (self.status, self.job),
-#            )
-#
-#        db.commit()
+        db.execute(
+            "UPDATE jobs SET builder = ?, status = ? WHERE jobid = ?;",
+            (self.builder, self.status, self.id),
+        )
+
+        if self.status & AFStatus.ERROR:
+            db.execute(
+                "UPDATE tasks SET status = ? WHERE jobid = ? AND status = 1;",
+                (self.status, self.id),
+            )
+
+        db.commit()
 
     @classmethod
     def db_search(cls, db, where=None, **query):
