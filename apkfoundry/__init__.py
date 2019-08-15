@@ -5,6 +5,7 @@ import configparser # ConfigParser
 import functools    # partial
 import glob         # glob
 import logging      # getLogger
+import os           # environ, pathsep
 import queue        # Queue
 import shlex        # quote
 import subprocess   # check_call, check_output, DEVNULL, Popen
@@ -15,6 +16,7 @@ from pathlib import Path
 SITE_CONF = "/etc/apkfoundry/*.ini"
 SITE_PACKAGE = Path(__file__).parent
 LIBEXEC = (SITE_PACKAGE / "libexec").resolve()
+os.environ["PATH"] = str(LIBEXEC) + os.pathsep + os.environ["PATH"]
 _HOME = Path("/var/lib/apkfoundry")
 
 _LOGGER = logging.getLogger(__name__)
