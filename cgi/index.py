@@ -7,12 +7,16 @@ import apkfoundry.cgi as cgi
 from apkfoundry.objects import AFEventType, AFStatus
 from apkfoundry.database import db_start
 
-cgitb.enable()
 
 try:
     database = db_start(readonly=True)
 except Exception as e:
     cgi.error(500, "Database unavailable")
+
+if cgi.DEBUG:
+    cgitb.enable()
+    cgi.html_ok()
+    database.set_trace_callback(print)
 
 query = os.environ["QUERY_STRING"]
 query = dict(parse_qsl(query, keep_blank_values=True))

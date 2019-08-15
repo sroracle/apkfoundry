@@ -12,8 +12,14 @@ import jinja2 # Environment, FileSystemBytecodeCache, PackageLoader
 from . import get_config
 from .objects import AFEventType, AFStatus, Event, Job, Task
 
-PRETTY = get_config("web").getboolean("pretty")
-LIMIT = 50
+_CFG = get_config("web")
+BASE = _CFG["base"]
+PRETTY = _CFG.getboolean("pretty")
+DEBUG = _CFG.getboolean("debug")
+LIMIT = _CFG.getint("limit")
+
+if PRETTY and not BASE.endswith("/"):
+    BASE += "/"
 
 _ENV = jinja2.Environment(
     loader=jinja2.PackageLoader("apkfoundry", "templates"),
@@ -21,17 +27,13 @@ _ENV = jinja2.Environment(
     trim_blocks=True,
     bytecode_cache=jinja2.FileSystemBytecodeCache(),
 )
-_ENV.globals["pretty"] = PRETTY
 _ENV.globals["event_types"] = AFEventType
 _ENV.globals["statuses"] = AFStatus
-_ENV.globals["home"] = Path(os.environ["SCRIPT_NAME"])
-if PRETTY and "PATH_INFO" in os.environ:
-    _ENV.globals["me"] = _ENV.globals["home"] / os.environ["PATH_INFO"].lstrip("/")
-else:
-    _ENV.globals["me"] = _ENV.globals["home"]
-_ENV.globals["css"] = _ENV.globals["home"].parent / "style.css"
+_ENV.globals["base"] = BASE
+_ENV.globals["css"] = _CFG["css"]
+_ENV.globals["pretty"] = PRETTY
 
-_RESPONSE_HEADER = """HTTP/1.1 {status} {statusphrase}")
+_RESPONSE_HEADER = """HTTP/1.1 {status} {statusphrase}
 Content-type: {content_type}; charset=utf-8
 """
 

@@ -80,7 +80,11 @@ _DEFAULT_CONFIG = {
         "port": "1883",
     },
     "web": {
+        "base": "https://example.com/cgi-bin/apkfoundry-index.py",
+        "css": "/style.css",
         "pretty": "false",
+        "limit": "50",
+        "debug": "false",
     },
 }
 

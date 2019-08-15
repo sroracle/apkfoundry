@@ -60,7 +60,7 @@
 {%- endmacro -%}
 
 {%- macro searchform() -%}
- <form action="{{ me }}" method="get">
+ <form action="" method="get">
   {% if not pretty %}
    <input name="{{ page }}" type="hidden">
   {% endif %}
@@ -72,10 +72,9 @@
 
 {#
    Parameters:
+   * base: str
    * css: str
-   * home: str
    * pretty: bool
-   * me: str
 
    * query: dict
 #}
@@ -87,7 +86,7 @@
    {% filter striptags %}{{ self.title() }}{% endfilter %} - APK Foundry
   </title>
   <link rel="stylesheet" href="{{ css }}" type="text/css">
-  <base href="{{ home }}">
+  <base href="{{ base }}">
  </head>
  <body>
   <h1>{% block title %}{% endblock %}</h1>

@@ -82,8 +82,17 @@ split into restricted files away from more mundane options.
     port=1883
 
     [web]
+    ; URL for the web interface index.
+    base=https://example.com/cgi-bin/apkfoundry-index.py
+    ; URL for style.css.
+    css=/style.css
     ; Whether to use PATH_INFO to generate pretty URIs.
     pretty=false
+    ; Default maximum number of rows to return on each page.
+    limit=50
+    ; Whether to show debugging information (CGI tracebacks, SQL queries,
+    ; etc).
+    debug=false
 
     [https://example.com/sroracle/packages.git]
     ; Whether to trigger builds on push events or not.
