@@ -14,6 +14,17 @@ import attr
 
 from . import dispatch_queue, get_output, get_config, git_init
 
+_MQTT_SKIP = {
+    "mqtt_skip": True,
+}
+
+def _mqtt_filter(attribute, value_):
+    if "mqtt_skip" in attribute.metadata:
+        if attribute.metadata["mqtt_skip"]:
+            return False
+
+    return True
+
 @enum.unique
 class AFEventType(enum.IntEnum):
     PUSH = 1
@@ -23,8 +34,9 @@ class AFEventType(enum.IntEnum):
     def __str__(self):
         return self.name
 
-    def __conform__(self):
-        return int(self)
+    def __conform__(self, protocol):
+        if protocol is sqlite3.PrepareProtocol:
+            return int(self)
 
 @enum.unique
 class AFStatus(enum.IntFlag):
@@ -42,8 +54,9 @@ class AFStatus(enum.IntFlag):
     def __str__(self):
         return self.name
 
-    def __conform__(self):
-        return int(self)
+    def __conform__(self, protocol):
+        if protocol is sqlite3.PrepareProtocol:
+            return int(self)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -176,37 +189,38 @@ class Task:
     maintainer: str = attr.ib(default=None)
     tail: str = attr.ib(default=None)
     artifacts = attr.ib(default=None)
-
-    created: datetime = attr.ib(default=None)
-    updated: datetime = attr.ib(default=None)
-
-    _tables = ("tasks", "tasks_full")
-
-    _status = attr.ib(
+    status = attr.ib(
         default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
     )
-    _topic = attr.ib(default=None)
+
+    created: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
+    updated: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
+
+    _topic = attr.ib(default=None, metadata=_MQTT_SKIP)
+    _tables = ("tasks", "tasks_full")
 
     def __str__(self):
         return self.topic
 
+    def __setattr__(self, name, value):
+        if name not in ("topic", "_topic"):
+            self._topic = None
+        super().__setattr__(name, value)
+
     @property
-    def topic(self, inner=False):
+    def topic(self):
         if self._topic is not None:
             return self._topic
 
         if isinstance(self.job, int):
             job_topic = f"@/@/@/@/@/@/{self.job}"
         else:
-            job_topic = self.job.topic(inner=True)
-
-        if inner:
-            prefix = ()
-        else:
-            prefix = ("tasks", str(self.status))
+            job_topic = self.job.topic
+            job_topic = "/".join(job_topic.split("/")[2:])
 
         return "/".join((
-            *prefix,
+            "tasks",
+            str(self.status),
             job_topic,
             self.repo,
             self.pkg,
@@ -218,20 +232,11 @@ class Task:
         self._topic = value
 
     @property
-    def status(self):
-        return self._status
-
-    @status.setter
-    def status(self, value):
-        self._status = value
-        self._topic = None
-
-    @property
     def startdir(self):
         return f"{self.repo}/{self.pkg}"
 
     def to_mqtt(self):
-        payload = attr.asdict(self, recurse=True)
+        payload = attr.asdict(self, recurse=True, filter=_mqtt_filter)
         payload = json.dumps(payload)
         return payload.encode("utf-8")
 
@@ -278,41 +283,41 @@ class Job:
     event = attr.ib() # Event or int
     builder: str = attr.ib(default=None)
     arch: str = attr.ib()
-
-    created: datetime = attr.ib(default=None)
-    updated: datetime = attr.ib(default=None)
-
-    tasks = attr.ib(default=None)
-    payload = attr.ib(default=None)
-    dir = attr.ib(default=None)
-
-    _tables = ("jobs", "jobs_full")
-
-    _status = attr.ib(
+    status = attr.ib(
         default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
     )
-    _topic = attr.ib(default=None)
+    tasks = attr.ib(default=None)
+    payload = attr.ib(default=None)
+
+    created: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
+    updated: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
+
+    dir = attr.ib(default=None, metadata=_MQTT_SKIP)
+    _topic = attr.ib(default=None, metadata=_MQTT_SKIP)
+    _tables = ("jobs", "jobs_full")
 
     def __str__(self):
         return self.topic
 
+    def __setattr__(self, name, value):
+        if name not in ("topic", "_topic"):
+            self._topic = None
+        super().__setattr__(name, value)
+
     @property
-    def topic(self, inner=False):
+    def topic(self):
         if self._topic is not None:
             return self._topic
 
         if isinstance(self.event, int):
             event_topic = f"@/@/@/{self.event}"
         else:
-            event_topic = self.event.topic(inner=True)
-
-        if inner:
-            prefix = ()
-        else:
-            prefix = ("jobs", str(self.status))
+            event_topic = self.event.topic
+            event_topic = "/".join(event_topic.split("/")[2:])
 
         self._topic = "/".join((
-            *prefix,
+            "jobs",
+            str(self.status),
             event_topic,
             self.builder or "@",
             self.arch,
@@ -325,17 +330,8 @@ class Job:
     def topic(self, value):
         self._topic = value
 
-    @property
-    def status(self):
-        return self._status
-
-    @status.setter
-    def status(self, value):
-        self._status = value
-        self._topic = None
-
     def to_mqtt(self):
-        payload = attr.asdict(self, recurse=True)
+        payload = attr.asdict(self, recurse=True, filter=_mqtt_filter)
         payload = json.dumps(payload)
         return payload.encode("utf-8")
 
@@ -394,21 +390,19 @@ class Event:
     revision: str = attr.ib()
     user: str = attr.ib()
     reason: str = attr.ib()
-
-    created: datetime = attr.ib(default=None)
-    updated: datetime = attr.ib(default=None)
-
+    status = attr.ib(
+        default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
+    )
     mrid: int = attr.ib(default=None)
     mrclone: str = attr.ib(default=None)
     mrbranch: str = attr.ib(default=None)
 
-    _tables = ("events",)
+    created: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
+    updated: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
 
-    _dir = attr.ib(default=None)
-    _status = attr.ib(
-        default=AFStatus.NEW, validator=attr.validators.in_(AFStatus)
-    )
-    _topic = attr.ib(default=None)
+    _dir = attr.ib(default=None, metadata=_MQTT_SKIP)
+    _topic = attr.ib(default=None, metadata=_MQTT_SKIP)
+    _tables = ("events",)
 
     def __attrs_post_init__(self):
         self._dir = _PROJECTS_HOME / self.project
@@ -416,18 +410,19 @@ class Event:
     def __str__(self):
         return self.topic
 
+    def __setattr__(self, name, value):
+        if name not in ("topic", "_topic"):
+            self._topic = None
+        super().__setattr__(name, value)
+
     @property
-    def topic(self, inner=False):
+    def topic(self):
         if self._topic is not None:
             return self._topic
 
-        if inner:
-            prefix = ()
-        else:
-            prefix = ("events", str(self.status))
-
         self._topic = "/".join((
-            *prefix,
+            "events",
+            str(self.status),
             self.project,
             str(self.type),
             self.target,
@@ -438,15 +433,6 @@ class Event:
     @topic.setter
     def topic(self, value):
         self._topic = value
-
-    @property
-    def status(self):
-        return self._status
-
-    @status.setter
-    def status(self, value):
-        self._status = value
-        self._topic = None
 
     @classmethod
     def from_db_row(cls, cursor_, row):
@@ -504,7 +490,6 @@ class Event:
         )
 
         self.id = cursor.lastrowid
-        self._topic = None
         db.commit()
 
     def _debug_dump(self):
@@ -608,7 +593,7 @@ class Event:
         db.commit()
 
         for job in jobs.values():
-            job.tasks = Task.db_search(db, jobid=job.id)
+            job.tasks = list(Task.db_search(db, jobid=job.id))
 
     def db_process(self, db):
         try:
