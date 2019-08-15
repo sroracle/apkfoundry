@@ -213,6 +213,7 @@ def arches_page(db, query):
 
     html_ok()
     now = getnow()
+    arches = list(arches)
 
     for i, (arch,) in enumerate(arches):
         new = db.execute(
