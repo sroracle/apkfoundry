@@ -629,7 +629,7 @@ class MergeRequest(Event):
 
     def _calc_startdirs(self):
         _LOGGER.info("[%s] Analyzing changeset", str(self))
-        args = ["-m", self.mrid, self.target, self.revision]
+        args = ["-m", self.target, self.revision]
         startdirs = get_output("af-changes", *args, cwd=self._dir)
         startdirs = startdirs.strip().splitlines()
 
