@@ -599,7 +599,7 @@ class Event:
             startdirs = self._calc_startdirs()
             maintainers = self._calc_maintainers(startdirs)
             arches = self._calc_arches(startdirs)
-            jobs = self._generate_jobs(db, startdirs)
+            jobs = self._generate_jobs(db, arches)
             self._generate_tasks(db, jobs, maintainers)
         except (AssertionError, sqlite3.Error, subprocess.CalledProcessError) as e:
             _LOGGER.exception("[%s] exception:", self, exc_info=e)
