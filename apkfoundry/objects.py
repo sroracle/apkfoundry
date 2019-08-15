@@ -129,7 +129,7 @@ def _db_search(classes, db, where=None, **query):
         for cls in classes:
             if field == cls.__name__.lower() + "id":
                 where.append(f"{field} = :{field}")
-                continue
+                break
 
             fields = attr.fields_dict(cls)
             if field in fields:
@@ -162,7 +162,7 @@ def _db_search(classes, db, where=None, **query):
     sql += ";"
 
     old_factory = db.row_factory
-    db.row_factory = cls.from_db_row
+    db.row_factory = classes[0].from_db_row
     rows = db.execute(sql, query)
     db.row_factory = old_factory
     return rows
