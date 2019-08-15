@@ -539,6 +539,10 @@ class Event:
 
     def _generate_jobs(self, db, arches):
         assert self.id is not None, "_generate_jobs before Event.id"
+        if not arches:
+            _LOGGER.info("No jobs generated!")
+            return {}
+
         jobs = {}
         for arch in arches:
             jobs[arch] = Job(
@@ -571,6 +575,9 @@ class Event:
 
     def _generate_tasks(self, db, jobs, maintainers):
         assert self.id is not None, "_generate_tasks before Event.id"
+
+        if not jobs:
+            return
 
         rows = []
         for arch, job in jobs.items():
