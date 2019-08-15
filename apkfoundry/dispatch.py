@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-import email.errors as eerrors  # MessageParseError
+import json                     # JSONDecodeError
 import logging                  # getLogger
 
 import paho.mqtt.client as mqtt
@@ -102,7 +102,7 @@ class Dispatcher:
     def _job_recv(self, msg):
         try:
             job = Job.from_mqtt(msg.topic, msg.payload)
-        except (eerrors.MessageParseError, AssertionError) as e:
+        except (json.JSONDecodeError, AssertionError) as e:
             _LOGGER.exception(
                 "[%s] invalid payload: '%s'",
                 msg.topic, msg.payload, exc_info=e,
@@ -128,20 +128,14 @@ class Dispatcher:
             except KeyError:
                 _LOGGER.debug("[%s] unknown reject", str(job))
 
-            return job.id
-
-        if job.status == AFStatus.START:
+        elif job.status == AFStatus.START:
             try:
                 del self.jobs[job.arch][0]
-                _LOGGER.info(
-                    "[%s] build order: %s",
-                    str(job), " ".join(job.payload.get_all("Task")),
-                )
+                _LOGGER.info("[%s] starting", str(job))
             except (KeyError, IndexError):
                 _LOGGER.debug("[%s] unknown start", str(job))
 
-            # This shouldn't be necessary but whatever
-            return job.id
+        return job.id
 
     @staticmethod
     def _on_connect(_client, self, _flags, rc):
