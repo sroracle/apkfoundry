@@ -23,7 +23,7 @@ if "REMOTE_ADDR" not in os.environ:
 
 if os.environ["REMOTE_ADDR"] not in remotes:
     response(403, "text/plain")
-    print("This IP is not authorized to submit events")
+    print(f"IP {os.environ['REMOTE_ADDR']} is not authorized to submit events")
     sys.exit(1)
 
 headers = {
