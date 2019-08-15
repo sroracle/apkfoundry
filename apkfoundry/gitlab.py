@@ -50,7 +50,7 @@ class GitlabPush(JSONSchema):
         )
 
     def get_url(self):
-        return self["repository"]["git_http_url"]
+        return self["project"]["git_http_url"]
 
     def is_valid(self, project, config):
         if not self["commits"]:
