@@ -1,3 +1,34 @@
+main {
+  font-family: monospace, monospace;
+  padding: 2rem;
+  margin: auto;
+}
+pre { padding: 1em; border: 0; }
+h1, h2, h3, h4, h5 { margin-bottom: .1rem; }
+blockquote { margin: 0.5em 10px; padding: 0.5em 10px; }
+
+@media (prefers-color-scheme: dark) {
+	body { background: #282828; color: #ebdbb2; }
+	pre { background-color: #3c3836; }
+	a { color: #72b9cf; }
+	a:active { color: red; }
+	a:visited { color: #d95f97; }
+	blockquote { border-left: 1px solid #bdae93; }
+}
+
+/* (prefers-color-scheme: light) { */
+	body { background: #fbf1c7; color: #3c3836; }
+	pre { background-color: #ebdbb2; }
+	blockquote { border-left: 1px solid #655c54; }
+/* } */
+
+@media screen and (min-width: 1000px) {
+  #search { width: 50%; }
+}
+#search { margin-bottom: 2em; }
+.field label { float: left; }
+.field input, .field select { float: right; }
+.field br { clear: both; }
 table, th, td { border: 1px solid gray; border-collapse: collapse; }
 td { text-align: center; }
 .status-NEW { background-color: white; }

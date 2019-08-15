@@ -95,10 +95,12 @@
   <base href="{{ base }}">
  </head>
  <body>
-  <h1>{% block title %}{% endblock %}</h1>
-  {% if page != "home" %}
-   <a href="">Home</a><br><br>
-  {% endif %}
-  {% block content %}{% endblock %}
+  <main>
+   <h1>{% block title %}{% endblock %}</h1>
+   {% if page != "home" %}
+    <a href="">Home</a><br><br>
+   {% endif %}
+   {% block content %}{% endblock %}
+  </main>
  </body>
 </html>
