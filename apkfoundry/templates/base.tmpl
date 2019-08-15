@@ -42,25 +42,30 @@
  {%- if value is none -%}
   {% set value = query[name] or "" %}
  {%- endif -%}
- <label for="{{ name }}">{{ label }}:</label>&nbsp;
- <input type="{{ type }}" name="{{ name }}" value="{{ value }}"><br>
+ <div class="field">
+  <label for="{{ name }}">{{ label }}:</label>&nbsp;
+  <input type="{{ type }}" name="{{ name }}" id="{{ name }}" value="{{ value }}">
+  <br>
+ </div>
 {%- endmacro -%}
 
 {%- macro fselect(name, label, options, value=none) -%}
  {%- if value is none -%}
   {% set value = query[name] or "" %}
  {%- endif -%}
- <label for="{{ name }}">{{ label }}:</label>&nbsp;
- <select name="{{ name }}">
-  {% for option in options %}
-   <option{% if option == value %} selected{% endif %}>{{ option }}</option>
-  {% endfor %}
-   <option{% if value == "" %} selected{% endif %}></option>
- </select>
+ <div class="field">
+  <label for="{{ name }}">{{ label }}:</label>&nbsp;
+  <select name="{{ name }}" id="{{ name }}">
+   {% for option in options %}
+    <option{% if option == value %} selected{% endif %}>{{ option }}</option>
+   {% endfor %}
+    <option{% if value == "" %} selected{% endif %}></option>
+  </select><br>
+ </div>
 {%- endmacro -%}
 
 {%- macro searchform() -%}
- <form action="" method="get">
+ <form id="search" action="" method="get">
   {% if not pretty %}
    <input name="{{ page }}" type="hidden">
   {% endif %}
@@ -86,6 +91,7 @@
    {% filter striptags %}{{ self.title() }}{% endfilter %} - APK Foundry
   </title>
   <link rel="stylesheet" href="{{ css }}" type="text/css">
+  <meta name="viewport" content="width=device-width">
   <base href="{{ base }}">
  </head>
  <body>

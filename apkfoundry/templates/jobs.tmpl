@@ -66,18 +66,18 @@
   </ul>
  {% else %}
   {% call searchform() %}
-   {{ input("eventid", "Event ID", type="number") }}<br>
-   {{ input("builder", "Builder (*)") }}<br>
-   {{ input("arch", "Arch (*)") }}<br>
-   {{ fselect("status", "Status", statuses) }}<br>
-   {{ input("project", "Project (*)") }}<br>
-   {{ input("user", "User (*)") }}<br>
-   {{ fselect("type", "Type", event_types) }}<br>
-   {{ input("clone", "Clone URI (*)") }}<br>
-   {{ input("target", "Target branch (*)") }}<br>
-   {{ input("mrid", "Merge request ID") }}<br>
-   {{ input("mrclone", "Merge request clone URI (*)") }}<br>
-   {{ input("mrbranch", "Merge request branch (*)") }}<br>
+   {{ input("eventid", "Event ID", type="number") }}
+   {{ input("builder", "Builder (*)") }}
+   {{ input("arch", "Arch (*)") }}
+   {{ fselect("status", "Status", statuses) }}
+   {{ input("project", "Project (*)") }}
+   {{ input("user", "User (*)") }}
+   {{ fselect("type", "Type", event_types) }}
+   {{ input("clone", "Clone URI (*)") }}
+   {{ input("target", "Target branch (*)") }}
+   {{ input("mrid", "Merge request ID") }}
+   {{ input("mrclone", "Merge request clone URI (*)") }}
+   {{ input("mrbranch", "Merge request branch (*)") }}
   {% endcall %}
  {% endif %}
 

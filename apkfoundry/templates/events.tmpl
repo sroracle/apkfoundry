@@ -18,15 +18,15 @@
 {% block content %}
  {% if not project_page %}
   {% call searchform() %}
-   {{ input("project", "Project (*)") }}<br>
-   {{ input("user", "User (*)") }}<br>
-   {{ fselect("type", "Type", event_types) }}<br>
-   {{ input("clone", "Clone URI (*)") }}<br>
-   {{ input("target", "Target branch (*)") }}<br>
-   {{ input("mrid", "Merge request ID") }}<br>
-   {{ input("mrclone", "Merge request clone URI (*)") }}<br>
-   {{ input("mrbranch", "Merge request branch (*)") }}<br>
-   {{ fselect("status", "Status", statuses) }}<br>
+   {{ input("project", "Project (*)") }}
+   {{ input("user", "User (*)") }}
+   {{ fselect("type", "Type", event_types) }}
+   {{ input("clone", "Clone URI (*)") }}
+   {{ input("target", "Target branch (*)") }}
+   {{ input("mrid", "Merge request ID") }}
+   {{ input("mrclone", "Merge request clone URI (*)") }}
+   {{ input("mrbranch", "Merge request branch (*)") }}
+   {{ fselect("status", "Status", statuses) }}
   {% endcall %}
  {% endif %}
 
