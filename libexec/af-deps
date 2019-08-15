@@ -1,0 +1,69 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2019 Max Rees
+# See LICENSE for more information.
+. /usr/share/abuild/functions.sh
+
+cleanup() {
+	rm -f "$origins"
+}
+
+list_has() {
+	local needle="$1"
+	local i
+	shift
+	for i in "$@"; do
+		[ "$needle" = "$i" ] && return 0
+		[ "$needle" = "!$i" ] && return 1
+	done
+	return 1
+}
+
+while getopts s opt; do
+case "$opt" in
+s) skip_check=1;;
+esac
+done
+shift "$((OPTIND - 1))"
+
+if [ -z "$1" ]; then
+	exit 1
+fi
+
+for APKBUILD in */*/APKBUILD; do
+	# Assumption: APKBUILD will be of the form REPO/PKGNAME
+	[ -e "$APKBUILD" ] || continue
+
+	pkgname=
+	options=
+	depends_dev=
+	depends=
+	makedepends_build=
+	makedepends_host=
+	makedepends=
+	checkdepends=
+	subpackages=
+	. "$APKBUILD"
+	startdir="${APKBUILD%/APKBUILD}"
+	repo="${startdir%/*}"
+
+	# If there isn't even a package name, let's move along
+	[ -z "$pkgname" ] && continue
+
+	[ -n "$skip_check" ] && checkdepends=
+	list_has "!check" $options && checkdepends=
+
+	for name in $pkgname $subpackages; do
+		printf 'o %s %s\n' "${name%%:*}" "$startdir"
+	done
+
+	for name in $depends $makedepends $checkdepends; do
+		name="${name%%[<>=~]*}"
+		[ -z "$name" ] && continue
+		case "$name" in
+			[!]*) continue;;
+			cmd:*) continue;;
+		esac
+		printf 'd %s %s\n' "$startdir" "$name"
+	done
+done

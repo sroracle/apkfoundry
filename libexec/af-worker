@@ -1,0 +1,45 @@
+#!/bin/sh -e
+startdir="$1"
+repo="${startdir%%/*}"
+
+cleanup() {
+	case "$AF_STATUS" in
+	"")
+		;;
+	0)
+		abuild undeps clean;;
+	*)
+		abuild undeps;;
+	esac
+}
+
+cd "$startdir"
+abuild listpkg > "$AF_TASKDIR/manifest"
+abuild fetch deps
+trap cleanup EXIT INT TERM
+
+if [ -x ".apkfoundry/$AF_BRANCH/pre_build" ]; then
+	"./.apkfoundry/$AF_BRANCH/pre_build"
+fi
+
+set +e
+(
+	exec "$AF_ROOT_FD"<&-
+	export AF_ROOT_FD=
+	export CLEANUP= ERROR_CLEANUP=
+	abuild all
+)
+export AF_STATUS="$?"
+set -e
+
+if [ -x ".apkfoundry/$AF_BRANCH/post_build" ]; then
+	"./.apkfoundry/$AF_BRANCH/post_build"
+fi
+
+arch="$(apk --print-arch)"
+for apk in $(cat "$AF_TASKDIR/manifest"); do
+	mv "$REPODEST/$repo/$arch/$apk" "$AF_TASKDIR/$apk"
+	ln -sr "$AF_TASKDIR/$apk" "$REPODEST/$repo/$arch/$apk"
+done
+
+exit "$AF_STATUS"
