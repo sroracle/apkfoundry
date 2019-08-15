@@ -73,7 +73,7 @@
     <td>{{ time(event.created) }}</td>
     <td>{{ time(event.updated) }}</td>
     <td>{{ link("events", jobs, event.id) }}</td>
-    <td>{{ link("tasks", tasks, event=event.id) }}</td>
+    <td>{{ link("tasks", tasks, eventid=event.id) }}</td>
    </tr>
    {% endfor %}
   </tbody>

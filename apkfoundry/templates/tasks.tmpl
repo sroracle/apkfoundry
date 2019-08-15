@@ -35,14 +35,14 @@
   </ul>
  {% else %}
   {% call searchform() %}
-   {{ input("job", "Job ID", type="number") }}<br>
+   {{ input("jobid", "Job ID", type="number") }}<br>
    {{ input("repo", "Repository (*)") }}<br>
    {{ input("pkg", "Package (*)") }}<br>
    {{ input("maintainer", "Maintainer (*)") }}<br>
    {{ fselect("status", "Status", statuses) }}<br>
    {{ input("builder", "Builder (*)") }}
    {{ input("arch", "Arch (*)") }}
-   {{ input("event", "Event ID", type="number") }}
+   {{ input("eventid", "Event ID", type="number") }}
    {{ input("project", "Project (*)") }}<br>
    {{ input("user", "User (*)") }}<br>
    {{ fselect("type", "Type", event_types) }}<br>

@@ -39,11 +39,13 @@ if ["project"] == params:
     cgi.events_page(database, query, True)
 
 elif ["events"] == params and query["events"]:
-    query["event"] = query["events"]
+    query["eventid"] = query["events"]
+    del query["events"]
     cgi.jobs_page(database, query, True)
 
 elif ["jobs"] == params and query["jobs"]:
-    query["job"] = query["jobs"]
+    query["jobid"] = query["jobs"]
+    del query["jobs"]
     cgi.tasks_page(database, query, True)
 
 elif "events" in query:

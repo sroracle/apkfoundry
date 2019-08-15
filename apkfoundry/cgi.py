@@ -124,7 +124,7 @@ def events_page(db, query, project_page=False):
 def jobs_page(db, query, event_page=False):
     event = jinja2.Undefined(name="event")
     if event_page:
-        event = Event.db_search(db, eventid=query["event"]).fetchone()
+        event = Event.db_search(db, eventid=query["eventid"]).fetchone()
 
         if event is None:
             error(404, "Unknown event")
@@ -152,7 +152,7 @@ def jobs_page(db, query, event_page=False):
 def tasks_page(db, query, job_page=False):
     job = jinja2.Undefined(name="job")
     if job_page:
-        job = Job.db_search(db, jobid=query["job"]).fetchone()
+        job = Job.db_search(db, jobid=query["jobid"]).fetchone()
 
         if job is None:
             error(404, "Unknown job")

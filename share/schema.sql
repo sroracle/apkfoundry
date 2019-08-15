@@ -169,8 +169,7 @@ SELECT
   tasks.tail AS tail,
   tasks.created AS created,
   tasks.updated AS updated,
-  jobs_full.job AS jobid,
-  jobs_full.event AS eventid,
+  jobs_full.eventid AS eventid,
   jobs_full.builder AS builder,
   jobs_full.arch AS arch,
   jobs_full.status AS status,
@@ -185,4 +184,4 @@ SELECT
   jobs_full.user AS user,
   jobs_full.reason AS reason
 FROM tasks
-INNER JOIN jobs_full ON tasks.job = jobs_full.job;
+INNER JOIN jobs_full ON tasks.jobid = jobs_full.jobid;

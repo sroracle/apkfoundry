@@ -550,7 +550,7 @@ class Event:
 
         _LOGGER.info("[%s] Adding jobs to database", str(self))
         db.executemany(
-            "INSERT INTO jobs (event, arch) VALUES (?, ?);",
+            "INSERT INTO jobs (eventid, arch) VALUES (?, ?);",
             rows,
         )
         db.commit()
@@ -580,7 +580,7 @@ class Event:
 
         _LOGGER.info("[%s] Adding tasks to database", str(self))
         db.executemany(
-            "INSERT INTO tasks (job, repo, pkg, maintainer) VALUES (?, ?, ?, ?);",
+            "INSERT INTO tasks (jobid, repo, pkg, maintainer) VALUES (?, ?, ?, ?);",
             rows,
         )
         db.commit()
