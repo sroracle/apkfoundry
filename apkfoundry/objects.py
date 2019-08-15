@@ -121,6 +121,10 @@ def _db_search(classes, db, where=None, **query):
             continue
 
         for cls in classes:
+            if field == cls.__name__.lower() + "id":
+                where.append(f"{field} = :{field}")
+                continue
+
             fields = attr.fields_dict(cls)
             if field in fields:
                 if fields[field].type is str:
