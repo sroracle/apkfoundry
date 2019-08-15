@@ -39,6 +39,9 @@ def startup_flush():
 
         os.close(fd)
 
+    except FileNotFoundError:
+        os.mkfifo(_NOTIFYPATH, mode=0o660)
+
     except OSError as e:
         if e.errno != errno.EAGAIN:
             raise
