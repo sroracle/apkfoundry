@@ -79,7 +79,13 @@
      {% endif %}
      <td>{{ link("tasks", task.repo, repo=task.repo) }}</td>
      <td>{{ link("tasks", task.pkg, pkg=task.pkg) }}</td>
-     <td>{{ link("tasks", task.maintainer, maintainer=task.maintainer) }}</td>
+     <td>
+      {{ link(
+        "tasks",
+        task.maintainer.split(" <", maxsplit=1)|first,
+        maintainer=task.maintainer
+       ) }}
+     </td>
      <td class="status status-{{ task.status }}">
       {{ link("tasks", task.status, status=task.status) }}
      </td>

@@ -164,8 +164,8 @@ def tasks_page(db, query, job_page=False):
     now = getnow()
 
     for i, task in enumerate(tasks):
-        if task.maintainer:
-            task.maintainer = task.maintainer.split(" <", maxsplit=1)[0]
+        if task.maintainer is None:
+            task.maintainer = "None"
 
         task.created = timeelement(task.created, now)
         task.updated = timeelement(task.updated, now)
