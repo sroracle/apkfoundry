@@ -222,6 +222,47 @@ def _abuild_apk(argv):
         type=int,
     )
 
+    fix = applets.add_parser("fix")
+    fix.add_argument(
+        "--depends", "-d",
+        action="store_true",
+    )
+    fix.add_argument(
+        "--reinstall", "-r",
+        action="store_true",
+    )
+    fix.add_argument(
+        "--xattr", "-x",
+        action="store_true",
+    )
+    fix.add_argument(
+        "--directory-permissions",
+        action="store_true",
+    )
+    fix.add_argument(
+        "--upgrade", "-u",
+        action="store_true",
+    )
+    fix.add_argument(
+        "packages", metavar="PACKAGE",
+        nargs="*",
+    )
+    fix.add_argument(
+        "--quiet", "-q",
+        action="store_true",
+    )
+    fix.add_argument(
+        "--repository", "-X",
+    )
+    fix.add_argument(
+        "--simulate", "-s",
+        action="store_true",
+    )
+    fix.add_argument(
+        "--wait",
+        type=int,
+    )
+
     # No arguments or options
     applets.add_parser("update")
 
