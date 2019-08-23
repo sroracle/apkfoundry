@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-import enum       # Flag
+import enum       # Enum
 import fileinput  # FileInput
 import getpass    # getuser
 import json       # load
@@ -31,10 +31,10 @@ _APK_STATIC = _CFG.getpath("apk")
 _BWRAP = _CFG.getpath("bwrap")
 _SRCDEST = _CFG.getpath("distfiles")
 
-class ChrootDelete(enum.Flag):
+class ChrootDelete(enum.Enum):
     NEVER = 0
-    DELETE = 1
-    ALWAYS = DELETE | 2
+    ON_SUCCESS = 1
+    ALWAYS = 2
 
 def _idmap(userid):
     assert _ROOTID != userid, "root ID cannot match user ID"
@@ -149,7 +149,7 @@ def chroot_init(cdir):
         raise FileNotFoundError("/af/info/repo file is required")
     repo = repo.read_text().strip()
 
-    conf_d = cdir / APORTSDIR.lstrip("/") / ".apkfoundry" / branch
+    conf_d = cdir / "af/info/aports/.apkfoundry" / branch
 
     keys_d = _checkdir(conf_d / "keys")
     try:
@@ -189,11 +189,13 @@ def chroot_init(cdir):
 
 def chroot(cmd,
         cdir,
-        net=False,
-        ro_root=True,
-        ro_git=True,
+        *,
+        aportsdir=None,
         delete=ChrootDelete.NEVER,
         log=None,
+        net=False,
+        ro_git=True,
+        ro_root=True,
         root_fd=None,
         **kwargs):
 
@@ -217,6 +219,9 @@ def chroot(cmd,
         gid = pwd.getpwuid(uid).pw_gid
 
         setuid = setgid = 0
+
+    if not aportsdir:
+        aportsdir = cdir / APORTSDIR.lstrip("/")
 
     info_r, info_w = os.pipe()
     pipe_r, pipe_w = os.pipe()
@@ -242,7 +247,7 @@ def chroot(cmd,
         "--bind", cdir / "tmp", "/tmp",
         "--bind", cdir / "var/tmp", "/var/tmp",
         "--bind", _SRCDEST, _SRCDEST,
-        git_bind, cdir / APORTSDIR.lstrip("/"), APORTSDIR,
+        git_bind, aportsdir, APORTSDIR,
         "--bind", cdir / BUILDDIR.lstrip("/"), BUILDDIR,
         "--bind", cdir / REPODEST.lstrip("/"), REPODEST,
         "--ro-bind", cdir / JOBDIR.lstrip("/"), JOBDIR,
@@ -293,7 +298,7 @@ def chroot(cmd,
     if delete == ChrootDelete.NEVER:
         pass
 
-    elif delete == ChrootDelete.DELETE:
+    elif delete == ChrootDelete.ON_SUCCESS:
         if success:
             _chroot_delete(cdir)
 
@@ -301,6 +306,6 @@ def chroot(cmd,
         _chroot_delete(cdir)
 
     if not success:
-        _LOGGER.error("chroot failed with status %r!", retcodes)
+        _LOGGER.debug("chroot failed with status %r!", retcodes)
 
     return (max(abs(i) for i in retcodes), proc)

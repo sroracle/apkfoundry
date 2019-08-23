@@ -13,7 +13,7 @@ import sys          # exc_info, exit, std*
 from pathlib import Path
 
 from . import get_config
-from .chroot import chroot, chroot_bootstrap, chroot_init
+from .chroot import APORTSDIR, chroot, chroot_bootstrap, chroot_init
 
 _LOGGER = logging.getLogger(__name__)
 _CFG = get_config("chroot")
@@ -477,7 +477,16 @@ def listen():
         for key, event in sel.select():
             key.data[0](*key.data[1:])
 
-def client_init(cdir, bootstrap=False):
+def client_init(cdir, aportsdir=None, bootstrap=False):
+    if not aportsdir:
+        aportsdir = Path(cdir) / APORTSDIR.lstrip("/")
+    info_aports = Path(cdir) / "af/info/aports"
+    try:
+        info_aports.unlink()
+    except FileNotFoundError:
+        pass
+    info_aports.symlink_to(aportsdir)
+
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(str(_SOCK_PATH))
 
