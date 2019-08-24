@@ -13,10 +13,10 @@ import sys          # exc_info, exit, std*
 from pathlib import Path
 
 from . import get_config
-from .chroot import APORTSDIR, chroot, chroot_bootstrap, chroot_init
+from .container import APORTSDIR, Container, cont_bootstrap, cont_refresh
 
 _LOGGER = logging.getLogger(__name__)
-_CFG = get_config("chroot")
+_CFG = get_config("container")
 _ROOTID = _CFG.getint("rootid")
 _SOCK_PATH = _CFG.getpath("socket")
 _NUM_FDS = 3
@@ -415,8 +415,9 @@ class RootConn(socketserver.StreamRequestHandler):
             argv[0] = _parse[cmd][0]
 
             try:
-                rc, _ = chroot(
-                    argv, self.cdir,
+                cont = Container(self.cdir)
+                rc, _ = cont.run(
+                    argv,
                     net=True, ro_root=False,
                     stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
                 )
@@ -450,7 +451,7 @@ class RootConn(socketserver.StreamRequestHandler):
             return
 
         if not opts.cdir.is_dir():
-            self._err(f"Nonexistent chroot: {opts.cdir}")
+            self._err(f"Nonexistent container: {opts.cdir}")
             return
 
         owner = opts.cdir.stat().st_uid
@@ -459,11 +460,11 @@ class RootConn(socketserver.StreamRequestHandler):
             return
 
         self.cdir = opts.cdir
-        chroot_init(self.cdir)
+        cont_refresh(self.cdir)
         rc = 0
 
         if opts.bootstrap:
-            rc = chroot_bootstrap(
+            rc = cont_bootstrap(
                 self.cdir,
                 stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
             )
@@ -518,16 +519,7 @@ def listen():
         for key, event in sel.select():
             key.data[0](*key.data[1:])
 
-def client_init(cdir, aportsdir=None, bootstrap=False):
-    if not aportsdir:
-        aportsdir = Path(cdir) / APORTSDIR.lstrip("/")
-    info_aports = Path(cdir) / "af/info/aports"
-    try:
-        info_aports.unlink()
-    except FileNotFoundError:
-        pass
-    info_aports.symlink_to(aportsdir)
-
+def client_init(cdir, bootstrap=False):
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(str(_SOCK_PATH))
 

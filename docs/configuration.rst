@@ -41,7 +41,7 @@ split into restricted files away from more mundane options.
     ; Number of disjoint jobs allowed to run concurrently.
     concurrency=1
 
-    [chroot]
+    [container]
     ; ID of the af-root user.
     rootid = 1001
     ; Base sub-id for containers.
@@ -50,8 +50,6 @@ split into restricted files away from more mundane options.
     apk = /sbin/apk.static
     ; Path to non-setuid bwrap executable.
     bwrap = /usr/bin/bwrap.nosuid
-    ; Path to shared distfiles location.
-    distfiles = /var/cache/distfiles
     ; Path to af-rootd UNIX domain socket.
     socket = /var/lib/apkfoundry/root.sock
 

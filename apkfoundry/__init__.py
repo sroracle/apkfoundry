@@ -57,7 +57,7 @@ _DEFAULT_CONFIG = {
         "mask": "jobs/#",
         "concurrency": "1",
     },
-    "chroot": {
+    "container": {
         "rootid": "1001",
         "subid": "100000",
         "apk": "/sbin/apk.static",

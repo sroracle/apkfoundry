@@ -10,5 +10,4 @@
 * ``types``: logging dispatchd output to file based on object
 * ``webhook``: rate limiting
 * ``webhook``: GitLab secret token
-* ``chroot``: CLI interface
 * ``irc``: restore

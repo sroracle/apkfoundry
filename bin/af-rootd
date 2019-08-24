@@ -14,7 +14,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-rootid = get_config("chroot").getint("rootid")
+rootid = get_config("container").getint("rootid")
 if os.getuid() != rootid:
     _LOGGER.critical(f"Must be run as user {rootid}")
     sys.exit(1)

@@ -6,18 +6,20 @@ import argparse # ArgumentParser, REMAINDER
 import logging  # basicConfig
 import sys      # exit
 
-from apkfoundry.chroot import chroot, ChrootDelete
+from apkfoundry.container import Container, Delete
 from apkfoundry.root import client_init
 
-def _chroot(opts, root_fd=None):
-    return chroot(
-        opts.argv,
+def _container_run(opts, root_fd=None):
+    cont = Container(
         opts.cdir,
-        aportsdir=opts.aportsdir,
-        net=opts.networking,
-        ro_git=opts.ro_aports,
-        ro_root=opts.ro_root,
         root_fd=root_fd,
+    )
+
+    return cont.run(
+        opts.argv,
+        net=opts.networking,
+        ro_aports=opts.ro_aports,
+        ro_root=opts.ro_root,
     )
 
 logging.basicConfig(
@@ -28,16 +30,16 @@ logging.basicConfig(
 opts = argparse.ArgumentParser(
     usage="af-chroot [options...] DIR COMMAND...",
 )
-opts.add_argument(
-    "-a", "--aportsdir", metavar="APORTSDIR",
-    help="Project checkout directory (default: container root /af/git)",
-)
+#opts.add_argument(
+#    "-a", "--aportsdir", metavar="APORTSDIR",
+#    help="Project checkout directory (default: container root /af/git)",
+#)
 opts.add_argument(
     "-d", "--delete", metavar="WHEN",
-    choices=[i.name for i in ChrootDelete],
-    default=ChrootDelete.NEVER,
+    choices=[i.name for i in Delete],
+    default=Delete.NEVER,
     help="When to delete the container (" \
-        + ", ".join([i.name for i in ChrootDelete]) \
+        + ", ".join([i.name for i in Delete]) \
         + "; default NEVER)",
 )
 opts.add_argument(
@@ -68,9 +70,9 @@ opts = opts.parse_args()
 opts.cdir = opts.cdir[0]
 
 if opts.rootd:
-    with client_init(opts.cdir, opts.aportsdir) as sock:
-        ret, _ = _chroot(opts, sock.fileno())
+    with client_init(opts.cdir) as sock:
+        ret, _ = _container_run(opts, sock.fileno())
 else:
-    ret, _ = _chroot(opts)
+    ret, _ = _container_run(opts)
 
 sys.exit(ret)

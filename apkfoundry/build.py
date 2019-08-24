@@ -7,7 +7,7 @@ import os         # environ
 from pathlib import Path
 
 from . import git_init, agent_queue
-from . import chroot
+from . import container
 from .digraph import Digraph
 from .objects import AFStatus, Task, AFEventType
 
@@ -46,11 +46,10 @@ def _stats_builds(tasks):
 
     return success
 
-def generate_graph(cdir, startdirs):
+def generate_graph(cont, startdirs):
     graph = Digraph()
-    rc, proc = chroot.chroot(
+    rc, proc = cont.run(
         ("af-deps", *startdirs),
-        cdir,
         stdout=subprocess.PIPE,
     )
     if rc:
@@ -103,15 +102,15 @@ def generate_graph(cdir, startdirs):
 
     return graph
 
-def run_startdir(cdir, branch, taskdir, startdir, log=None):
+def run_startdir(cont, branch, taskdir, startdir, log=None):
     env = os.environ.copy()
 
-    buildbase = Path(chroot.BUILDDIR) / startdir
-    env["AF_TASKDIR"] = "/" + str(taskdir.relative_to(cdir))
+    buildbase = Path(container.BUILDDIR) / startdir
+    env["AF_TASKDIR"] = "/" + str(taskdir.relative_to(cont.cdir))
     env["AF_BRANCH"] = branch
     env["ABUILD_SRCDIR"] = str(buildbase / "src")
     env["ABUILD_PKGBASEDIR"] = str(buildbase / "pkg")
-    tmp = cdir / "af/build" / startdir / "tmp"
+    tmp = cont.cdir / "af/build" / startdir / "tmp"
     tmp.mkdir(parents=True, exist_ok=True)
     tmp = str(buildbase / "tmp")
     env["TEMP"] = env["TMP"] = tmp
@@ -123,7 +122,7 @@ def run_startdir(cdir, branch, taskdir, startdir, log=None):
         log = open(log, "w")
 
     try:
-        proc = chroot.chroot(
+        _, proc = cont.run(
             ["/usr/libexec/apkfoundry/af-worker", startdir],
             stdout=log, stderr=log,
             env=env,
@@ -139,7 +138,7 @@ def run_startdir(cdir, branch, taskdir, startdir, log=None):
         except (AttributeError, TypeError):
             pass
 
-def run_graph(agent, job, graph, branch, keep_going=False, keep_files=True):
+def run_graph(agent, job, graph, cont, keep_going=False, keep_files=True):
     tasks = {task.startdir: task for task in job.tasks}
     initial = {task.startdir for task in job.tasks}
     done = set()
@@ -175,9 +174,9 @@ def run_graph(agent, job, graph, branch, keep_going=False, keep_files=True):
             try:
                 taskdir = jobdir / startdir
                 taskdir.mkdir(parents=True, exist_ok=True)
-                repo_f = cdir / "af/info/repo"
+                repo_f = cont.cdir / "af/info/repo"
                 repo_f.write_text(repo)
-                run_startdir(cdir, branch, taskdir, startdir)
+                run_startdir(cont, job.target, taskdir, startdir)
 
             except subprocess.CalledProcessError as e:
                 _LOGGER.error("(%d/%d) Fail: %s (%d)", cur, tot, startdir, e.returncode)
@@ -219,7 +218,7 @@ def run_graph(agent, job, graph, branch, keep_going=False, keep_files=True):
                 agent_queue.put(task)
                 done.add(startdir)
                 if not keep_files:
-                    shutil.rmtree(cdir / "build" / startdir)
+                    shutil.rmtree(cont.cdir / "build" / startdir)
 
     return _stats_builds(tasks)
 
@@ -255,8 +254,9 @@ def run_job(agent, job):
         kwargs["mrbranch"] = event.mrbranch
 
     git_init(cdir / "af/git", event.clone, **kwargs)
+    cont = container.Container(cdir)
 
-    graph = generate_graph(cdir, job.tasks)
+    graph = generate_graph(cont, job.tasks)
     if not graph:
         _LOGGER.error("failed to generate dependency graph")
         job.status = AFStatus.ERROR
@@ -264,7 +264,7 @@ def run_job(agent, job):
         return
 
     try:
-        run_job(agent, job, graph, job.target)
+        run_graph(agent, job, graph, cont)
     except Exception as e:
         _LOGGER.exception("unhandled exception", exc_info=e)
         job.status = AFStatus.ERROR
