@@ -3,7 +3,6 @@
 # See LICENSE for more information.
 import configparser # ConfigParser
 import functools    # partial
-import glob         # glob
 import logging      # getLogger
 import os           # environ, pathsep
 import queue        # Queue
@@ -13,7 +12,7 @@ import sys          # stderr, stdout
 import threading    # Event
 from pathlib import Path
 
-SITE_CONF = "/etc/apkfoundry/*.ini"
+SITE_CONF = Path("/etc/apkfoundry")
 SITE_PACKAGE = Path(__file__).parent
 LIBEXEC = (SITE_PACKAGE / "libexec").resolve()
 if "PATH" in os.environ:
@@ -60,9 +59,6 @@ _DEFAULT_CONFIG = {
     "container": {
         "rootid": "1001",
         "subid": "100000",
-        "apk": "/sbin/apk.static",
-        "bwrap": "/usr/bin/bwrap.nosuid",
-        "distfiles": "/var/cache/distfiles",
         "socket": str(_HOME / "root.sock"),
     },
     "database": {
@@ -89,8 +85,7 @@ _DEFAULT_CONFIG = {
 }
 
 def get_config(section=None):
-    files = glob.glob(SITE_CONF)
-    files.sort()
+    files = sorted(SITE_CONF.glob("*.ini"))
 
     config = _ConfigParser()
     config.BOOLEAN_STATES = {"true": True, "false": False}

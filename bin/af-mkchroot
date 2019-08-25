@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2019 Max Rees
+# See LICENSE for more information.
+import argparse # ArgumentParser, REMAINDER
+import logging  # basicConfig
+from pathlib import Path
+
+from apkfoundry.container import Container, cont_make
+from apkfoundry.root import client_init
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+
+opts = argparse.ArgumentParser(
+    usage="af-mkchroot [options...] DIR BRANCH",
+)
+opts.add_argument(
+    "-A", "--arch",
+    help="APK architecture name (default: output of apk --print-arch)",
+)
+opts.add_argument(
+    "-a", "--aportsdir",
+    help="Project checkout directory (default: container root /af/aports)",
+)
+opts.add_argument(
+    "-r", "--repodest",
+    help="Package destination directory (default: container root /af/packages)",
+)
+opts.add_argument(
+    "-S", "--setarch",
+    help="setarch(8) architecture name (default: none)",
+)
+opts.add_argument(
+    "-s", "--srcdest",
+    help="Source file directory (default: container root /var/cache/distfiles)",
+)
+opts.add_argument(
+    "cdir", metavar="DIR", nargs=1,
+    help="Container directory",
+)
+opts.add_argument(
+    "branch", metavar="BRANCH", nargs=1,
+    help="Project branch",
+)
+opts.add_argument(
+    "repo", metavar="REPO", nargs=1,
+    help="Initial repository (can be changed later)",
+)
+
+opts = opts.parse_args()
+opts.cdir = Path(opts.cdir[0]).resolve(strict=False)
+opts.branch = opts.branch[0]
+opts.repo = opts.repo[0]
+
+cont_make(
+    opts.cdir,
+    opts.branch,
+    opts.repo,
+    arch=opts.arch,
+    setarch=opts.setarch,
+    mounts={
+        "aportsdir": opts.aportsdir,
+        "repodest": opts.repodest,
+        "srcdest": opts.srcdest,
+    },
+)
+
+client_init(opts.cdir, bootstrap=True)

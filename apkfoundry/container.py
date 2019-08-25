@@ -2,39 +2,33 @@
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
 import enum       # Enum
-import fileinput  # FileInput
 import getpass    # getuser
 import json       # load
 import logging    # getLogger
-import os         # close, getuid, getgid, pipe, stat, write
+import os         # close, getuid, getgid, pipe, stat, walk, write
 import pwd        # getpwuid
 import select     # select
 import shlex      # quote
-import shutil     # copy, copytree, rmtree
+import shutil     # chown, copy2, copytree
 import socket     # gethostname
 import subprocess # call, Popen
 from pathlib import Path
 
-from . import get_config, LIBEXEC, run
+from . import get_config, LIBEXEC, run, SITE_CONF
 
 _LOGGER = logging.getLogger(__name__)
 
-APORTSDIR = "/af/aports"
 BUILDDIR = "/af/build"
-REPODEST = "/af/packages"
 JOBDIR = "/af/jobs"
+MOUNTS = {
+    "aportsdir": "/af/aports",
+    "repodest": "/af/packages",
+    "srcdest": "/var/cache/distfiles",
+}
 
 _CFG = get_config("container")
 _ROOTID = _CFG.getint("rootid")
 _SUBID = _CFG.getint("subid")
-_APK_STATIC = _CFG.getpath("apk")
-_BWRAP = _CFG.getpath("bwrap")
-
-_MOUNTS = {
-    "aports": "/af/aports",
-    "packages": "/af/packages",
-    "srcdest": "/var/cache/distfiles",
-}
 
 class Delete(enum.Enum):
     NEVER = 0
@@ -108,55 +102,26 @@ def _checkfile_repo(path, repo):
 
     return path
 
-def cont_refresh(cdir):
-    cdir = Path(cdir)
+def _force_copytree(src, dst):
+    src = Path(src)
+    dst = Path(dst)
 
-    branch = cdir / "af/info/branch"
-    if not branch.is_file():
-        raise FileNotFoundError("/af/info/branch file is required")
-    branch = branch.read_text().strip()
-    repo = cdir / "af/info/repo"
-    if not repo.is_file():
-        raise FileNotFoundError("/af/info/repo file is required")
-    repo = repo.read_text().strip()
+    copied_files = []
 
-    conf_d = cdir / "af/info/aports/.apkfoundry" / branch
+    for srcpath, dirnames, filenames in os.walk(src):
+        srcpath = Path(srcpath)
 
-    keys_d = _checkdir(conf_d / "keys")
-    try:
-        shutil.rmtree(cdir / "etc/apk/keys")
-    except FileNotFoundError:
-        pass
-    shutil.copytree(
-        keys_d, cdir / "etc/apk/keys",
-        copy_function=shutil.copy,
-    )
+        dstpath = dst / srcpath.relative_to(src)
+        dstpath.mkdir(exist_ok=True)
 
-    arch_f = cdir / "af/info/arch"
-    if not arch_f.is_file():
-        raise FileNotFoundError("/af/info/arch file is required")
-    arch = arch_f.read_text().strip()
-    shutil.copy(arch_f, cdir / "etc/apk/arch")
+        for dirname in dirnames:
+            (dstpath / dirname).mkdir(exist_ok=True)
 
-    repo_f = _checkfile_repo(conf_d / "repositories", repo)
-    shutil.copy(repo_f, cdir / "etc/apk/repositories")
+        for filename in filenames:
+            shutil.copy2(srcpath / filename, dstpath / filename)
+            copied_files.append(dstpath / filename)
 
-    world_f = _checkfile(conf_d / "world")
-    shutil.copy(world_f, cdir / "etc/apk/world")
-
-    abuild_f = _checkfile(Path(f"/etc/apkfoundry/abuild.{arch}.conf"))
-    shutil.copy(abuild_f, cdir / "etc/abuild.conf")
-
-    localtime = cdir / "etc/localtime"
-    try:
-        localtime.symlink_to("../usr/share/zoneinfo/UTC")
-    except FileExistsError:
-        localtime.unlink()
-        localtime.symlink_to("../usr/share/zoneinfo/UTC")
-
-    shutil.copy("/etc/passwd", cdir / "etc")
-    shutil.copy("/etc/group", cdir / "etc")
-    shutil.copy("/etc/resolv.conf", cdir / "etc")
+    return copied_files
 
 class Container:
     __slots__ = (
@@ -209,12 +174,14 @@ class Container:
         else:
             kwargs["pass_fds"] = [pipe_r, info_w]
 
-        mounts = _MOUNTS.copy()
+        mounts = MOUNTS.copy()
         for mount in mounts:
             mounts[mount] = (self.cdir / "af/info" / mount).resolve(strict=False)
+            if not mounts[mount].is_symlink():
+                mounts[mount] = self.cdir / MOUNTS[mount].lstrip("/")
 
         args = [
-            str(_BWRAP),
+            SITE_CONF / "bwrap.nosuid",
             "--unshare-user",
             "--userns-block-fd", str(pipe_r),
             "--info-fd", str(info_w),
@@ -229,19 +196,19 @@ class Container:
             "--proc", "/proc",
             "--bind", self.cdir / "tmp", "/tmp",
             "--bind", self.cdir / "var/tmp", "/var/tmp",
-            "--bind", mounts["srcdest"], "/var/cache/distfiles",
-            aports_bind, mounts["aports"], APORTSDIR,
+            aports_bind, mounts["aportsdir"], MOUNTS["aportsdir"],
+            "--bind", mounts["repodest"], MOUNTS["repodest"],
+            "--bind", mounts["srcdest"], MOUNTS["srcdest"],
             "--bind", self.cdir / BUILDDIR.lstrip("/"), BUILDDIR,
-            "--bind", self.cdir / REPODEST.lstrip("/"), REPODEST,
             "--ro-bind", self.cdir / JOBDIR.lstrip("/"), JOBDIR,
             "--ro-bind", str(LIBEXEC), "/af/libexec",
-            "--setenv", "REPODEST", REPODEST,
-            "--setenv", "SRCDEST", "/var/cache/distfiles",
-            "--setenv", "SUDO_APK", "/af/libexec/af-req-root abuild-apk",
-            "--setenv", "ADDUSER", "/af/libexec/af-req-root abuild-adduser",
-            "--setenv", "ADDGROUP", "/af/libexec/af-req-root abuild-addgroup",
+            "--setenv", "SRCDEST", MOUNTS["srcdest"],
+            "--setenv", "REPODEST", MOUNTS["repodest"],
             "--setenv", "ABUILD_FETCH", "/af/libexec/af-req-root abuild-fetch",
-            "--chdir", APORTSDIR,
+            "--setenv", "ADDGROUP", "/af/libexec/af-req-root abuild-addgroup",
+            "--setenv", "ADDUSER", "/af/libexec/af-req-root abuild-adduser",
+            "--setenv", "SUDO_APK", "/af/libexec/af-req-root abuild-apk",
+            "--chdir", MOUNTS["aportsdir"],
         ]
 
         if self.root_fd:
@@ -260,9 +227,9 @@ class Container:
                 "--cap-add", "CAP_SYS_CHROOT",
             ])
 
-        setarchfile = self.cdir / ".apkfoundry/setarch"
-        if setarchfile.is_file():
-            args.extend(["setarch", setarchfile.read_text().strip()])
+        setarch_f = self.cdir / "af/setarch"
+        if setarch_f.is_file():
+            args.extend(["setarch", setarch_f.read_text().strip()])
 
         args.extend(cmd)
 
@@ -299,35 +266,117 @@ class Container:
 
         return (max(abs(i) for i in retcodes), proc)
 
-def cont_bootstrap(cdir):
-    cont = Container(cdir)
+def cont_make(
+        cdir,
+        branch,
+        repo,
+        *,
+        arch=None,
+        setarch=None,
+        mounts=None):
 
-    # Database must be initialized before repositories are added.
-    shutil.copy(_APK_STATIC, cdir)
+    cdir = Path(cdir)
+    cdir.mkdir()
+    shutil.chown(cdir, group="apkfoundry")
+    cdir.chmod(0o770)
+
+    (cdir / "tmp").mkdir()
+    (cdir / "var/tmp").mkdir(parents=True)
+
+    for mount in MOUNTS.values():
+        (cdir / mount.lstrip("/")).mkdir(parents=True)
+
+    shutil.chown(cdir / "var", group="apkfoundry")
+    shutil.chown(cdir / "var/cache", group="apkfoundry")
+    (cdir / "var").chmod(0o775)
+    (cdir / "var/cache").chmod(0o775)
+
+    (cdir / BUILDDIR.lstrip("/")).mkdir(parents=True)
+    (cdir / JOBDIR.lstrip("/")).mkdir(parents=True)
+
+    af_info = cdir / "af/info"
+    af_info.mkdir(parents=True)
+
+    (cdir / "af/libexec").mkdir()
+
+    (af_info / "branch").write_text(branch.strip())
+    (af_info / "repo").write_text(repo.strip())
+
+    if arch is None:
+        arch = subprocess.check_output(
+            [SITE_CONF / "skel.bootstrap/apk.static", "--print-arch"],
+            encoding="utf-8",
+        )
+    (cdir / "af/info/arch").write_text(arch.strip())
+
+    if setarch:
+        (cdir / "af/info/setarch").write_text(setarch.strip())
+
+    if mounts is None:
+        mounts = {}
+
+    for mount in mounts:
+        if mount not in MOUNTS:
+            raise ValueError(f"Unknown mount '{mount}'")
+        if not mounts[mount]:
+            continue
+
+        (cdir / "af/info" / mount).symlink_to(mounts[mount])
+
+def cont_bootstrap(cdir, **kwargs):
+    cont = Container(cdir)
+    bootstrap_files = _force_copytree(SITE_CONF / "skel.bootstrap", cdir)
+
+    world_f = cdir / "etc/apk/world"
+    if world_f.exists():
+        shutil.move(world_f, world_f.with_suffix(".af-bak"))
     args = ["/apk.static", "add", "--initdb"]
-    rc, _ = cont.run(args, ro_root=False, net=True)
+    rc, _ = cont.run(args, ro_root=False, net=True, **kwargs)
     if rc:
         return rc
-
-    # Use http instead of https when bootstrapping since ca-certificates
-    # will be unavailable
-    etc_repo_f = cdir / "etc/apk/repositories"
-    with fileinput.FileInput(
-            files=(str(etc_repo_f),),
-            inplace=True, backup=".bak") as f:
-        for line in f:
-            if line.startswith("https"):
-                line = line.replace("https", "http", 1)
-
-            print(line, end="")
+    shutil.move(world_f.with_suffix(".af-bak"), world_f)
 
     args = ["/apk.static", "--update-cache", "add", "--upgrade", "--latest"]
-    rc, _ = cont.run(args, ro_root=False, net=True)
+    rc, _ = cont.run(args, ro_root=False, net=True, **kwargs)
 
-    # Cleanup bootstrap files
-    (cdir / "apk.static").unlink()
-    bak = etc_repo_f.with_suffix(".bak")
-    shutil.copy(bak, etc_repo_f)
-    bak.unlink()
+    for filename in bootstrap_files:
+        if filename.with_suffix(".apk-new").exists():
+            shutil.move(filename.with_suffix(".apk-new"), filename)
+        else:
+            filename.unlink()
 
     return rc
+
+def cont_refresh(cdir):
+    cdir = Path(cdir)
+
+    branch = cdir / "af/info/branch"
+    if not branch.is_file():
+        raise FileNotFoundError("/af/info/branch file is required")
+    branch = branch.read_text().strip()
+    repo = cdir / "af/info/repo"
+    if not repo.is_file():
+        raise FileNotFoundError("/af/info/repo file is required")
+    repo = repo.read_text().strip()
+    # FIXME: maybe not needed as a separate file from /etc/apk/arch
+    arch = cdir / "af/info/arch"
+    if not arch.is_file():
+        raise FileNotFoundError("/af/info/arch file is required")
+    (cdir / "etc/apk").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(arch, cdir / "etc/apk/arch")
+    arch = arch.read_text().strip()
+
+    conf_d = cdir / "af/info/aportsdir/.apkfoundry" / branch
+
+    for skel in (
+            SITE_CONF / "skel",
+            conf_d / "skel",
+            conf_d / f"skel.{repo}",
+            conf_d / f"skel..{arch}",
+            conf_d / f"skel.{repo}.{arch}",
+        ):
+
+        if not skel.is_dir():
+            continue
+
+        _force_copytree(skel, cdir)

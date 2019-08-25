@@ -5,6 +5,7 @@
 import argparse # ArgumentParser, REMAINDER
 import logging  # basicConfig
 import sys      # exit
+from pathlib import Path
 
 from apkfoundry.container import Container, Delete
 from apkfoundry.root import client_init
@@ -28,12 +29,8 @@ logging.basicConfig(
 )
 
 opts = argparse.ArgumentParser(
-    usage="af-chroot [options...] DIR COMMAND...",
+    usage="af-chroot [options...] DIR REPO COMMAND...",
 )
-#opts.add_argument(
-#    "-a", "--aportsdir", metavar="APORTSDIR",
-#    help="Project checkout directory (default: container root /af/git)",
-#)
 opts.add_argument(
     "-d", "--delete", metavar="WHEN",
     choices=[i.name for i in Delete],
@@ -63,11 +60,16 @@ opts.add_argument(
     help="Container directory",
 )
 opts.add_argument(
+    "repo", metavar="REPO",
+    help="Repository for this container session",
+)
+opts.add_argument(
     "argv", metavar="COMMAND", nargs=argparse.REMAINDER,
     help="Command to execute",
 )
 opts = opts.parse_args()
-opts.cdir = opts.cdir[0]
+opts.cdir = Path(opts.cdir[0]).resolve(strict=False)
+opts.repo = opts.repo[0]
 
 if opts.rootd:
     with client_init(opts.cdir) as sock:

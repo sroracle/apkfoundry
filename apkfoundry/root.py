@@ -13,7 +13,7 @@ import sys          # exc_info, exit, std*
 from pathlib import Path
 
 from . import get_config
-from .container import APORTSDIR, Container, cont_bootstrap, cont_refresh
+from .container import Container, cont_bootstrap, cont_refresh
 
 _LOGGER = logging.getLogger(__name__)
 _CFG = get_config("container")
@@ -526,7 +526,7 @@ def client_init(cdir, bootstrap=False):
     argv = "af-init"
     if bootstrap:
         argv += "\0--bootstrap"
-    argv += "\0" + cdir
+    argv += "\0" + str(cdir)
     argv = argv.encode("utf-8")
     msg = argv
 
