@@ -5,8 +5,8 @@ APK Foundry configuration files
 INI file format
 ---------------
 
-Several configuration files for APK Foundry use a restricted subset of the
-INI configuration file format. In particular:
+Several configuration files for APK Foundry use a restricted subset of
+the INI configuration file format. In particular:
 
 * There is no interpolation of values.
 * Values are separated from key names with an equals (``=``).
@@ -17,6 +17,9 @@ INI configuration file format. In particular:
 
 Site configuration
 ------------------
+
+INI files
+^^^^^^^^^
 
 The main configuration files are stored in ``/etc/apkfoundry/*.ini``.
 The files can be named whatever one chooses; any files matching this
@@ -46,10 +49,6 @@ split into restricted files away from more mundane options.
     rootid = 1001
     ; Base sub-id for containers.
     subid = 100000
-    ; Path to apk.static executable used for bootstrapping.
-    apk = /sbin/apk.static
-    ; Path to non-setuid bwrap executable.
-    bwrap = /usr/bin/bwrap.nosuid
     ; Path to af-rootd UNIX domain socket.
     socket = /var/lib/apkfoundry/root.sock
 
@@ -92,7 +91,10 @@ split into restricted files away from more mundane options.
     ; etc).
     debug=false
 
-    [https://example.com/sroracle/packages.git]
+    [https://example.com/user/packages.git]
+    ; Project name.
+    name=user:packages
+
     ; Whether to trigger builds on push events or not.
     push=false
     ; A list of branches on which push events will trigger builds.
@@ -116,13 +118,64 @@ split into restricted files away from more mundane options.
     ; build.
     note_keyword=!build
 
+Site bootstrap skeleton
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The site bootstrap skeleton, located in
+``/etc/apkfoundry/skel.boostrap``, contains files that are temporarily
+copied into the container when it is first being created. Once the
+container bootstrapping process is over, these files will be removed.
+
+Required contents are:
+
+``apk.static``
+    This is the statically linked ``apk(8)`` binary that is used to
+    bootstrap the installation of the packages inside of the container.
+
+Recommended contents for HTTPS support are:
+
+``etc/apk/ca.pem``
+    This is a certificate authority file which can contain multiple
+    certificate authority certificates. It should probably be symlinked
+    to ``/etc/ssl/certs/ca-certificates.crt`` or similar.
+
+``etc/services``
+    This is the Internet network services list ``services(5)`` file,
+    which is needed to determine the port on which HTTPS connections
+    occur. It should probably be symlinked to ``/etc/services``.
+
+Site skeleton
+^^^^^^^^^^^^^
+
+These files, located in ``/etc/apkfoundry/skel``, are copied into the
+container for each session, including during the bootstrapping process.
+Any existing files in the container will be overwritten.
+
+Recommended contents are:
+
+``etc/hosts``
+    The ``hosts(5)`` static hostname lookup file. Usually symlink to
+    ``/etc/hosts``.
+
+``etc/resolv.conf``
+    The ``resolv.conf(5)`` DNS resolution configuration file. Usually
+    symlink to ``/etc/resolv.conf``.
+
+``etc/passwd``
+    The ``passwd(5)`` user login database file.
+
+``etc/group``
+    The ``group(5)`` user group database file.
+
 Project-local configuration
 ---------------------------
 
-The git repository for each project should have an ``apkfoundry`` branch.
-This branch contains additional project-specific configuration files.
-The branch should be set up such that there is a subdirectory in the
-tree for each working branch name, each containing the following files:
+The git repository for each project should have an ``apkfoundry`` branch
+which will be checked out as a worktree in the ``.apkfoundry`` directory
+in the repository root. This branch contains additional project-specific
+configuration files. The branch should be set up such that there is a
+subdirectory in the tree for each working branch name, each containing
+the following files:
 
 branch/arch
 ^^^^^^^^^^^
@@ -198,54 +251,51 @@ architecture-independent configuration file.
 
 **Note:** ``abuild`` will still install such dependencies. This file
 only affects APK Foundry's build order solver, the primary utility being to
-break dependency cycles.
+break dependency cycles. If you wish to prevent a package from ever
+being installed, add ``!pkgname`` to your world file.
 
-..
+Skeletons
+^^^^^^^^^
 
-    branch/abuild.arch.conf
-    ^^^^^^^^^^^^^^^^^^^^^^^
+Similar to the site configuration skeleton directory, projects have
+their own skeletons that are forcibly copied into the container during
+each session. Each skeleton can be general, for a specific repository,
+for a specific architecture, or for a specific repository / architecture
+combination. The order in which the skeletons are copied into the
+container is:
 
-    These **required** file are used by the builder agents. They should be
-    of the same format as a typical ``abuild.conf`` (i.e. a POSIX shell
-    script). These files have a lower precedence than the builder-global
-    ``abuild.conf`` files. In particular, these files should only set
-    ``CFLAGS``, ``LDFLAGS``, ``CXXFLAGS``, ``CPPFLAGS``, and
-    ``DEFAULT_DBG``. Other options will be overridden by the builder-global
-    configuration.
+1. ``/etc/apkfoundry/skel``
 
-branch/keys
-^^^^^^^^^^^
+   As discussed previously.
 
-This **required** directory is used by the builder agents. It should
-contain keys that will ultimately be populated in ``/etc/apk/keys``.
+2. ``.apkfoundry/branch/skel``
 
-branch/repositories
-^^^^^^^^^^^^^^^^^^^
+   General skeleton for this branch. Recommended contents:
 
-This **required** file is used by the builder agents. It should be of
-the same format as a typical ``/etc/apk/repositories`` file.
+   ``etc/apk/keys``
+       The public keys in this directory will be used by ``apk(8)`` to
+       verify packages.
 
-The file can also be suffixed by a repository name to change the
-available repositories only when building that repository, e.g.
-``master/repositories.user``. Such a file will completely override the
-repository-independent configuration file.
+   ``etc/apk/world``
+       The file containing the names of packages that are to be
+       explicitly installed.
 
-The file should only contain remote URIs, or the local package
-repositories under ``/packages``::
+3. ``.apkfoundry/branch/skel.repo``
 
-    /packages/system
-    /packages/user
-    https://distfiles.adelielinux.org/adelie/current/system
-    https://distfiles.adelielinux.org/adelie/current/user
+   Skeleton for this branch and repository. Recommended contents:
 
-Using only local repositories is especially advantageous when building a
-new release of a distribution.
+   ``etc/apk/repositories``
+       The file containing the URLs and local paths to the repositories
+       from which to obtain packages.
 
-Tagged repositories should not be used since they will never be selected
-by ``abuild`` or ``apk``.
+4. ``.apkfoundry/branch/skel..arch``
 
-branch/world
-^^^^^^^^^^^^
+   Skeleton for this branch and architecture. Recommended contents:
 
-This **required** file is used by the builder agents. It should be of
-the same format as a typical ``/etc/apk/world`` file.
+    ``etc/abuild.conf``
+        The configuration file for ``abuild(1)`` itself. Usually has
+        architecture specific parameters such as ``CFLAGS``.
+
+5. ``.apkfoundry/branch/skel.repo.arch``
+
+   Skeleton for this branch, repository, and architecture.
