@@ -26,6 +26,7 @@ MOUNTS = {
     "srcdest": "/var/cache/distfiles",
 }
 
+_APK_STATIC = SITE_CONF / "skel.bootstrap/apk.static"
 _CFG = get_config("container")
 _ROOTID = _CFG.getint("rootid")
 _SUBID = _CFG.getint("subid")
@@ -141,6 +142,7 @@ class Container:
 
         self._setuid = self._owneruid = os.getuid()
         self._setgid = self._ownergid = os.getgid()
+
         cdir_uid = os.stat(self.cdir).st_uid
         if self._owneruid != cdir_uid:
             if self._owneruid != _ROOTID:
@@ -241,7 +243,7 @@ class Container:
         select.select([info_r], [], [])
         info = json.load(os.fdopen(info_r))
         retcodes = _userns_init(
-            info["child-pid"], self._owneruid, self._ownergid
+            info["child-pid"], self._owneruid, self._ownergid,
         )
         os.write(pipe_w, b"\n")
         os.close(pipe_w)
@@ -304,7 +306,7 @@ def cont_make(
 
     if arch is None:
         arch = subprocess.check_output(
-            [SITE_CONF / "skel.bootstrap/apk.static", "--print-arch"],
+            [_APK_STATIC, "--print-arch"],
             encoding="utf-8",
         )
     (cdir / "af/info/arch").write_text(arch.strip())
@@ -343,7 +345,11 @@ def cont_bootstrap(cdir, **kwargs):
     for filename in bootstrap_files:
         if filename.with_suffix(".apk-new").exists():
             shutil.move(filename.with_suffix(".apk-new"), filename)
-        else:
+        elif subprocess.run(
+                    [_APK_STATIC, "--root", cdir, "info",
+                    "--who-owns", filename.relative_to(cdir)],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                ).returncode != 0:
             filename.unlink()
 
     return rc

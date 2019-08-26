@@ -124,7 +124,8 @@ Site bootstrap skeleton
 The site bootstrap skeleton, located in
 ``/etc/apkfoundry/skel.boostrap``, contains files that are temporarily
 copied into the container when it is first being created. Once the
-container bootstrapping process is over, these files will be removed.
+container bootstrapping process is over, these files will be removed if
+they are not claimed by any package.
 
 Required contents are:
 
