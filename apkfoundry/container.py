@@ -5,7 +5,7 @@ import enum       # Enum
 import getpass    # getuser
 import json       # load
 import logging    # getLogger
-import os         # close, getuid, getgid, pipe, stat, walk, write
+import os         # close, environ, getuid, getgid, pipe, stat, walk, write
 import pwd        # getpwuid
 import select     # select
 import shlex      # quote
@@ -16,8 +16,6 @@ from pathlib import Path
 
 from . import get_config, LIBEXEC, run, SITE_CONF
 
-_LOGGER = logging.getLogger(__name__)
-
 BUILDDIR = "/af/build"
 JOBDIR = "/af/jobs"
 MOUNTS = {
@@ -25,6 +23,12 @@ MOUNTS = {
     "repodest": "/af/packages",
     "srcdest": "/var/cache/distfiles",
 }
+
+_LOGGER = logging.getLogger(__name__)
+
+_KEEP_ENV = (
+    "TERM",
+)
 
 _APK_STATIC = SITE_CONF / "skel.bootstrap/apk.static"
 _CFG = get_config("container")
@@ -182,6 +186,21 @@ class Container:
             if not mounts[mount].is_symlink():
                 mounts[mount] = self.cdir / MOUNTS[mount].lstrip("/")
 
+        if "env" not in kwargs:
+            kwargs["env"] = {}
+        kwargs["env"].update({
+            name: os.environ[name] for name in _KEEP_ENV \
+            if name in os.environ and name not in kwargs["env"]
+        })
+        kwargs["env"].update({
+            "SRCDEST": MOUNTS["srcdest"],
+            "REPODEST": MOUNTS["repodest"],
+            "ABUILD_FETCH": "/af/libexec/af-req-root abuild-fetch",
+            "ADDGROUP": "/af/libexec/af-req-root abuild-addgroup",
+            "ADDUSER": "/af/libexec/af-req-root abuild-adduser",
+            "SUDO_APK": "/af/libexec/af-req-root abuild-apk",
+        })
+
         args = [
             SITE_CONF / "bwrap.nosuid",
             "--unshare-user",
@@ -204,12 +223,6 @@ class Container:
             "--bind", self.cdir / BUILDDIR.lstrip("/"), BUILDDIR,
             "--ro-bind", self.cdir / JOBDIR.lstrip("/"), JOBDIR,
             "--ro-bind", str(LIBEXEC), "/af/libexec",
-            "--setenv", "SRCDEST", MOUNTS["srcdest"],
-            "--setenv", "REPODEST", MOUNTS["repodest"],
-            "--setenv", "ABUILD_FETCH", "/af/libexec/af-req-root abuild-fetch",
-            "--setenv", "ADDGROUP", "/af/libexec/af-req-root abuild-addgroup",
-            "--setenv", "ADDUSER", "/af/libexec/af-req-root abuild-adduser",
-            "--setenv", "SUDO_APK", "/af/libexec/af-req-root abuild-apk",
             "--chdir", MOUNTS["aportsdir"],
         ]
 
