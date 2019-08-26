@@ -193,6 +193,7 @@ class Container:
             if name in os.environ and name not in kwargs["env"]
         })
         kwargs["env"].update({
+            "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
             "SRCDEST": MOUNTS["srcdest"],
             "REPODEST": MOUNTS["repodest"],
             "ABUILD_FETCH": "/af/libexec/af-req-root abuild-fetch",
