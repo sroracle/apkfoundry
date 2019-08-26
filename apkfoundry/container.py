@@ -242,7 +242,7 @@ class Container:
                 "--cap-add", "CAP_SYS_CHROOT",
             ])
 
-        setarch_f = self.cdir / "af/setarch"
+        setarch_f = self.cdir / "af/info/setarch"
         if setarch_f.is_file():
             args.extend(["setarch", setarch_f.read_text().strip()])
 
