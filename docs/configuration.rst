@@ -292,9 +292,9 @@ container is:
 
    Skeleton for this branch and architecture. Recommended contents:
 
-    ``etc/abuild.conf``
-        The configuration file for ``abuild(1)`` itself. Usually has
-        architecture specific parameters such as ``CFLAGS``.
+   ``etc/abuild.conf``
+       The configuration file for ``abuild(1)`` itself. Usually has
+       architecture specific parameters such as ``CFLAGS``.
 
 5. ``.apkfoundry/branch/skel.repo.arch``
 
