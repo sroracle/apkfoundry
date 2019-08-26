@@ -176,7 +176,7 @@ class Container:
 
         mounts = MOUNTS.copy()
         for mount in mounts:
-            mounts[mount] = (self.cdir / "af/info" / mount).resolve(strict=False)
+            mounts[mount] = self.cdir / "af/info" / mount
             if not mounts[mount].is_symlink():
                 mounts[mount] = self.cdir / MOUNTS[mount].lstrip("/")
 
