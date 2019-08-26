@@ -334,7 +334,8 @@ def cont_bootstrap(cdir, **kwargs):
     rc, _ = cont.run(args, ro_root=False, net=True, **kwargs)
     if rc:
         return rc
-    shutil.move(world_f.with_suffix(".af-bak"), world_f)
+    if world_f.with_suffix(".af-bak").exists():
+        shutil.move(world_f.with_suffix(".af-bak"), world_f)
 
     args = ["/apk.static", "--update-cache", "add", "--upgrade", "--latest"]
     rc, _ = cont.run(args, ro_root=False, net=True, **kwargs)
