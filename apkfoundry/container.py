@@ -186,7 +186,7 @@ class Container:
         for mount in mounts:
             mounts[mount] = self.cdir / "af/info" / mount
             if not mounts[mount].is_symlink():
-                mounts[mount] = self.cdir / MOUNTS[mount].lstrip("/")
+                raise FileNotFoundError(mounts[mount])
 
         if "env" not in kwargs:
             kwargs["env"] = {}
@@ -337,6 +337,14 @@ def cont_make(
             continue
 
         (cdir / "af/info" / mount).symlink_to(mounts[mount])
+
+    for mount in MOUNTS:
+        if mount in mounts:
+            continue
+
+        (cdir / "af/info" / mount).symlink_to(
+            cdir / MOUNTS[mount].lstrip("/")
+        )
 
 def cont_bootstrap(cdir, **kwargs):
     cont = Container(cdir)
