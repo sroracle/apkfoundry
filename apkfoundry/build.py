@@ -3,7 +3,7 @@
 # See LICENSE for more information.
 import logging    # getLogger
 import subprocess # PIPE
-import os         # environ
+import textwrap   # TextWrapper
 from pathlib import Path
 
 from . import git_init, agent_queue
@@ -22,6 +22,8 @@ _REPORT_STATUSES = (
     AFStatus.ERROR,
 )
 
+_wrap = textwrap.TextWrapper()
+
 def _stats_list(status, l):
     if not l:
         return
@@ -34,13 +36,13 @@ def _stats_builds(tasks):
     success = True
 
     statuses = {status: [] for status in _REPORT_STATUSES}
-    for startdir, task in tasks:
+    for startdir, task in tasks.items():
         for status in statuses:
             if task.status == status:
-                groups[status].append(startdir)
+                statuses[status].append(startdir)
 
-    for status in statuses:
-        _stats_list(status, statuses[status])
+    for status, tasklist in statuses.items():
+        _stats_list(status, tasklist)
 
         if statuses[status] and status & AFStatus.ERROR:
             success = False
@@ -106,15 +108,14 @@ def generate_graph(cont, tasks, ignored_deps):
 
     return graph
 
-def run_startdir(cont, branch, taskdir, startdir, log=None):
-    env = os.environ.copy()
-
-    buildbase = Path(container.BUILDDIR) / startdir
-    env["AF_TASKDIR"] = "/" + str(taskdir.relative_to(cont.cdir))
-    env["AF_BRANCH"] = branch
+def run_task(job, cont, task, log=None):
+    env = {}
+    buildbase = Path(container.BUILDDIR) / task.startdir
+    env["AF_TASKDIR"] = f"/af/jobs/{job.id}/{task.startdir}"
+    env["AF_BRANCH"] = job.event.target
     env["ABUILD_SRCDIR"] = str(buildbase / "src")
     env["ABUILD_PKGBASEDIR"] = str(buildbase / "pkg")
-    tmp = cont.cdir / "af/build" / startdir / "tmp"
+    tmp = cont.cdir / str(buildbase).lstrip("/") / "tmp"
     tmp.mkdir(parents=True, exist_ok=True)
     tmp = str(buildbase / "tmp")
     env["TEMP"] = env["TMP"] = tmp
@@ -122,19 +123,15 @@ def run_startdir(cont, branch, taskdir, startdir, log=None):
     env["HOME"] = tmp
 
     if log is None:
-        log = taskdir / "log"
+        log = task.dir / "log"
         log = open(log, "w")
 
     try:
-        _, proc = cont.run(
-            ["/af/libexec/af-worker", startdir],
+        rc, _ = cont.run(
+            ["/af/libexec/af-worker", task.startdir],
             stdout=log, stderr=log,
             env=env,
-            check=True,
         )
-
-    except subprocess.CalledProcessError:
-        raise
 
     finally:
         try:
@@ -142,7 +139,9 @@ def run_startdir(cont, branch, taskdir, startdir, log=None):
         except (AttributeError, TypeError):
             pass
 
-def run_graph(agent, job, graph, cont, keep_going=False, keep_files=True):
+    return rc == 0
+
+def run_graph(job, graph, cont, keep_going=False, keep_files=True):
     tasks = {task.startdir: task for task in job.tasks}
     initial = {task.startdir for task in job.tasks}
     done = set()
@@ -175,15 +174,13 @@ def run_graph(agent, job, graph, cont, keep_going=False, keep_files=True):
             task.status = AFStatus.START
             agent_queue.put(task)
 
-            try:
-                taskdir = jobdir / startdir
-                taskdir.mkdir(parents=True, exist_ok=True)
-                repo_f = cont.cdir / "af/info/repo"
-                repo_f.write_text(repo)
-                run_startdir(cont, job.target, taskdir, startdir)
+            task.dir = job.dir / startdir
+            task.dir.mkdir(parents=True, exist_ok=True)
+            repo_f = cont.cdir / "af/info/repo"
+            repo_f.write_text(task.repo)
 
-            except subprocess.CalledProcessError as e:
-                _LOGGER.error("(%d/%d) Fail: %s (%d)", cur, tot, startdir, e.returncode)
+            if not run_task(job, cont, task):
+                _LOGGER.error("(%d/%d) Fail: %s", cur, tot, startdir)
                 task.status = AFStatus.FAIL
                 agent_queue.put(task)
                 done.add(startdir)
@@ -206,7 +203,6 @@ def run_graph(agent, job, graph, cont, keep_going=False, keep_files=True):
 
                 else:
                     cancels = initial - done
-                    cancels.remove(startdir)
                     for rdep in cancels:
                         tasks[rdep].status = AFStatus.CANCEL
                         tasks[rdep].tail = f"Cancelled due to {startdir} failing"
@@ -231,7 +227,7 @@ def run_job(agent, job):
     event = job.event
     cdir = f"{event.project}.{event.type}.{event.target}.{job.arch}"
     cdir = agent.containers / cdir
-    jobdir = agent.jobsdir / str(job.id)
+    job.dir = agent.jobsdir / str(job.id)
 
     if not cdir.is_dir():
         container.cont_make(
@@ -272,7 +268,7 @@ def run_job(agent, job):
         return
 
     try:
-        run_graph(agent, job, graph, cont)
+        run_graph(job, graph, cont)
     except Exception as e:
         _LOGGER.exception("unhandled exception", exc_info=e)
         job.status = AFStatus.ERROR

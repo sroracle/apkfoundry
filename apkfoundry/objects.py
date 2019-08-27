@@ -202,6 +202,7 @@ class Task:
     created: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
     updated: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
 
+    dir = attr.ib(default=None, metadata=_MQTT_SKIP)
     _topic = attr.ib(default=None, metadata=_MQTT_SKIP)
     _tables = ("tasks", "tasks_full")
 
