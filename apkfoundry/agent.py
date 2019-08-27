@@ -106,6 +106,8 @@ class Agent:
             _LOGGER.critical("connection failed: %s", mqtt.connack_string(rc))
             sys.exit(1)
 
+        _LOGGER.info("Connected")
+
         self._mqtt.will_set(
             f"builders/{self.name}", b"offline", 1,
             retain=True,

@@ -155,6 +155,8 @@ class Dispatcher:
             _LOGGER.critical("connection failed: %s", mqtt.connack_string(rc))
             af_exit()
 
+        _LOGGER.info("Connected")
+
         self._mqtt.subscribe(_TOPICS)
 
     @staticmethod
