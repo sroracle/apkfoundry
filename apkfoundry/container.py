@@ -120,9 +120,11 @@ def _force_copytree(src, dst):
         dstpath.mkdir(exist_ok=True)
 
         for dirname in dirnames:
+            _LOGGER.debug("mkdir %s", dstpath / dirname)
             (dstpath / dirname).mkdir(exist_ok=True)
 
         for filename in filenames:
+            _LOGGER.debug("cp %s -> %s", srcpath / filename, dstpath / filename)
             shutil.copy2(srcpath / filename, dstpath / filename)
             copied_files.append(dstpath / filename)
 
