@@ -52,6 +52,7 @@ def generate_graph(cont, tasks):
     rc, proc = cont.run(
         ("/af/libexec/af-deps", *[task.startdir for task in tasks]),
         stdout=subprocess.PIPE,
+        encoding="utf-8",
     )
     if rc:
         _LOGGER.error("af-deps failed with status %d", rc)
@@ -60,7 +61,10 @@ def generate_graph(cont, tasks):
     origins = {}
     deps = {}
     for line in proc.stdout.split("\n"):
-        line = line.split(maxsplit=2)
+        line = line.strip().split(maxsplit=2)
+        if not line:
+            continue
+
         assert len(line) == 3
 
         if line[0] == "o":

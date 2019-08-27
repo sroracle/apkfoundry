@@ -264,7 +264,7 @@ class Container:
         os.write(pipe_w, b"\n")
         os.close(pipe_w)
 
-        proc.communicate()
+        proc.stdout, proc.stderr = proc.communicate()
         retcodes.append(proc.returncode)
 
         success = all(i == 0 for i in retcodes)
