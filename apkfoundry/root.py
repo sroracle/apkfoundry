@@ -183,7 +183,7 @@ def _abuild_apk(argv):
     )
     add.add_argument(
         "packages", metavar="PACKAGE",
-        nargs="+",
+        nargs="*",
     )
     add.add_argument(
         "--quiet", "-q",
