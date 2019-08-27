@@ -9,7 +9,7 @@ import paho.mqtt.client as mqtt
 from paho.mqtt.matcher import MQTTMatcher
 
 from . import get_config, agent_queue
-frm .build import start_job
+from .build import run_job
 from .objects import AFStatus, Job
 
 _LOGGER = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ class Agent:
                 self._reject_job(job, "job not whitelisted")
                 return
 
-            self.workers.submit(start_job, self, job)
+            self.workers.submit(run_job, self, job)
 
 def agent():
     config = get_config()
