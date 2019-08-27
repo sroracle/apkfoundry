@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
+import functools                # partial
 import logging                  # getLogger
 import sys                      # exit
 from concurrent.futures import ThreadPoolExecutor
@@ -92,6 +93,13 @@ class Agent:
             _LOGGER.critical("exiting")
             sys.exit(1)
 
+    def _job_done(self, job, future):
+        exc = future.exception()
+        if exc:
+            _LOGGER.exception("[%s]", job, exc_info=exc)
+        else:
+            _LOGGER.info("[%s] done", job)
+
     def _reject_job(self, job, reason):
         _LOGGER.warning("[%s] reject: %s", job, reason)
         job.status = AFStatus.REJECT
@@ -133,7 +141,11 @@ class Agent:
                 self._reject_job(job, "job not whitelisted")
                 return
 
-            self.workers.submit(run_job, self, job)
+            _LOGGER.info("[%s] starting", job)
+            future = self.workers.submit(run_job, self, job)
+            future.add_done_callback(
+                functools.partial(self._job_done, job),
+            )
 
 def agent():
     config = get_config()
