@@ -309,10 +309,9 @@ def cont_make(
     for mount in MOUNTS.values():
         (cdir / mount.lstrip("/")).mkdir(parents=True)
 
-    shutil.chown(cdir / "var", group="apkfoundry")
-    shutil.chown(cdir / "var/cache", group="apkfoundry")
-    (cdir / "var").chmod(0o775)
-    (cdir / "var/cache").chmod(0o775)
+    for i in ("var", "var/cache", "var/cache/distfiles"):
+        shutil.chown(cdir / i, group="apkfoundry")
+        (cdir / i).chmod(0o775)
 
     (cdir / BUILDDIR.lstrip("/")).mkdir(parents=True)
     (cdir / JOBDIR.lstrip("/")).mkdir(parents=True)
