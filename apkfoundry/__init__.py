@@ -53,6 +53,7 @@ _DEFAULT_CONFIG = {
         "jobs": str(_HOME / "jobs"),
         "username": "agent01",
         "password": "password",
+        "arches": "apk_arch1\napk_arch2:setarch2",
         "mask": "jobs/#",
         "concurrency": "1",
     },

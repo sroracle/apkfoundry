@@ -39,6 +39,10 @@ class Agent:
             arch.split(":", maxsplit=1) \
             for arch in cfg.getlist("arches")
         ]
+        self.arches = {
+            arch[0]: arch[1] if len(arch) > 1 else None \
+            for arch in self.arches
+        }
 
         self.jobs = {}
 
@@ -67,6 +71,12 @@ class Agent:
         try:
             self._mqtt.connect_async(self._host, self._port)
             self._mqtt.loop_start()
+
+            for arch in self.arches:
+                self._mqtt.publish(
+                    f"builders/{self.name}/{arch}", b"available", 1,
+                    retain=True,
+                )
 
             for obj in agent_queue:
                 self._mqtt.publish(str(obj), obj.to_mqtt(), 2)

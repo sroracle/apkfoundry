@@ -39,6 +39,9 @@ split into restricted files away from more mundane options.
     username=agent01
     ; The MQTT password for the builder agent.
     password=password
+    ; Architectures supported by this builder agent.
+    arches = apk_arch1
+             apk_arch2:setarch2
     ; MQTT wildcard topic on which to listen for jobs.
     mask=jobs/#
     ; Number of disjoint jobs allowed to run concurrently.
