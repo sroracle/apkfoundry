@@ -345,10 +345,19 @@ class Job:
         payload = payload.decode("utf-8")
         payload = json.loads(payload)
 
-        return cls(
+        job = cls(
             **payload,
             topic=topic,
         )
+
+        if isinstance(job.event, dict):
+            job.event = Event(**job.event)
+
+        if (isinstance(job.tasks, list)
+                and all(isinstance(task, dict) for task in job.tasks)):
+            job.tasks = [Task(**task) for task in job.tasks]
+
+        return job
 
     @classmethod
     def from_db_row(cls, cursor_, row):
