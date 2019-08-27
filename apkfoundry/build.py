@@ -8,7 +8,7 @@ from pathlib import Path
 
 from . import git_init, agent_queue
 from . import container
-from .digraph import Digraph
+from .digraph import Digraph, DAGValidationError
 from .objects import AFStatus, Task, AFEventType
 from .root import client_init
 
@@ -47,7 +47,7 @@ def _stats_builds(tasks):
 
     return success
 
-def generate_graph(cont, tasks):
+def generate_graph(cont, tasks, ignored_deps):
     graph = Digraph()
     rc, proc = cont.run(
         ("/af/libexec/af-deps", *[task.startdir for task in tasks]),
@@ -99,6 +99,8 @@ def generate_graph(cont, tasks):
             try:
                 graph.add_edge(dep, rdep)
             except DAGValidationError:
+                if [dep, rdep] in ignored_deps or [rdep, dep] in ignored_deps:
+                    continue
                 _LOGGER.error("cycle detected: %s depends on %s", dep, rdep)
                 errors = True
 
@@ -260,7 +262,12 @@ def run_job(agent, job):
     sock = client_init(cdir, bootstrap=bootstrap)
     cont = container.Container(cdir, root_fd=sock.fileno())
 
-    graph = generate_graph(cont, job.tasks)
+    ignored_deps = cdir / "af/aports/.apkfoundry" / event.target / "ignore-deps"
+    if ignored_deps.is_file():
+        ignored_deps = ignored_deps.read_text().strip().splitlines()
+        ignored_deps = [i.split() for i in ignored_deps]
+
+    graph = generate_graph(cont, job.tasks, ignored_deps)
     if not graph:
         _LOGGER.error("failed to generate dependency graph")
         job.status = AFStatus.ERROR
