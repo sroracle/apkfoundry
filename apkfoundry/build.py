@@ -129,6 +129,7 @@ def run_task(job, cont, task, log=None):
     try:
         rc, _ = cont.run(
             ["/af/libexec/af-worker", task.startdir],
+            jobid=job.id,
             stdout=log, stderr=log,
             env=env,
         )
@@ -236,6 +237,9 @@ def run_job(agent, job):
             repo=job.tasks[0].repo,
             arch=job.arch,
             setarch=agent.arches[job.arch],
+            mounts={
+                "jobsdir": agent.jobsdir,
+            },
         )
         bootstrap = True
 

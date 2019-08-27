@@ -20,6 +20,7 @@ BUILDDIR = "/af/build"
 JOBDIR = "/af/jobs"
 MOUNTS = {
     "aportsdir": "/af/aports",
+    "jobsdir": "/af/jobs",
     "repodest": "/af/packages",
     "srcdest": "/var/cache/distfiles",
 }
@@ -167,6 +168,7 @@ class Container:
             cmd,
             *,
             delete=Delete.NEVER,
+            jobid=None,
             net=False,
             ro_aports=True,
             ro_root=True,
@@ -221,10 +223,10 @@ class Container:
             "--bind", self.cdir / "tmp", "/tmp",
             "--bind", self.cdir / "var/tmp", "/var/tmp",
             aports_bind, mounts["aportsdir"], MOUNTS["aportsdir"],
+            "--ro-bind", mounts["jobsdir"], MOUNTS["jobsdir"],
             "--bind", mounts["repodest"], MOUNTS["repodest"],
             "--bind", mounts["srcdest"], MOUNTS["srcdest"],
             "--bind", self.cdir / BUILDDIR.lstrip("/"), BUILDDIR,
-            "--ro-bind", self.cdir / JOBDIR.lstrip("/"), JOBDIR,
             "--ro-bind", str(LIBEXEC), "/af/libexec",
             "--chdir", MOUNTS["aportsdir"],
         ]
@@ -234,6 +236,12 @@ class Container:
             args.extend((
                 "--setenv", "AF_ROOT_FD", str(self.root_fd),
             ))
+
+        if jobid is not None:
+            args.extend([
+                "--bind", Path(mounts["jobsdir"]) / str(jobid),
+                Path(MOUNTS["jobsdir"]) / str(jobid),
+            ])
 
         if not net:
             args.append("--unshare-net")
