@@ -61,7 +61,7 @@ for APKBUILD in */*/APKBUILD; do
 		name="${name%%[<>=~]*}"
 		[ -z "$name" ] && continue
 		case "$name" in
-			[!]*) continue;;
+			"!"*) continue;;
 			cmd:*) continue;;
 		esac
 		printf 'd %s %s\n' "$startdir" "$name"
