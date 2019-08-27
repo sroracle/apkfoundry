@@ -14,10 +14,6 @@ from .objects import AFStatus, Job
 
 _LOGGER = logging.getLogger(__name__)
 
-_TOPICS = (
-    ("jobs/new/#", 2),
-)
-
 class Agent:
     __slots__ = (
         "_mqtt",
@@ -113,10 +109,10 @@ class Agent:
             retain=True,
         )
 
-        self._mqtt.subscribe(
-            f"jobs/new/+/+/+/+/{self.name}/+/+",
-            f"jobs/cancel/+/+/+/+/{self.name}/+/+",
-        )
+        self._mqtt.subscribe([
+            (f"jobs/NEW/+/+/+/+/{self.name}/+/+", 2),
+            (f"jobs/CANCEL/+/+/+/+/{self.name}/+/+", 2),
+        ])
 
     @staticmethod
     def _on_message(_client, self, msg):
