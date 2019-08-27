@@ -46,10 +46,10 @@ def _stats_builds(tasks):
 
     return success
 
-def generate_graph(cont, startdirs):
+def generate_graph(cont, tasks):
     graph = Digraph()
     rc, proc = cont.run(
-        ("af-deps", *startdirs),
+        ("af-deps", *[task.startdir for task in tasks]),
         stdout=subprocess.PIPE,
     )
     if rc:
@@ -239,7 +239,7 @@ def run_job(agent, job):
 
     branch_f = cdir / "af/info/branch"
     branch_f.parent.mkdir(parents=True, exist_ok=True)
-    branch_f.write_text(job.target)
+    branch_f.write_text(event.target)
 
     arch_f = cdir / "af/info/arch"
     arch_f.write_text(job.arch)
