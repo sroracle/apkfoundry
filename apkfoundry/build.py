@@ -10,6 +10,7 @@ from . import git_init, agent_queue
 from . import container
 from .digraph import Digraph
 from .objects import AFStatus, Task, AFEventType
+from .root import client_init
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_STATUSES = (
@@ -229,20 +230,18 @@ def run_job(agent, job):
     cdir = agent.containers / cdir
     jobdir = agent.jobsdir / str(job.id)
 
-    try:
-        cdir.mkdir(mode=0o770, parents=True)
-        new = True
-    except FileExistsError:
-        if not cdir.is_dir():
-            raise
-        new = False
+    if not cdir.is_dir():
+        container.cont_make(
+            cdir,
+            branch=event.target,
+            repo=job.tasks[0].repo,
+            arch=job.arch,
+            setarch=agent.arches[job.arch],
+        )
+        bootstrap = True
 
-    branch_f = cdir / "af/info/branch"
-    branch_f.parent.mkdir(parents=True, exist_ok=True)
-    branch_f.write_text(event.target)
-
-    arch_f = cdir / "af/info/arch"
-    arch_f.write_text(job.arch)
+    else:
+        bootstrap = False
 
     kwargs = {
         "rev": event.revision,
@@ -252,9 +251,10 @@ def run_job(agent, job):
         kwargs["mrid"] = event.mrid
         kwargs["mrclone"] = event.mrclone
         kwargs["mrbranch"] = event.mrbranch
+    git_init(cdir / "af/aports", event.clone, **kwargs)
 
-    git_init(cdir / "af/git", event.clone, **kwargs)
-    cont = container.Container(cdir)
+    sock = client_init(cdir, bootstrap=bootstrap)
+    cont = container.Container(cdir, root_fd=sock.fileno())
 
     graph = generate_graph(cont, job.tasks)
     if not graph:
