@@ -50,7 +50,7 @@ def _stats_builds(tasks):
 def generate_graph(cont, tasks):
     graph = Digraph()
     rc, proc = cont.run(
-        ("af-deps", *[task.startdir for task in tasks]),
+        ("/af/libexec/af-deps", *[task.startdir for task in tasks]),
         stdout=subprocess.PIPE,
     )
     if rc:
@@ -124,7 +124,7 @@ def run_startdir(cont, branch, taskdir, startdir, log=None):
 
     try:
         _, proc = cont.run(
-            ["/usr/libexec/apkfoundry/af-worker", startdir],
+            ["/af/libexec/af-worker", startdir],
             stdout=log, stderr=log,
             env=env,
             check=True,
