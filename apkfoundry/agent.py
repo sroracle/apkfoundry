@@ -87,14 +87,16 @@ class Agent:
                     retain=True,
                 )
             except:
-                pass
+                _LOGGER.warning("Could not mark self as offline!")
+
             _LOGGER.critical("exiting")
             sys.exit(1)
 
     def _reject_job(self, job, reason):
+        _LOGGER.warning("[%s] reject: %s", job, reason)
         job.status = AFStatus.REJECT
-        payload = job.to_mqtt(reason=reason)
-        self._mqtt.publish(str(job), payload, 2)
+        job.payload = reason
+        self._mqtt.publish(str(job), job.to_mqtt(), 2)
 
     @staticmethod
     def _on_connect(_client, self, _flags, rc):
