@@ -85,6 +85,13 @@ class Agent:
             _LOGGER.exception("exception:", exc_info=e)
 
         finally:
+            try:
+                self._mqtt.publish(
+                    f"builders/{self.name}", b"offline", 1,
+                    retain=True,
+                )
+            except:
+                pass
             _LOGGER.critical("exiting")
             sys.exit(1)
 
@@ -98,6 +105,11 @@ class Agent:
         if rc != 0:
             _LOGGER.critical("connection failed: %s", mqtt.connack_string(rc))
             sys.exit(1)
+
+        self._mqtt.will_set(
+            f"builders/{self.name}", b"offline", 1,
+            retain=True,
+        )
 
         self._mqtt.subscribe(
             f"jobs/new/+/+/+/+/{self.name}/+/+",

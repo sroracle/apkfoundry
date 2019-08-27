@@ -64,29 +64,41 @@ class Dispatcher:
             _LOGGER.critical("exiting")
             af_exit()
 
-    def _add_builder(self, msg):
+    def _builder_recv(self, msg):
+        # builders/{name}
         # builders/{name}/{arch}
         builder = msg.topic.split("/", maxsplit=2)
-        if len(builder) != 3:
+        i = len(builder)
+
+        if i not in (2, 3):
             _LOGGER.warning("[%s] invalid topic", msg.topic)
             return
 
         name = builder[1]
-        arch = builder[2]
+        arch = builder[2] if i == 3 else None
         payload = msg.payload.decode("utf-8")
 
-        if arch not in self.builders:
-            self.builders[arch] = set()
+        if arch is None:
+            if payload == "offline":
+                for arch in self.builders:
+                    self.builders[arch].discard(name)
 
-        if payload == "available":
-            self.builders[arch].add(name)
+            _LOGGER.info(
+                "builder %s -> %s", name, payload,
+            )
+
         else:
-            self.builders[arch].discard(name)
+            if arch not in self.builders:
+                self.builders[arch] = set()
 
-        _LOGGER.info(
-            "[%s] builders: %s",
-            arch, " ".join(self.builders[arch])
-        )
+            if payload == "available":
+                self.builders[arch].add(name)
+            else:
+                self.builders[arch].discard(name)
+
+            _LOGGER.info(
+                "builder %s/%s -> %s", name, arch, payload,
+            )
 
     def _job_publish(self, job):
         job.builder = self.builders[job.arch].pop()
@@ -155,7 +167,7 @@ class Dispatcher:
             pass
 
         if msg.topic.startswith("builders"):
-            self._add_builder(msg)
+            self._builder_recv(msg)
 
         for arch in self.jobs:
             if not self.jobs[arch]:
