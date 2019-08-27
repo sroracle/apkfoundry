@@ -81,30 +81,27 @@ def generate_graph(cont, tasks, ignored_deps):
             _LOGGER.error("invalid af-deps output: %r", line)
             return None
 
-    errors = False
     for rdep, names in deps.items():
-        graph.add_node_if_not_exists(rdep)
+        graph.add_node(rdep)
 
         for name in names:
             if name not in origins:
-                _LOGGER.error("unknown dependency: %s", name)
-                errors = True
+                _LOGGER.warning("unknown dependency: %s", name)
                 continue
             dep = origins[name]
-            graph.add_node_if_not_exists(dep)
+            graph.add_node(dep)
 
             if dep == rdep:
                 continue
 
-            try:
-                graph.add_edge(dep, rdep)
-            except DAGValidationError:
-                if [dep, rdep] in ignored_deps or [rdep, dep] in ignored_deps:
-                    continue
-                _LOGGER.error("cycle detected: %s depends on %s", dep, rdep)
-                errors = True
+            if [dep, rdep] in ignored_deps or [rdep, dep] in ignored_deps:
+                continue
 
-    if errors:
+            graph.add_edge(dep, rdep)
+
+    acyclic = graph.is_acyclic(exc=True)
+    if acyclic is not True:
+        _LOGGER.error("cycle detected: %s", " -> ".join(acyclic.cycle))
         return None
 
     return graph
@@ -196,8 +193,8 @@ def run_graph(agent, job, graph, cont, keep_going=False, keep_files=True):
 
                     depfails = graph.all_downstreams(startdir)
                     for rdep in depfails:
-                        graph.delete_node_if_exists(rdep)
-                    graph.delete_node_if_exists(startdir)
+                        graph.delete_node(rdep)
+                    graph.delete_node(startdir)
 
                     depfails &= initial
                     for rdep in depfails:
