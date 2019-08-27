@@ -15,7 +15,7 @@ cleanup() {
 
 cd "$startdir"
 abuild listpkg > "$AF_TASKDIR/manifest"
-abuild fetch deps
+abuild fetch deps mkusers
 trap cleanup EXIT INT TERM
 
 if [ -x ".apkfoundry/$AF_BRANCH/pre_build" ]; then
@@ -24,8 +24,9 @@ fi
 
 set +e
 (
-	exec "$AF_ROOT_FD"<&-
+	eval "exec $AF_ROOT_FD<&-"
 	export AF_ROOT_FD=
+	export ABUILD_FETCH= ADDGROUP= ADDUSER= SUDO_APK=
 	export CLEANUP= ERROR_CLEANUP=
 	abuild all
 )
@@ -38,6 +39,10 @@ fi
 
 arch="$(apk --print-arch)"
 for apk in $(cat "$AF_TASKDIR/manifest"); do
+	if ! [ -e "$REPODEST/$repo/$arch/$apk" ]; then
+		continue
+	fi
+
 	mv "$REPODEST/$repo/$arch/$apk" "$AF_TASKDIR/$apk"
 	ln -sr "$AF_TASKDIR/$apk" "$REPODEST/$repo/$arch/$apk"
 done
