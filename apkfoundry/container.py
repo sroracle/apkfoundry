@@ -298,9 +298,6 @@ def cont_make(
     shutil.chown(cdir, group="apkfoundry")
     cdir.chmod(0o770)
 
-    (cdir / "tmp").mkdir()
-    (cdir / "var/tmp").mkdir(parents=True)
-
     for mount in MOUNTS.values():
         (cdir / mount.lstrip("/")).mkdir(parents=True)
 
@@ -344,6 +341,12 @@ def cont_make(
 def cont_bootstrap(cdir, **kwargs):
     cont = Container(cdir)
     bootstrap_files = _force_copytree(SITE_CONF / "skel.bootstrap", cdir)
+
+    (cdir / "dev").mkdir()
+    (cdir / "tmp").mkdir()
+    (cdir / "var/tmp").mkdir(parents=True)
+    (cdir / "tmp").chmod(0o1777)
+    (cdir / "var/tmp").chmod(0o1777)
 
     world_f = cdir / "etc/apk/world"
     if world_f.exists():
