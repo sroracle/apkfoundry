@@ -178,7 +178,7 @@ def git_init(dir, clone, *,
         mrid=None, mrclone=None, mrbranch=None):
     hard = "--hard" if hard else "--keep"
 
-    if not dir.is_dir():
+    if not (dir / ".git").is_dir():
         run("git", "clone", clone, dir)
         run("git", "worktree", "add", ".apkfoundry", "apkfoundry", cwd=dir)
 
