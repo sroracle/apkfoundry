@@ -225,7 +225,7 @@ class Task:
             job_topic = self.job.topic
             job_topic = "/".join(job_topic.split("/")[2:])
 
-        return "/".join((
+        self._topic = "/".join((
             "tasks",
             str(self.status),
             job_topic,
@@ -233,6 +233,8 @@ class Task:
             self.pkg,
             str(self.id) if self.id else "@",
         ))
+
+        return self._topic
 
     @topic.setter
     def topic(self, value):
