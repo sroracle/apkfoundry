@@ -33,7 +33,7 @@ def _enum_normalize(cls):
     return normalize
 
 @enum.unique
-class AFEventType(enum.IntEnum):
+class EType(enum.IntEnum):
     PUSH = 1
     MR = 2
     MANUAL = 4
@@ -396,7 +396,7 @@ class Job:
 class Event:
     id: int = attr.ib(default=None)
     project: str = attr.ib()
-    type: int = attr.ib(default=AFEventType.PUSH, converter=_enum_normalize(AFEventType))
+    type: int = attr.ib(default=EType.PUSH, converter=_enum_normalize(EType))
     clone: str = attr.ib()
     target: str = attr.ib()
     revision: str = attr.ib()
@@ -449,7 +449,7 @@ class Event:
         return cls(
             id=row[0],
             project=row[1],
-            type=AFEventType(row[2]),
+            type=EType(row[2]),
             clone=row[3],
             target=row[4],
             revision=row[5],
@@ -628,7 +628,7 @@ class Event:
 
 @attr.s(kw_only=True, slots=True)
 class Push(Event):
-    type: int = attr.ib(default=AFEventType.PUSH)
+    type: int = attr.ib(default=EType.PUSH)
 
     before: str = attr.ib()
     after: str = attr.ib()
@@ -643,7 +643,7 @@ class Push(Event):
 
 @attr.s(kw_only=True, slots=True)
 class MergeRequest(Event):
-    type: int = attr.ib(default=AFEventType.MR)
+    type: int = attr.ib(default=EType.MR)
 
     def _calc_startdirs(self):
         _LOGGER.info("[%s] Analyzing changeset", str(self))

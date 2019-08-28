@@ -4,7 +4,7 @@ import os     # environ
 from urllib.parse import parse_qsl
 
 import apkfoundry.cgi as cgi
-from apkfoundry.objects import AFEventType, EStatus
+from apkfoundry.objects import EType, EStatus
 from apkfoundry.database import db_start
 
 try:
@@ -39,7 +39,7 @@ else:
 
 if "type" in query and query["type"]:
     try:
-        query["type"] = AFEventType[query["type"]]
+        query["type"] = EType[query["type"]]
     except KeyError:
         error(400, "Invalid type")
 

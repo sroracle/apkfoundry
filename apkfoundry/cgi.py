@@ -10,7 +10,7 @@ from pathlib import Path
 import jinja2 # Environment, FileSystemBytecodeCache, PackageLoader
 
 from . import get_config
-from .objects import AFEventType, EStatus, Event, Job, Task
+from .objects import EType, EStatus, Event, Job, Task
 
 _CFG = get_config("web")
 BASE = _CFG["base"]
@@ -27,7 +27,7 @@ _ENV = jinja2.Environment(
     trim_blocks=True,
     bytecode_cache=jinja2.FileSystemBytecodeCache(),
 )
-_ENV.globals["event_types"] = AFEventType
+_ENV.globals["event_types"] = EType
 _ENV.globals["statuses"] = EStatus
 _ENV.globals["base"] = BASE
 _ENV.globals["css"] = _CFG["css"]

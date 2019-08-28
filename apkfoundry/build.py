@@ -8,8 +8,8 @@ from pathlib import Path
 
 from . import git_init, agent_queue
 from . import container
-from .digraph import Digraph, DAGValidationError
-from .objects import EStatus, Task, AFEventType
+from .digraph import Digraph
+from .objects import EStatus
 from .socket import client_init
 
 _LOGGER = logging.getLogger(__name__)
