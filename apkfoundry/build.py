@@ -9,17 +9,17 @@ from pathlib import Path
 from . import git_init, agent_queue
 from . import container
 from .digraph import Digraph, DAGValidationError
-from .objects import AFStatus, Task, AFEventType
+from .objects import EStatus, Task, AFEventType
 from .socket import client_init
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_STATUSES = (
-    AFStatus.SUCCESS,
-    AFStatus.IGNORE,
-    AFStatus.CANCEL,
-    AFStatus.DEPFAIL,
-    AFStatus.FAIL,
-    AFStatus.ERROR,
+    EStatus.SUCCESS,
+    EStatus.IGNORE,
+    EStatus.CANCEL,
+    EStatus.DEPFAIL,
+    EStatus.FAIL,
+    EStatus.ERROR,
 )
 
 _wrap = textwrap.TextWrapper()
@@ -44,7 +44,7 @@ def _stats_builds(tasks):
     for status, tasklist in statuses.items():
         _stats_list(status, tasklist)
 
-        if statuses[status] and status & AFStatus.ERROR:
+        if statuses[status] and status & EStatus.ERROR:
             success = False
 
     return success
@@ -173,7 +173,7 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
             cur += 1
             _LOGGER.info("(%d/%d) Start: %s", cur, tot, startdir)
             task = tasks[startdir]
-            task.status = AFStatus.START
+            task.status = EStatus.START
             agent_queue.put(task)
 
             task.dir = job.dir / startdir
@@ -183,7 +183,7 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
 
             if not run_task(job, cont, task):
                 _LOGGER.error("(%d/%d) Fail: %s", cur, tot, startdir)
-                task.status = AFStatus.FAIL
+                task.status = EStatus.FAIL
                 agent_queue.put(task)
                 done.add(startdir)
 
@@ -198,7 +198,7 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
                     depfails &= initial
                     for rdep in depfails:
                         _LOGGER.error("Depfail: %s", rdep)
-                        tasks[rdep].status = AFStatus.DEPFAIL
+                        tasks[rdep].status = EStatus.DEPFAIL
                         tasks[rdep].tail = f"Depfail due to {startdir} failing"
                         agent_queue.put(tasks[rdep])
                     done.update(depfails)
@@ -206,7 +206,7 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
                 else:
                     cancels = initial - done
                     for rdep in cancels:
-                        tasks[rdep].status = AFStatus.CANCEL
+                        tasks[rdep].status = EStatus.CANCEL
                         tasks[rdep].tail = f"Cancelled due to {startdir} failing"
                         agent_queue.put(tasks[rdep])
                     done.update(cancels)
@@ -216,7 +216,7 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
 
             else:
                 _LOGGER.info("(%d/%d) Success: %s", cur, tot, startdir)
-                task.status = AFStatus.SUCCESS
+                task.status = EStatus.SUCCESS
                 agent_queue.put(task)
                 done.add(startdir)
                 if not keep_files:
@@ -256,7 +256,7 @@ def run_job(agent, job):
     rc, conn  = client_init(cdir, bootstrap=bootstrap)
     if rc != 0:
         _LOGGER.error("failed to connect to rootd")
-        job.status = AFStatus.ERROR
+        job.status = EStatus.ERROR
         agent_queue.put(job)
         return
     cont = container.Container(cdir, rootd_conn=conn)
@@ -269,7 +269,7 @@ def run_job(agent, job):
     graph = generate_graph(cont, job.tasks, ignored_deps)
     if not graph:
         _LOGGER.error("failed to generate dependency graph")
-        job.status = AFStatus.ERROR
+        job.status = EStatus.ERROR
         agent_queue.put(job)
         return
 
@@ -277,5 +277,5 @@ def run_job(agent, job):
         run_graph(job, graph, cont)
     except Exception as e:
         _LOGGER.exception("unhandled exception", exc_info=e)
-        job.status = AFStatus.ERROR
+        job.status = EStatus.ERROR
         agent_queue.put(job)

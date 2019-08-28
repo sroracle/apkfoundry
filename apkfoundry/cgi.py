@@ -10,7 +10,7 @@ from pathlib import Path
 import jinja2 # Environment, FileSystemBytecodeCache, PackageLoader
 
 from . import get_config
-from .objects import AFEventType, AFStatus, Event, Job, Task
+from .objects import AFEventType, EStatus, Event, Job, Task
 
 _CFG = get_config("web")
 BASE = _CFG["base"]
@@ -28,7 +28,7 @@ _ENV = jinja2.Environment(
     bytecode_cache=jinja2.FileSystemBytecodeCache(),
 )
 _ENV.globals["event_types"] = AFEventType
-_ENV.globals["statuses"] = AFStatus
+_ENV.globals["statuses"] = EStatus
 _ENV.globals["base"] = BASE
 _ENV.globals["css"] = _CFG["css"]
 _ENV.globals["pretty"] = PRETTY
@@ -170,7 +170,7 @@ def tasks_page(db, query, job_page=False):
         task.created = timeelement(task.created, now)
         task.updated = timeelement(task.updated, now)
 
-        if task.status & AFStatus.DONE:
+        if task.status & EStatus.DONE:
             task.artifacts = db.execute(
                 "SELECT COUNT(*) FROM artifacts WHERE taskid = ?;", (task.id,),
             )
@@ -220,12 +220,12 @@ def arches_page(db, query):
     for i, (arch,) in enumerate(arches):
         new = db.execute(
             "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
-            (arch, AFStatus.NEW),
+            (arch, EStatus.NEW),
         )
         (new,) = new.fetchone()
         started = db.execute(
             "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
-            (arch, AFStatus.START),
+            (arch, EStatus.START),
         )
         (started,) = started.fetchone()
 
@@ -240,7 +240,7 @@ def arches_page(db, query):
                 # Oldest job
                 cur_job = Job.db_search(
                     db,
-                    where=["builder IS NULL", "status = %d" % AFStatus.NEW],
+                    where=["builder IS NULL", "status = %d" % EStatus.NEW],
                     arch=arch,
                     order="asc",
                     limit=1,
@@ -253,7 +253,7 @@ def arches_page(db, query):
             else:
                 cur_job = Job.db_search(
                     db, builder=builder, arch=arch,
-                    status=AFStatus.START, limit=1,
+                    status=EStatus.START, limit=1,
                 ).fetchone()
                 if cur_job:
                     cur_job.updated = timeelement(cur_job.updated, now)
@@ -261,8 +261,8 @@ def arches_page(db, query):
                 prev_job = Job.db_search(
                     db,
                     where=[
-                        "status != %d" % AFStatus.NEW,
-                        "status != %d" % AFStatus.START
+                        "status != %d" % EStatus.NEW,
+                        "status != %d" % EStatus.START
                     ],
                     builder=builder,
                     arch=arch,

@@ -7,7 +7,7 @@ import logging                  # getLogger
 import paho.mqtt.client as mqtt
 
 from . import get_config, db_queue, dispatch_queue, af_exit
-from .objects import AFStatus, Job
+from .objects import EStatus, Job
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class Dispatcher:
             )
             return 0
 
-        if job.status == AFStatus.NEW:
+        if job.status == EStatus.NEW:
             _LOGGER.debug("[%s] received echo", str(job))
             return job.id
 
@@ -135,13 +135,13 @@ class Dispatcher:
             _LOGGER.debug("[%s] ignore (%s)", str(job), e)
             return 0
 
-        if job.status == AFStatus.REJECT:
+        if job.status == EStatus.REJECT:
             try:
                 self.jobs[job.arch][0].builder = None
             except KeyError:
                 _LOGGER.debug("[%s] unknown reject", str(job))
 
-        elif job.status == AFStatus.START:
+        elif job.status == EStatus.START:
             try:
                 del self.jobs[job.arch][0]
             except (KeyError, IndexError):

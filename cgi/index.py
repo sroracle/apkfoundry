@@ -4,9 +4,8 @@ import os     # environ
 from urllib.parse import parse_qsl
 
 import apkfoundry.cgi as cgi
-from apkfoundry.objects import AFEventType, AFStatus
+from apkfoundry.objects import AFEventType, EStatus
 from apkfoundry.database import db_start
-
 
 try:
     database = db_start(readonly=True)
@@ -46,7 +45,7 @@ if "type" in query and query["type"]:
 
 if "status" in query and query["status"]:
     try:
-        query["status"] = AFStatus[query["status"]]
+        query["status"] = EStatus[query["status"]]
     except KeyError:
         error(400, "Invalid status")
 

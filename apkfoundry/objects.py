@@ -46,7 +46,7 @@ class AFEventType(enum.IntEnum):
             return int(self)
 
 @enum.unique
-class AFStatus(enum.IntFlag):
+class EStatus(enum.IntFlag):
     NEW = 1
     REJECT = 2
     START = 4
@@ -197,7 +197,7 @@ class Task:
     maintainer: str = attr.ib(default=None)
     tail: str = attr.ib(default=None)
     artifacts = attr.ib(default=None)
-    status = attr.ib(default=AFStatus.NEW, converter=_enum_normalize(AFStatus))
+    status = attr.ib(default=EStatus.NEW, converter=_enum_normalize(EStatus))
 
     created: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
     updated: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
@@ -276,7 +276,7 @@ class Task:
             repo=row[2],
             pkg=row[3],
 	    maintainer=row[4],
-            status=AFStatus(row[5]),
+            status=EStatus(row[5]),
             tail="" if row[6] is None else row[6],
             created=row[7],
             updated=row[8],
@@ -292,7 +292,7 @@ class Job:
     event = attr.ib() # Event or int
     builder: str = attr.ib(default=None)
     arch: str = attr.ib()
-    status = attr.ib(default=AFStatus.NEW, converter=_enum_normalize(AFStatus))
+    status = attr.ib(default=EStatus.NEW, converter=_enum_normalize(EStatus))
     tasks = attr.ib(default=None)
     payload = attr.ib(default=None)
 
@@ -369,7 +369,7 @@ class Job:
             event=row[1],
             builder=row[2],
             arch=row[3],
-            status=AFStatus(row[4]),
+            status=EStatus(row[4]),
             created=row[5],
             updated=row[6],
         )
@@ -380,7 +380,7 @@ class Job:
             (self.builder, self.status, self.id),
         )
 
-        if self.status & AFStatus.ERROR:
+        if self.status & EStatus.ERROR:
             db.execute(
                 "UPDATE tasks SET status = ? WHERE jobid = ? AND status = 1;",
                 (self.status, self.id),
@@ -402,7 +402,7 @@ class Event:
     revision: str = attr.ib()
     user: str = attr.ib()
     reason: str = attr.ib()
-    status = attr.ib(default=AFStatus.NEW, converter=_enum_normalize(AFStatus))
+    status = attr.ib(default=EStatus.NEW, converter=_enum_normalize(EStatus))
     mrid: int = attr.ib(default=None)
     mrclone: str = attr.ib(default=None)
     mrbranch: str = attr.ib(default=None)
@@ -455,7 +455,7 @@ class Event:
             revision=row[5],
             user=row[6],
             reason=row[7],
-            status=AFStatus(row[8]),
+            status=EStatus(row[8]),
             created=row[9],
             updated=row[10],
 
@@ -556,7 +556,7 @@ class Event:
                 event=self,
                 builder=None,
                 arch=arch,
-                status=AFStatus.NEW,
+                status=EStatus.NEW,
                 tasks=arches[arch],
             )
 

@@ -4,7 +4,7 @@
 import logging # getLogger
 
 from . import db_queue, get_config
-from .objects import AFStatus, JSONSchema, Push, MergeRequest
+from .objects import EStatus, JSONSchema, Push, MergeRequest
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class GitlabPush(JSONSchema):
             revision=self["after"],
             user=self["user_username"],
             reason=self["commits"][-1]["url"],
-            status=AFStatus.NEW,
+            status=EStatus.NEW,
 
             before=self["before"],
             after=self["after"],
@@ -84,7 +84,7 @@ class _GitlabAbstractMergeRequest(JSONSchema):
             revision=self[self._root]["last_commit"]["id"],
             user=self["user"]["username"],
             reason=self["object_attributes"]["url"],
-            status=AFStatus.NEW,
+            status=EStatus.NEW,
         )
 
     def get_url(self):

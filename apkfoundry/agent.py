@@ -11,7 +11,7 @@ from paho.mqtt.matcher import MQTTMatcher
 
 from . import get_config, agent_queue
 from .build import run_job
-from .objects import AFStatus, Job
+from .objects import EStatus, Job
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ class Agent:
 
     def _reject_job(self, job, reason):
         _LOGGER.warning("[%s] reject: %s", job, reason)
-        job.status = AFStatus.REJECT
+        job.status = EStatus.REJECT
         job.payload = reason
         self._mqtt.publish(str(job), job.to_mqtt(), 2)
 
@@ -128,11 +128,11 @@ class Agent:
     def _on_message(_client, self, msg):
         job = Job.from_mqtt(msg.topic, msg.payload)
 
-        if job.status == AFStatus.CANCEL and job.id in self.jobs:
+        if job.status == EStatus.CANCEL and job.id in self.jobs:
             # TODO cancel job here
             return
 
-        if job.status == AFStatus.NEW and job.builder == self.name:
+        if job.status == EStatus.NEW and job.builder == self.name:
             if job.arch not in self.arches:
                 self._reject_job(job, "unsupported arch")
                 return
