@@ -609,6 +609,7 @@ class Event:
             self._debug_dump()
             git_init(
                 self._dir, self.clone, hard=True,
+                rev=self.revision,
                 mrid=self.mrid, mrclone=self.mrclone, mrbranch=self.mrbranch,
             )
             startdirs = self._calc_startdirs()
