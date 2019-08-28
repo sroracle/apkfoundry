@@ -56,7 +56,7 @@ opts.add_argument(
     help="Mount APORTSDIR as read/write",
 )
 opts.add_argument(
-    "cdir", metavar="DIR", nargs=1,
+    "cdir", metavar="DIR",
     help="Container directory",
 )
 opts.add_argument(
@@ -68,8 +68,8 @@ opts.add_argument(
     help="Command to execute",
 )
 opts = opts.parse_args()
-opts.cdir = Path(opts.cdir[0]).resolve(strict=False)
-opts.repo = opts.repo[0]
+opts.cdir = Path(opts.cdir).resolve(strict=False)
+opts.repo = opts.repo
 
 if opts.rootd:
     with client_init(opts.cdir) as sock:

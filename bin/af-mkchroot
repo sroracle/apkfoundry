@@ -38,22 +38,22 @@ opts.add_argument(
     help="Source file directory (default: container root /var/cache/distfiles)",
 )
 opts.add_argument(
-    "cdir", metavar="DIR", nargs=1,
+    "cdir", metavar="DIR",
     help="Container directory",
 )
 opts.add_argument(
-    "branch", metavar="BRANCH", nargs=1,
+    "branch", metavar="BRANCH",
     help="Project branch",
 )
 opts.add_argument(
-    "repo", metavar="REPO", nargs=1,
+    "repo", metavar="REPO",
     help="Initial repository (can be changed later)",
 )
 
 opts = opts.parse_args()
-opts.cdir = Path(opts.cdir[0]).resolve(strict=False)
-opts.branch = opts.branch[0]
-opts.repo = opts.repo[0]
+opts.cdir = Path(opts.cdir).resolve(strict=False)
+opts.branch = opts.branch
+opts.repo = opts.repo
 
 cont_make(
     opts.cdir,
