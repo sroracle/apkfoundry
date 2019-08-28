@@ -246,15 +246,11 @@ def run_job(agent, job):
     else:
         bootstrap = False
 
-    kwargs = {
-        "rev": event.revision,
-        "hard": True,
-    }
-    if event.type == AFEventType.MR:
-        kwargs["mrid"] = event.mrid
-        kwargs["mrclone"] = event.mrclone
-        kwargs["mrbranch"] = event.mrbranch
-    git_init(cdir / "af/aports", event.clone, **kwargs)
+    git_init(
+        cdir / "af/aports", event.clone, hard=True,
+        rev=event.revision,
+        mrid=event.mrid, mrclone=event.mrclone, mrbranch=event.mrbranch,
+    )
 
     sock = client_init(cdir, bootstrap=bootstrap)
     cont = container.Container(cdir, root_fd=sock.fileno())
