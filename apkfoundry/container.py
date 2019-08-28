@@ -15,6 +15,7 @@ import subprocess # call, Popen
 from pathlib import Path
 
 from . import get_config, LIBEXEC, run, SITE_CONF
+from .socket import client_refresh
 
 BUILDDIR = "/af/build"
 JOBDIR = "/af/jobs"
@@ -134,7 +135,7 @@ def _force_copytree(src, dst):
 class Container:
     __slots__ = (
         "cdir",
-        "root_fd",
+        "rootd_conn",
 
         "_owneruid",
         "_ownergid",
@@ -142,7 +143,7 @@ class Container:
         "_setgid",
     )
 
-    def __init__(self, cdir, *, root_fd=None):
+    def __init__(self, cdir, *, rootd_conn=None):
         self.cdir = Path(cdir)
         if not self.cdir.exists():
             raise FileNotFoundError(f"'{self.cdir}' does not exist")
@@ -159,7 +160,7 @@ class Container:
             self._ownergid = pwd.getpwuid(self._owneruid).pw_gid
             self._setuid = self._setgid = 0
 
-        self.root_fd = root_fd
+        self.rootd_conn = rootd_conn
 
     def delete(self):
         raise NotImplementedError
@@ -170,6 +171,7 @@ class Container:
             delete=Delete.NEVER,
             jobid=None,
             net=False,
+            repo=None,
             ro_aports=True,
             ro_root=True,
             **kwargs):
@@ -231,10 +233,24 @@ class Container:
             "--chdir", MOUNTS["aportsdir"],
         ]
 
-        if self.root_fd:
-            kwargs["pass_fds"].append(self.root_fd)
+        if repo:
+            (self.cdir / "af/info/repo").write_text(repo.strip())
+
+        if self.rootd_conn:
+            rc = client_refresh(
+                self.rootd_conn,
+                **{
+                    k: v for k, v in kwargs.items() \
+                    if k in ("stdin", "stdout", "stderr")
+                },
+            )
+            if rc != 0:
+                _LOGGER.debug("failed to refresh container")
+                return (rc, None)
+
+            kwargs["pass_fds"].append(self.rootd_conn.fileno())
             args.extend((
-                "--setenv", "AF_ROOT_FD", str(self.root_fd),
+                "--setenv", "AF_ROOT_FD", str(self.rootd_conn.fileno()),
             ))
 
         if jobid is not None:
@@ -368,7 +384,7 @@ def cont_bootstrap(cdir, **kwargs):
         shutil.move(world_f, world_f.with_suffix(".af-bak"))
     args = ["/apk.static", "add", "--initdb"]
     rc, _ = cont.run(args, ro_root=False, net=True, **kwargs)
-    if rc:
+    if rc != 0:
         return rc
     if world_f.with_suffix(".af-bak").exists():
         shutil.move(world_f.with_suffix(".af-bak"), world_f)

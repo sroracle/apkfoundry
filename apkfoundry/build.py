@@ -10,7 +10,7 @@ from . import git_init, agent_queue
 from . import container
 from .digraph import Digraph, DAGValidationError
 from .objects import AFStatus, Task, AFEventType
-from .root import client_init
+from .socket import client_init
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_STATUSES = (
@@ -56,7 +56,7 @@ def generate_graph(cont, tasks, ignored_deps):
         stdout=subprocess.PIPE,
         encoding="utf-8",
     )
-    if rc:
+    if rc != 0:
         _LOGGER.error("af-deps failed with status %d", rc)
         return None
 
@@ -130,6 +130,7 @@ def run_task(job, cont, task, log=None):
         rc, _ = cont.run(
             ["/af/libexec/af-worker", task.startdir],
             jobid=job.id,
+            repo=task.repo,
             stdout=log, stderr=log,
             env=env,
         )
@@ -252,8 +253,13 @@ def run_job(agent, job):
         mrid=event.mrid, mrclone=event.mrclone, mrbranch=event.mrbranch,
     )
 
-    sock = client_init(cdir, bootstrap=bootstrap)
-    cont = container.Container(cdir, root_fd=sock.fileno())
+    rc, conn  = client_init(cdir, bootstrap=bootstrap)
+    if rc != 0:
+        _LOGGER.error("failed to connect to rootd")
+        job.status = AFStatus.ERROR
+        agent_queue.put(job)
+        return
+    cont = container.Container(cdir, rootd_conn=conn)
 
     ignored_deps = cdir / "af/aports/.apkfoundry" / event.target / "ignore-deps"
     if ignored_deps.is_file():

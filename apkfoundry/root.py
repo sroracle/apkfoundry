@@ -5,25 +5,17 @@ import argparse     # ArgumentParser
 import logging      # getLogger
 import os           # umask, write
 import selectors    # DefaultSelector, EVENT_READ
-import shlex        # quote, split
-import socket       # socket, various constants
 import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
-import struct       # calcsize, pack, Struct, unpack
-import sys          # exc_info, exit, std*
+import sys          # exc_info
 from pathlib import Path
 
 from . import get_config
 from .container import Container, cont_bootstrap, cont_refresh
+from .socket import get_creds, recv_fds, send_retcode, SOCK_PATH
 
 _LOGGER = logging.getLogger(__name__)
 _CFG = get_config("container")
 _ROOTID = _CFG.getint("rootid")
-_SOCK_PATH = _CFG.getpath("socket")
-_NUM_FDS = 3
-_PASSFD_FMT = _NUM_FDS * "i"
-_PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(_PASSFD_FMT))
-_RC_FMT = "i"
-_BUF_SIZE = 4096
 
 class _ParseOrRaise(argparse.ArgumentParser):
     class Error(Exception):
@@ -308,51 +300,6 @@ _parse = {
     "abuild-adduser": ("adduser", _abuild_adduser),
 }
 
-def _recv_retcode(conn):
-    rc, _, _, _ = conn.recvmsg(_BUF_SIZE)
-    (rc,) = struct.unpack(_RC_FMT, rc)
-    return rc
-
-def _send_retcode(conn, rc):
-    conn.sendmsg(
-        [struct.pack(_RC_FMT, rc)],
-    )
-
-def _recv_fds(anc):
-    if anc:
-        anc = anc[0]
-        assert anc[0] == socket.SOL_SOCKET
-        assert anc[1] == socket.SCM_RIGHTS
-        fds = struct.unpack(_PASSFD_FMT, anc[2])
-    else:
-        fds = tuple()
-
-    return fds
-
-def _send_fds(conn, msg, fds):
-    assert len(fds) == _NUM_FDS
-    assert len(msg) <= _BUF_SIZE
-
-    conn.sendmsg(
-        [msg],
-        [(
-            socket.SOL_SOCKET,
-            socket.SCM_RIGHTS,
-            struct.pack(_PASSFD_FMT, *fds),
-        )],
-    )
-
-def _get_creds(conn):
-    # pid_t, uid_t, gid_t
-    creds = struct.Struct("iII")
-    return creds.unpack(
-        conn.getsockopt(
-            socket.SOL_SOCKET,
-            socket.SO_PEERCRED,
-            creds.size,
-        ),
-    )
-
 class RootExc(Exception):
     pass
 
@@ -368,10 +315,8 @@ class RootConn(socketserver.StreamRequestHandler):
 
         while True:
             try:
-                argv, anc, _, _ = self.request.recvmsg(
-                    _BUF_SIZE, _PASSFD_SIZE
-                )
-                self.pid, self.uid, _ = _get_creds(self.request)
+                argv, fds = recv_fds(self.request)
+                self.pid, self.uid, _ = get_creds(self.request)
             except ConnectionError:
                 _LOGGER.info("[%d:%d] Disconnected", self.uid, self.pid)
                 break
@@ -383,7 +328,6 @@ class RootConn(socketserver.StreamRequestHandler):
                 _LOGGER.info("[%d:%d] Connected", self.uid, self.pid)
                 announced = True
 
-            fds = _recv_fds(anc)
             if not fds:
                 self._err("No file descriptors given")
                 continue
@@ -399,6 +343,10 @@ class RootConn(socketserver.StreamRequestHandler):
                 continue
             elif not self.cdir:
                 self._err("Must call af-init first")
+                continue
+            elif cmd == "af-refresh":
+                cont_refresh(self.cdir)
+                send_retcode(self.request, 0)
                 continue
 
             if cmd not in _parse:
@@ -422,7 +370,7 @@ class RootConn(socketserver.StreamRequestHandler):
                     stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
                 )
 
-                _send_retcode(self.request, rc)
+                send_retcode(self.request, rc)
             except ConnectionError:
                 pass
 
@@ -469,7 +417,7 @@ class RootConn(socketserver.StreamRequestHandler):
                 stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
             )
 
-        _send_retcode(self.request, rc)
+        send_retcode(self.request, rc)
 
     def _err(self, msg):
         try:
@@ -478,7 +426,7 @@ class RootConn(socketserver.StreamRequestHandler):
             pass
 
         try:
-            _send_retcode(self.request, 1)
+            send_retcode(self.request, 1)
         except ConnectionError:
             pass
 
@@ -490,11 +438,11 @@ class RootServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         self.sel = sel
 
         try:
-            _SOCK_PATH.unlink()
+            SOCK_PATH.unlink()
         except FileNotFoundError:
             pass
         oldmask = os.umask(0o007)
-        super().__init__(str(_SOCK_PATH), RootConn)
+        super().__init__(str(SOCK_PATH), RootConn)
         os.umask(oldmask)
 
     def handle_error(self, request, _):
@@ -502,7 +450,7 @@ class RootServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         _LOGGER.exception("%s", exc)
 
         try:
-            _send_retcode(request, 1)
+            send_retcode(request, 1)
         except ConnectionError:
             pass
 
@@ -518,30 +466,3 @@ def listen():
     while True:
         for key, event in sel.select():
             key.data[0](*key.data[1:])
-
-def client_init(cdir, bootstrap=False):
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.connect(str(_SOCK_PATH))
-
-    argv = "af-init"
-    if bootstrap:
-        argv += "\0--bootstrap"
-    argv += "\0" + str(cdir)
-    argv = argv.encode("utf-8")
-    msg = argv
-
-    _send_fds(
-        sock,
-        msg,
-        [
-            sys.stdin.fileno(),
-            sys.stdout.fileno(),
-            sys.stderr.fileno(),
-        ],
-    )
-
-    rc = _recv_retcode(sock)
-    if rc != 0:
-        sys.exit(rc)
-
-    return sock

@@ -4,10 +4,11 @@
 # See LICENSE for more information.
 import argparse # ArgumentParser, REMAINDER
 import logging  # basicConfig
+import sys      # exit
 from pathlib import Path
 
 from apkfoundry.container import Container, cont_make
-from apkfoundry.root import client_init
+from apkfoundry.socket import client_init
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -68,4 +69,5 @@ cont_make(
     },
 )
 
-client_init(opts.cdir, bootstrap=True)
+rc, _ = client_init(opts.cdir, bootstrap=True)
+sys.exit(rc)

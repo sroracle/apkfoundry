@@ -8,17 +8,18 @@ import sys      # exit
 from pathlib import Path
 
 from apkfoundry.container import Container, Delete
-from apkfoundry.root import client_init
+from apkfoundry.socket import client_init
 
-def _container_run(opts, root_fd=None):
+def _container_run(opts, rootd_conn=None):
     cont = Container(
         opts.cdir,
-        root_fd=root_fd,
+        rootd_conn=rootd_conn,
     )
 
     return cont.run(
         opts.argv,
         net=opts.networking,
+        repo=opts.repo,
         ro_aports=opts.ro_aports,
         ro_root=opts.ro_root,
     )
@@ -72,9 +73,11 @@ opts.cdir = Path(opts.cdir).resolve(strict=False)
 opts.repo = opts.repo
 
 if opts.rootd:
-    with client_init(opts.cdir) as sock:
-        ret, _ = _container_run(opts, sock.fileno())
+    rc, conn = client_init(opts.cdir)
+    if rc != 0:
+        sys.exit(rc)
 else:
-    ret, _ = _container_run(opts)
+    conn = None
 
-sys.exit(ret)
+rc, _ = _container_run(opts, conn)
+sys.exit(rc)
