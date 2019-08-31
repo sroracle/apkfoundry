@@ -203,6 +203,7 @@ class Container:
             "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
             "SRCDEST": MOUNTS["srcdest"],
             "REPODEST": MOUNTS["repodest"],
+            "ABUILD_GIT": "git -C /af/aports",
             "ABUILD_FETCH": "/af/libexec/af-req-root abuild-fetch",
             "ADDGROUP": "/af/libexec/af-req-root abuild-addgroup",
             "ADDUSER": "/af/libexec/af-req-root abuild-adduser",
