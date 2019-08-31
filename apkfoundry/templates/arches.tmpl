@@ -67,7 +67,7 @@
        {% endif %}
        {% if prev_job %}
         <td class="status status-{{ prev_job.status }}">
-         {{ link("Jobs", "#" ~ prev_job.id ~ ": " ~ prev_job.status, prev_job.id) }}<br>
+         {{ link("jobs", "#" ~ prev_job.id ~ ": " ~ prev_job.status, prev_job.id) }}<br>
          {{ time(prev_job.updated) }}
         </td>
        {% else %}
