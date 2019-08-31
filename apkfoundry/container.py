@@ -174,6 +174,7 @@ class Container:
             repo=None,
             ro_aports=True,
             ro_root=True,
+            skip_rootd=False,
             **kwargs):
 
         root_bind = "--ro-bind" if ro_root else "--bind"
@@ -236,7 +237,7 @@ class Container:
         if repo:
             (self.cdir / "af/info/repo").write_text(repo.strip())
 
-        if self.rootd_conn:
+        if self.rootd_conn and not skip_rootd:
             rc = client_refresh(
                 self.rootd_conn,
                 **{

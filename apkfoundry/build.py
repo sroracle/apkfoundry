@@ -55,6 +55,7 @@ def generate_graph(cont, tasks, ignored_deps):
         ("/af/libexec/af-deps", *[task.startdir for task in tasks]),
         stdout=subprocess.PIPE,
         encoding="utf-8",
+        skip_rootd=True,
     )
     if rc != 0:
         _LOGGER.error("af-deps failed with status %d", rc)
