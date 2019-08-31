@@ -191,7 +191,7 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
                 if keep_going:
                     _LOGGER.info("Recalculating build order")
 
-                    depfails = graph.all_downstreams(startdir)
+                    depfails = set(graph.all_downstreams(startdir))
                     for rdep in depfails:
                         graph.delete_node(rdep)
                     graph.delete_node(startdir)
