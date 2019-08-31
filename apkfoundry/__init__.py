@@ -71,6 +71,7 @@ _DEFAULT_CONFIG = {
         "events": str(_HOME / "events"),
         "projects": str(_HOME / "projects"),
         "remotes": "127.0.0.1",
+        "keep_events": "false",
     },
     "mqtt": {
         "host": "localhost",

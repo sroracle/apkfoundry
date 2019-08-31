@@ -74,6 +74,9 @@ split into restricted files away from more mundane options.
     projects=/var/lib/apkfoundry/projects
     ; List of IP addresses from which to accept requests.
     remotes=127.0.0.1
+    ; Whether to remove event files after they are processed. This
+    ; should generally be disabled except for debugging.
+    keep_events=false
 
     [mqtt]
     ; The hostname of the MQTT broker.

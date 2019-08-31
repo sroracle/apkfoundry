@@ -10,8 +10,10 @@ from . import get_config, inbound_queue, af_exit, read_fifo
 
 _LOGGER = logging.getLogger(__name__)
 
-_EVENTDIR = get_config("dispatch").getpath("events")
+_CFG = get_config("dispatch")
+_EVENTDIR = _CFG.getpath("events")
 _NOTIFYPATH = _EVENTDIR / "notify.fifo"
+_KEEP_EVENTS = _CFG.getboolean("keep_events")
 
 def _load_eventpath(eventpath):
     try:
@@ -23,10 +25,13 @@ def _load_eventpath(eventpath):
         _LOGGER.exception("[%s] exception:", eventpath, exc_info=e)
 
     finally:
+        if _KEEP_EVENTS:
+            return
+
         try:
             eventpath.unlink()
         except Exception:
-            pass
+            _LOGGER.warning("failed to delete %s", eventpath)
 
 def startup_flush():
     try:
