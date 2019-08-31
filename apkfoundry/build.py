@@ -248,7 +248,7 @@ def run_job(agent, job):
         bootstrap = False
 
     git_init(
-        cdir / "af/aports", event.clone, hard=True,
+        cdir / "af/aports", event.clone,
         rev=event.revision,
         mrid=event.mrid, mrclone=event.mrclone, mrbranch=event.mrbranch,
     )

@@ -174,9 +174,8 @@ def get_output(*argv, **kwargs):
     return subprocess.check_output(argv, encoding="utf-8", **kwargs)
 
 def git_init(dir, clone, *,
-        rev="origin/master", hard=False,
+        rev="origin/master",
         mrid=None, mrclone=None, mrbranch=None):
-    hard = "--hard" if hard else "--keep"
 
     if not (dir / ".git").is_dir():
         run("git", "clone", clone, dir)
@@ -186,5 +185,5 @@ def git_init(dir, clone, *,
     if mrid:
         run("git", "fetch", mrclone, f"{mrbranch}:mr-{mrid}", cwd=dir)
 
-    run("git", "reset", hard, rev, cwd=dir)
-    run("git", "reset", hard, "origin/apkfoundry", cwd=dir / ".apkfoundry")
+    run("git", "checkout", "--quiet", "--force", rev, cwd=dir)
+    run("git", "checkout", "--quiet", "--force", "origin/apkfoundry", cwd=dir / ".apkfoundry")

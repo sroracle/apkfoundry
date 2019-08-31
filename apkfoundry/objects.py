@@ -651,7 +651,7 @@ class Event:
             self._db_add(db)
             self._debug_dump()
             git_init(
-                self._dir, self.clone, hard=True,
+                self._dir, self.clone,
                 rev=self.revision,
                 mrid=self.mrid, mrclone=self.mrclone, mrbranch=self.mrbranch,
             )
