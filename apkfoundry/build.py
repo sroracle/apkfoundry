@@ -237,7 +237,7 @@ def run_job(agent, job):
             branch=event.target,
             repo=job.tasks[0].repo,
             arch=job.arch,
-            setarch=agent.arches[job.arch],
+            setarch=agent.setarch[job.arch],
             mounts={
                 "jobsdir": agent.jobsdir,
             },

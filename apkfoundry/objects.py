@@ -18,6 +18,9 @@ _MQTT_SKIP = {
     "mqtt_skip": True,
 }
 
+_LOGGER = logging.getLogger(__name__)
+_PROJECTS_HOME = get_config("dispatch").getpath("projects")
+
 def _mqtt_filter(attribute, value_):
     if "mqtt_skip" in attribute.metadata:
         if attribute.metadata["mqtt_skip"]:
@@ -65,9 +68,14 @@ class EStatus(enum.IntFlag):
         if protocol is sqlite3.PrepareProtocol:
             return int(self)
 
-_LOGGER = logging.getLogger(__name__)
+@enum.unique
+class BStatus(enum.IntFlag):
+    OFFLINE = 0
+    AVAILABLE = 1
+    BUSY = 2
 
-_PROJECTS_HOME = get_config("dispatch").getpath("projects")
+    def __str__(self):
+        return self.name
 
 def _validate_schema(schema, dct):
     for (key, value) in schema.items():
@@ -187,6 +195,39 @@ def _db_search(classes, db, where=None, **query):
     rows = db.execute(sql, query)
     db.row_factory = old_factory
     return rows
+
+@attr.s(kw_only=True, slots=True)
+class Builder:
+    name: str = attr.ib()
+    arches: dict = attr.ib()
+
+    topic = attr.ib(default=None, metadata=_MQTT_SKIP)
+
+    def __attrs_post_init__(self):
+        self.topic = f"builders/{self.name}"
+
+        normalize = _enum_normalize(BStatus)
+        for arch, status in self.arches.items():
+            self.arches[arch] = normalize(status)
+
+    def __str__(self):
+        return self.topic
+
+    def to_mqtt(self):
+        payload = attr.asdict(self, filter=_mqtt_filter)
+        payload = json.dumps(payload)
+        return payload.encode("utf-8")
+
+    @classmethod
+    def from_mqtt(cls, topic, payload):
+        assert topic.startswith("builders/")
+        payload = payload.decode("utf-8")
+        payload = json.loads(payload)
+
+        return cls(
+            **payload,
+            topic=topic,
+        )
 
 @attr.s(kw_only=True, slots=True)
 class Task:

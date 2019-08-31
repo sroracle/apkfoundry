@@ -7,7 +7,7 @@ import logging                  # getLogger
 import paho.mqtt.client as mqtt
 
 from . import get_config, db_queue, dispatch_queue, af_exit
-from .objects import EStatus, Job
+from .objects import EStatus, Job, BStatus, Builder
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,39 +65,20 @@ class Dispatcher:
             af_exit()
 
     def _builder_recv(self, msg):
-        # builders/{name}
-        # builders/{name}/{arch}
-        builder = msg.topic.split("/", maxsplit=2)
-        i = len(builder)
+        builder = Builder.from_mqtt(msg.topic, msg.payload)
 
-        if i not in (2, 3):
-            _LOGGER.warning("[%s] invalid topic", msg.topic)
-            return
-
-        name = builder[1]
-        arch = builder[2] if i == 3 else None
-        payload = msg.payload.decode("utf-8")
-
-        if arch is None:
-            if payload == "offline":
-                for arch in self.builders:
-                    self.builders[arch].discard(name)
-
-            _LOGGER.info(
-                "builder %s -> %s", name, payload,
-            )
-
-        else:
+        for arch, status in builder.arches.items():
             if arch not in self.builders:
                 self.builders[arch] = set()
 
-            if payload == "available":
-                self.builders[arch].add(name)
+            if status == BStatus.AVAILABLE:
+                self.builders[arch].add(builder.name)
             else:
-                self.builders[arch].discard(name)
+                self.builders[arch].discard(builder.name)
 
             _LOGGER.info(
-                "builder %s/%s -> %s", name, arch, payload,
+                "builder %s/%s -> %s",
+                builder.name, arch, status,
             )
 
     def _job_publish(self, job):

@@ -11,7 +11,7 @@ from paho.mqtt.matcher import MQTTMatcher
 
 from . import get_config, agent_queue
 from .build import run_job
-from .objects import EStatus, Job
+from .objects import EStatus, Job, BStatus, Builder
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,9 +21,10 @@ class Agent:
         "_host",
         "_port",
         "_mask",
+        "_will",
 
-        "name",
-        "arches",
+        "setarch",
+        "builder",
         "jobs",
         "jobsdir",
         "workers",
@@ -31,18 +32,6 @@ class Agent:
     )
 
     def __init__(self, cfg, host, port):
-        self.name = cfg["name"]
-        self.arches = [
-            arch.split(":", maxsplit=1) \
-            for arch in cfg.getlist("arches")
-        ]
-        self.arches = {
-            arch[0]: arch[1] if len(arch) > 1 else None \
-            for arch in self.arches
-        }
-
-        self.jobs = {}
-
         self._mqtt = mqtt.Client()
         self._mqtt.user_data_set(self)
         self._mqtt.username_pw_set(cfg["username"], cfg["password"])
@@ -56,24 +45,40 @@ class Agent:
         for topic in cfg.getlist("mask"):
             self._mask[topic] = True
 
+        self.setarch = [
+            arch.split(":", maxsplit=1) \
+            for arch in cfg.getlist("arches")
+        ]
+        self.setarch = {
+            arch[0]: arch[1] if len(arch) > 1 else None \
+            for arch in self.setarch
+        }
+
+        self.builder = Builder(
+            name=cfg["name"],
+            arches={arch: BStatus.AVAILABLE for arch in self.setarch},
+        )
+        self._will = Builder(
+            name=cfg["name"],
+            arches={arch: BStatus.OFFLINE for arch in self.setarch},
+        )
+
+        self.jobs = {}
+        self.jobsdir = cfg.getpath("jobs")
+
         self.workers = ThreadPoolExecutor(
             max_workers=cfg.getint("concurrency"),
             thread_name_prefix="af-worker-",
         )
 
         self.containers = cfg.getpath("containers")
-        self.jobsdir = cfg.getpath("jobs")
 
     def loop(self):
         try:
             self._mqtt.connect_async(self._host, self._port)
             self._mqtt.loop_start()
 
-            for arch in self.arches:
-                self._mqtt.publish(
-                    f"builders/{self.name}/{arch}", b"available", 1,
-                    retain=True,
-                )
+            self.publish_builder()
 
             for obj in agent_queue:
                 self._mqtt.publish(str(obj), obj.to_mqtt(), 2)
@@ -83,15 +88,19 @@ class Agent:
 
         finally:
             try:
-                self._mqtt.publish(
-                    f"builders/{self.name}", b"offline", 1,
-                    retain=True,
-                )
+                self.builder = self._will
+                self.publish_builder()
             except:
                 _LOGGER.warning("Could not mark self as offline!")
 
             _LOGGER.critical("exiting")
             sys.exit(1)
+
+    def publish_builder(self):
+        self._mqtt.publish(
+            str(self.builder), self.builder.to_mqtt(), 1,
+            retain=True,
+        )
 
     def _job_done(self, job, future):
         exc = future.exception()
@@ -115,13 +124,13 @@ class Agent:
         _LOGGER.info("Connected")
 
         self._mqtt.will_set(
-            f"builders/{self.name}", b"offline", 1,
+            str(self._will), self._will.to_mqtt(), 1,
             retain=True,
         )
 
         self._mqtt.subscribe([
-            (f"jobs/NEW/+/+/+/+/{self.name}/+/+", 2),
-            (f"jobs/CANCEL/+/+/+/+/{self.name}/+/+", 2),
+            (f"jobs/NEW/+/+/+/+/{self.builder.name}/+/+", 2),
+            (f"jobs/CANCEL/+/+/+/+/{self.builder.name}/+/+", 2),
         ])
 
     @staticmethod
@@ -132,9 +141,13 @@ class Agent:
             # TODO cancel job here
             return
 
-        if job.status == EStatus.NEW and job.builder == self.name:
-            if job.arch not in self.arches:
+        if job.status == EStatus.NEW and job.builder == self.builder.name:
+            if job.arch not in self.builder.arches:
                 self._reject_job(job, "unsupported arch")
+                return
+
+            if self.builder.arches[job.arch] != BStatus.AVAILABLE:
+                self._reject_job(job, "arch is unavailable")
                 return
 
             if not any(self._mask.iter_match(msg.topic)):
