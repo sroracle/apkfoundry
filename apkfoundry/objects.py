@@ -304,8 +304,8 @@ class Task:
     def db_process(self, db):
         db.execute(
             """UPDATE tasks SET status = ?, tail = ?
-            WHERE jobid = ? AND repo = ? AND pkg = ?;""",
-            (self.status, self.tail, self.job, self.repo, self.pkg),
+            WHERE taskid = ?;""",
+            (self.status, self.tail, self.id),
         )
         db.commit()
 

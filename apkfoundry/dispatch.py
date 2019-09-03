@@ -7,7 +7,7 @@ import logging                  # getLogger
 import paho.mqtt.client as mqtt
 
 from . import get_config, db_queue, dispatch_queue, af_exit
-from .objects import EStatus, Job, BStatus, Builder
+from .objects import EStatus, Job, BStatus, Builder, Task
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -88,6 +88,19 @@ class Dispatcher:
                 builder.name, arch, status,
             )
 
+    def _task_recv(self, msg):
+        try:
+            task = Task.from_mqtt(msg.topic, msg.payload)
+        except (json.JSONDecodeError, AssertionError) as e:
+            _LOGGER.exception(
+                "[%s] invalid payload: '%s'",
+                msg.topic, msg.payload, exc_info=e,
+            )
+            return
+
+        db_queue.put(task)
+        _LOGGER.info("[%s] %s", str(task), task.status)
+
     def _job_publish(self, job):
         job.builder = self.builders[job.arch].pop()
         self.builders[job.arch].add(job.builder)
@@ -153,10 +166,10 @@ class Dispatcher:
         if msg.topic.startswith("jobs"):
             just_touched_job = self._job_recv(msg)
 
-        if msg.topic.startswith("tasks"):
-            pass
+        elif msg.topic.startswith("tasks"):
+            self._task_recv(msg)
 
-        if msg.topic.startswith("builders"):
+        elif msg.topic.startswith("builders"):
             self._builder_recv(msg)
 
         for arch in self.jobs:
