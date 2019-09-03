@@ -169,7 +169,7 @@ class Container:
             cmd,
             *,
             delete=Delete.NEVER,
-            jobid=None,
+            jobdir=None,
             net=False,
             repo=None,
             ro_aports=True,
@@ -258,10 +258,10 @@ class Container:
                 "--setenv", "AF_ROOT_FD", str(self.rootd_conn.fileno()),
             ))
 
-        if jobid is not None:
+        if jobdir is not None:
             args.extend([
-                "--bind", Path(mounts["jobsdir"]) / str(jobid),
-                Path(MOUNTS["jobsdir"]) / str(jobid),
+                "--bind", Path(mounts["jobsdir"]) / str(jobdir),
+                Path(MOUNTS["jobsdir"]) / str(jobdir),
             ])
 
         if not net:

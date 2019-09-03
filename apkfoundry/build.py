@@ -111,8 +111,9 @@ def generate_graph(cont, tasks, ignored_deps):
 
 def run_task(job, cont, task, log=None):
     env = {}
+    jobdir = job.dir.relative_to(job.dir.parent.parent.parent.parent.parent)
     buildbase = Path(container.BUILDDIR) / task.startdir
-    env["AF_TASKDIR"] = f"/af/jobs/{job.id}/{task.startdir}"
+    env["AF_TASKDIR"] = f"/af/jobs/{jobdir}/{task.startdir}"
     env["AF_BRANCH"] = job.event.target
     env["ABUILD_SRCDIR"] = str(buildbase / "src")
     env["ABUILD_PKGBASEDIR"] = str(buildbase / "pkg")
@@ -130,7 +131,7 @@ def run_task(job, cont, task, log=None):
     try:
         rc, _ = cont.run(
             ["/af/libexec/af-worker", task.startdir],
-            jobid=job.id,
+            jobdir=jobdir,
             repo=task.repo,
             stdout=log, stderr=log,
             env=env,
@@ -236,7 +237,7 @@ def run_job(agent, job):
     event = job.event
     cdir = f"{event.project}.{event.type}.{event.target}.{job.arch}"
     cdir = agent.containers / cdir
-    job.dir = agent.jobsdir / event.project / event.type / event.target
+    job.dir = agent.jobsdir / event.project / str(event.type) / event.target
     job.dir = job.dir / job.arch / str(job.id)
 
     if not cdir.is_dir():
