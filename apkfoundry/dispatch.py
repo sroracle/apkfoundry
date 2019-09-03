@@ -65,7 +65,14 @@ class Dispatcher:
             af_exit()
 
     def _builder_recv(self, msg):
-        builder = Builder.from_mqtt(msg.topic, msg.payload)
+        try:
+            builder = Builder.from_mqtt(msg.topic, msg.payload)
+        except (json.JSONDecodeError, AssertionError) as e:
+            _LOGGER.exception(
+                "[%s] invalid payload: '%s'",
+                msg.topic, msg.payload, exc_info=e,
+            )
+            return
 
         for arch, status in builder.arches.items():
             if arch not in self.builders:
