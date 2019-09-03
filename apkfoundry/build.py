@@ -142,7 +142,7 @@ def run_task(job, cont, task, log=None):
         except (AttributeError, TypeError):
             pass
 
-    return rc == 0
+    return rc
 
 def run_graph(job, graph, cont, keep_going=False, keep_files=True):
     tasks = {task.startdir: task for task in job.tasks}
@@ -182,9 +182,23 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
             repo_f = cont.cdir / "af/info/repo"
             repo_f.write_text(task.repo)
 
-            if not run_task(job, cont, task):
-                _LOGGER.error("(%d/%d) Fail: %s", cur, tot, startdir)
-                task.status = EStatus.FAIL
+            rc = run_task(job, cont, task)
+
+            if rc in (0, 10):
+                _LOGGER.info("(%d/%d) Success: %s", cur, tot, startdir)
+                task.status = EStatus.SUCCESS
+                agent_queue.put(task)
+                done.add(startdir)
+                if not keep_files:
+                    shutil.rmtree(cont.cdir / "build" / startdir)
+
+            else:
+                if rc == 11:
+                    _LOGGER.error("(%d/%d) Fail: %s", cur, tot, startdir)
+                    task.status = EStatus.FAIL
+                else:
+                    _LOGGER.error("(%d/%d) ERROR: %s", cur, tot, startdir)
+                    task.status = EStatus.ERROR
                 agent_queue.put(task)
                 done.add(startdir)
 
@@ -214,14 +228,6 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
                     graph.reset_graph()
 
                 break
-
-            else:
-                _LOGGER.info("(%d/%d) Success: %s", cur, tot, startdir)
-                task.status = EStatus.SUCCESS
-                agent_queue.put(task)
-                done.add(startdir)
-                if not keep_files:
-                    shutil.rmtree(cont.cdir / "build" / startdir)
 
     return _stats_builds(tasks)
 
