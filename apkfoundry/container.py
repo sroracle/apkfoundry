@@ -200,6 +200,8 @@ class Container:
             if name in os.environ and name not in kwargs["env"]
         })
         kwargs["env"].update({
+            "USER": getpass.getuser(),
+            "UID": str(self._setuid),
             "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
             "SRCDEST": MOUNTS["srcdest"],
             "REPODEST": MOUNTS["repodest"],
