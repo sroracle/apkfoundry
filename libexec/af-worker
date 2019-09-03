@@ -43,6 +43,7 @@ shuffle_repo() {
 
 cd "$startdir"
 if abuild up2date 2>/dev/null; then
+	printf '>>> Package is up to date'
 	exit 10
 fi
 
