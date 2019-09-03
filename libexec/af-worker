@@ -14,6 +14,10 @@ cleanup() {
 }
 
 cd "$startdir"
+if abuild up2date 2>/dev/null; then
+	exit 10
+fi
+
 abuild listpkg > "$AF_TASKDIR/manifest"
 abuild fetch deps mkusers
 trap cleanup EXIT INT TERM
@@ -47,4 +51,8 @@ for apk in $(cat "$AF_TASKDIR/manifest"); do
 	ln -sr "$AF_TASKDIR/$apk" "$REPODEST/$repo/$arch/$apk"
 done
 
-exit "$AF_STATUS"
+if [ "$AF_STATUS" -eq 0 ]; then
+	exit 0
+else
+	exit 11
+fi
