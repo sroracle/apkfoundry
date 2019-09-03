@@ -18,8 +18,8 @@ abuild listpkg > "$AF_TASKDIR/manifest"
 abuild fetch deps mkusers
 trap cleanup EXIT INT TERM
 
-if [ -x ".apkfoundry/$AF_BRANCH/pre_build" ]; then
-	"./.apkfoundry/$AF_BRANCH/pre_build"
+if [ -x ".apkfoundry/$AF_BRANCH/pre-build" ]; then
+	"./.apkfoundry/$AF_BRANCH/pre-build"
 fi
 
 set +e
@@ -33,8 +33,8 @@ set +e
 export AF_STATUS="$?"
 set -e
 
-if [ -x ".apkfoundry/$AF_BRANCH/post_build" ]; then
-	"./.apkfoundry/$AF_BRANCH/post_build"
+if [ -x ".apkfoundry/$AF_BRANCH/post-build" ]; then
+	"./.apkfoundry/$AF_BRANCH/post-build"
 fi
 
 arch="$(apk --print-arch)"
