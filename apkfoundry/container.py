@@ -204,6 +204,7 @@ class Container:
             "UID": str(self._setuid),
             "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
             "SRCDEST": MOUNTS["srcdest"],
+            "APORTSDIR": MOUNTS["aportsdir"],
             "REPODEST": MOUNTS["repodest"],
             "ABUILD_GIT": "git -C /af/aports",
             "ABUILD_FETCH": "/af/libexec/af-req-root abuild-fetch",
