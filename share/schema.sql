@@ -117,13 +117,13 @@ FOR EACH ROW BEGIN
       (SELECT 1 FROM tasks WHERE status IN (1, 4) AND jobid = NEW.jobid)
     THEN
         CASE
-        WHEN 56 IN (SELECT DISTINCT status FROM jobs WHERE jobid = NEW.jobid)
+        WHEN 56 IN (SELECT DISTINCT status FROM tasks WHERE jobid = NEW.jobid)
         THEN 56 -- cancel
-        WHEN 24 IN (SELECT DISTINCT status FROM jobs WHERE jobid = NEW.jobid)
+        WHEN 24 IN (SELECT DISTINCT status FROM tasks WHERE jobid = NEW.jobid)
         THEN 24 -- error
-        WHEN 152 IN (SELECT DISTINCT status FROM jobs WHERE jobid = NEW.jobid)
+        WHEN 152 IN (SELECT DISTINCT status FROM tasks WHERE jobid = NEW.jobid)
         THEN 152 -- fail
-        WHEN 312 IN (SELECT DISTINCT status FROM jobs WHERE jobid = NEW.jobid)
+        WHEN 312 IN (SELECT DISTINCT status FROM tasks WHERE jobid = NEW.jobid)
         THEN 312 -- depfail
         ELSE 72 -- success
         END
