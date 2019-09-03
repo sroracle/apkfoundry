@@ -13,6 +13,34 @@ cleanup() {
 	esac
 }
 
+shuffle_repo() {
+	local error="${1:-0}"
+
+	arch="$(apk --print-arch)"
+	for apk in $(cat "$AF_TASKDIR/manifest"); do
+		if ! [ -e "$REPODEST/$repo/$arch/$apk" ]; then
+			if [ "$error" -eq 0 ]; then
+				printf '>>> ERROR: apk does not exist: %s' "$apk"
+				error=12
+				shuffle_repo "$error"
+				break
+			else
+				printf '>>> WARNING: apk does not exist: %s' "$apk"
+				continue
+			fi
+		fi
+
+		mv "$REPODEST/$repo/$arch/$apk" "$AF_TASKDIR/$apk"
+
+		if [ "$error" -eq 0 ]; then
+			ln -sr "$AF_TASKDIR/$apk" "$REPODEST/$repo/$arch/$apk"
+		fi
+	done
+
+	abuild index
+	return "$error"
+}
+
 cd "$startdir"
 if abuild up2date 2>/dev/null; then
 	exit 10
@@ -41,15 +69,7 @@ if [ -x ".apkfoundry/$AF_BRANCH/post-build" ]; then
 	"./.apkfoundry/$AF_BRANCH/post-build"
 fi
 
-arch="$(apk --print-arch)"
-for apk in $(cat "$AF_TASKDIR/manifest"); do
-	if ! [ -e "$REPODEST/$repo/$arch/$apk" ]; then
-		continue
-	fi
-
-	mv "$REPODEST/$repo/$arch/$apk" "$AF_TASKDIR/$apk"
-	ln -sr "$AF_TASKDIR/$apk" "$REPODEST/$repo/$arch/$apk"
-done
+shuffle_repo "$AF_STATUS"
 
 if [ "$AF_STATUS" -eq 0 ]; then
 	exit 0
