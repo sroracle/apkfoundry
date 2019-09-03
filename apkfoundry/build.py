@@ -230,7 +230,8 @@ def run_job(agent, job):
     event = job.event
     cdir = f"{event.project}.{event.type}.{event.target}.{job.arch}"
     cdir = agent.containers / cdir
-    job.dir = agent.jobsdir / str(job.id)
+    job.dir = agent.jobsdir / event.project / event.type / event.target
+    job.dir = job.dir / job.arch / str(job.id)
 
     if not cdir.is_dir():
         container.cont_make(
