@@ -25,7 +25,6 @@ shuffle_repo() {
 				shuffle_repo "$error"
 				break
 			else
-				printf '>>> WARNING: apk does not exist: %s' "$apk"
 				continue
 			fi
 		fi
@@ -38,7 +37,10 @@ shuffle_repo() {
 	done
 
 	abuild index
-	return "$error"
+	if [ "$1" -ne "$error" ]; then
+		return "$error"
+	fi
+	return 0
 }
 
 cd "$startdir"
