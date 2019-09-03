@@ -54,6 +54,9 @@ def _abuild_addgroup(argv):
         "-S", action="store_true",
         required=True,
     )
+    getopts.add_argument(
+        "group",
+    )
 
     opts = getopts.parse_args(argv)
 
@@ -77,6 +80,9 @@ def _abuild_adduser(argv):
     getopts.add_argument(
         "-S", action="store_true",
         required=True,
+    )
+    getopts.add_argument(
+        "user",
     )
 
     opts = getopts.parse_args(argv)
