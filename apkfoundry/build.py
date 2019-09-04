@@ -2,6 +2,7 @@
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
 import logging    # getLogger
+import re         # compile
 import subprocess # PIPE
 import textwrap   # TextWrapper
 from pathlib import Path
@@ -21,6 +22,7 @@ _REPORT_STATUSES = (
     EStatus.ERROR,
     EStatus.CANCEL,
 )
+_NET_OPTION = re.compile(r"""^options=(["']?)[^"']*\bnet\b[^"']*\1""")
 
 _wrap = textwrap.TextWrapper()
 
@@ -127,6 +129,18 @@ def run_task(job, cont, task, log=None):
     env["TEMPDIR"] = env["TMPDIR"] = tmp
     env["HOME"] = tmp
 
+    APKBUILD = cont.cdir / f"af/info/aportsdir/{task.startdir}/APKBUILD"
+    if not APKBUILD.is_file():
+        raise FileNotFoundError(APKBUILD)
+    net = False
+    with open(APKBUILD) as f:
+        for line in f:
+            if _NET_OPTION.search(line) is not None:
+                net = True
+
+    if net:
+        _LOGGER.info("[%s] network access enabled", task.startdir)
+
     if log is None:
         log = task.dir / "log"
         log = open(log, "w")
@@ -138,6 +152,7 @@ def run_task(job, cont, task, log=None):
             repo=task.repo,
             stdout=log, stderr=log,
             env=env,
+            net=net,
         )
 
     finally:

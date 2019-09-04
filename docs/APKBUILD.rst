@@ -45,9 +45,9 @@ producing a fatal error in the orchestrator.
 to determine on which architectures the given package must be built. It
 is desirable that the orchestrator need not execute a shell in order to
 parse the APKBUILD to retrieve only the value of ``arch`` so that a
-chroot is not needed. Since this line almost never contains expansion or
-is part of a conditional statement, this expectation should not present
-any problems.
+container is not needed. Since this line almost never contains expansion
+or is part of a conditional statement, this expectation should not
+present any problems.
 
 options
 -------
@@ -58,10 +58,9 @@ purposes of fetching ``source``\s and installing dependencies, the
 
     options="net"
 
-Other ``options`` may follow the value of ``net``, but ``net`` should
-always be first::
+This can be mixed with other options::
 
-    options="net !check suid"
+    options="!check net suid"
 
 If part of the ``options`` depends on a condition and the package
 requires networking access like above, ``options`` should still be
@@ -73,6 +72,6 @@ assigned statically first and then conditionally assigned later::
 **Rationale**. The ``options`` line is needed by the builder agent in
 order to determine whether the package requires networking access for
 its build or not. Since this needs to be determined before entering the
-chroot (since networking access is dropped or kept at the chroot
+container (since networking access is dropped or kept at the container
 boundary), it is desirable to parse this requirement statically without
 the use of a shell.
