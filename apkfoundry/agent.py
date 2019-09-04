@@ -102,18 +102,26 @@ class Agent:
             retain=True,
         )
 
+    def publish_job(self, job, status=None, payload=None):
+        if status is not None:
+            job.status = status
+        if payload is not None:
+            job.payload = payload
+
+        self._mqtt.publish(str(job), job.to_mqtt(), 2)
+
     def _job_done(self, job, future):
         exc = future.exception()
         if exc:
             _LOGGER.exception("[%s]", job, exc_info=exc)
+            self.publish_job(job, EStatus.ERROR)
         else:
             _LOGGER.info("[%s] done", job)
+            self.publish_job(job)
 
     def _reject_job(self, job, reason):
         _LOGGER.warning("[%s] reject: %s", job, reason)
-        job.status = EStatus.REJECT
-        job.payload = reason
-        self._mqtt.publish(str(job), job.to_mqtt(), 2)
+        self.publish_job(job, EStatus.REJECT, reason)
 
     @staticmethod
     def _on_connect(_client, self, _flags, rc):

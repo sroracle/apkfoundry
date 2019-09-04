@@ -416,10 +416,11 @@ class Job:
         )
 
     def db_process(self, db):
-        db.execute(
-            "UPDATE jobs SET builder = ?, status = ? WHERE jobid = ?;",
-            (self.builder, self.status, self.id),
-        )
+        if self.status == EStatus.START:
+            db.execute(
+                "UPDATE jobs SET builder = ?, status = ? WHERE jobid = ?;",
+                (self.builder, self.status, self.id),
+            )
 
         if self.status & EStatus.ERROR:
             db.execute(

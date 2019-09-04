@@ -14,12 +14,12 @@ from .socket import client_init
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_STATUSES = (
-    EStatus.SUCCESS,
     EStatus.IGNORE,
-    EStatus.CANCEL,
+    EStatus.SUCCESS,
     EStatus.DEPFAIL,
     EStatus.FAIL,
     EStatus.ERROR,
+    EStatus.CANCEL,
 )
 
 _wrap = textwrap.TextWrapper()
@@ -44,10 +44,13 @@ def _stats_builds(tasks):
     for status, tasklist in statuses.items():
         _stats_list(status, tasklist)
 
-        if statuses[status] and status & EStatus.ERROR:
-            success = False
+    rc = EStatus.SUCCESS
+    for status in reversed(_REPORT_STATUSES):
+        if statuses[status]:
+            rc = status
+            break
 
-    return success
+    return rc
 
 def generate_graph(cont, tasks, ignored_deps):
     graph = Digraph()
@@ -233,6 +236,9 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
     return _stats_builds(tasks)
 
 def run_job(agent, job):
+    job.status = EStatus.START
+    agent_queue.put(job)
+
     topic = job.topic.split("/")
     event = job.event
     cdir = f"{event.project}.{event.type}.{event.target}.{job.arch}"
@@ -266,7 +272,6 @@ def run_job(agent, job):
     if rc != 0:
         _LOGGER.error("failed to connect to rootd")
         job.status = EStatus.ERROR
-        agent_queue.put(job)
         return
     cont = container.Container(cdir, rootd_conn=conn)
 
@@ -279,12 +284,6 @@ def run_job(agent, job):
     if not graph:
         _LOGGER.error("failed to generate dependency graph")
         job.status = EStatus.ERROR
-        agent_queue.put(job)
         return
 
-    try:
-        run_graph(job, graph, cont)
-    except Exception as e:
-        _LOGGER.exception("unhandled exception", exc_info=e)
-        job.status = EStatus.ERROR
-        agent_queue.put(job)
+    job.status = run_graph(job, graph, cont)
