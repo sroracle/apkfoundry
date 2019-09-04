@@ -1,0 +1,26 @@
+# Anonymous pub/sub
+topic read $SYS/#
+topic read builders/#
+topic read jobs/#
+topic read tasks/#
+
+# Builder pub/sub (repeat for each builder)
+user builder-foo
+topic readwrite builders/builder-foo/#
+topic readwrite jobs/+/+/+/+/+/builder-foo/#
+topic readwrite tasks/+/+/+/+/+/builder-foo/#
+
+user builder-bar
+topic readwrite builders/builder-bar/#
+topic readwrite jobs/+/+/+/+/+/builder-bar/#
+topic readwrite tasks/+/+/+/+/+/builder-bar/#
+
+# Dispatch pub/sub
+user dispatch
+topic readwrite _new_job
+topic read builders/#
+topic readwrite jobs/#
+topic readwrite tasks/#
+
+# All clients
+pattern write $SYS/broker/connection/%c/state
