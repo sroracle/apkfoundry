@@ -6,15 +6,15 @@ scriptdir="${0%/*}"
 . "$scriptdir/common"
 
 for i; do
-  if [ "${i%/APKBUILD}" = "$i" ]; then
-    APKBUILDS="$APKBUILDS $i/APKBUILD"
-  else
-    APKBUILDS="$APKBUILDS $i"
-  fi
+	if [ "${i%/APKBUILD}" = "$i" ]; then
+		APKBUILDS="$APKBUILDS $i/APKBUILD"
+	else
+		APKBUILDS="$APKBUILDS $i"
+	fi
 done
 
 # Add /dev/null so that we always get the filename prepended, even if only one
 # APKBUILD is given
 grep '^# Maintainer:' $APKBUILDS /dev/null \
-  | sed -E 's@/APKBUILD:# Maintainer:\s*@ @' \
-  | sort -uk1
+	| sed -E 's@/APKBUILD:# Maintainer:\s*@ @' \
+	| sort -uk1

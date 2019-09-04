@@ -4,16 +4,16 @@ MQTT access control lists
 The following users should be created:
 
 ``dispatch``
-   For use by the webhook and the eventual dispatch CLI. It should have access
-   to the following topics:
+   For use by the webhook and the eventual dispatch CLI. It should have
+   access to the following topics:
 
    * read/write ``_new_job`` (internal use only)
    * read ``builders/#``
    * read/write ``jobs/#``
    * read/write ``tasks/#``
 
-   The username ``dispatch`` and its password should be given as part of the
-   ``dispatch`` section of the site configuration.
+   The username ``dispatch`` and its password should be given as part of
+   the ``dispatch`` section of the site configuration.
 
 ``builder-foo``
    Each builder should have access to the following topics:

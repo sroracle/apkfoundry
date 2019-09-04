@@ -19,8 +19,8 @@ included::
 
     # Maintainer: 
 
-By convention, but not necessarily as a requirement of APK Foundry, a single
-space is often placed after the colon.
+By convention, but not necessarily as a requirement of APK Foundry, a
+single space is often placed after the colon.
 
 **Rationale**. The ``Maintainer`` line is used to describe a package
 task, being especially useful to filter searches in the web interface.

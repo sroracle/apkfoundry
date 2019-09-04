@@ -219,9 +219,9 @@ branch/ignore
 
 This **optional** file is used by the builder agents. It should be a
 plain text file separated by line feeds (``\n``). Each line should
-contain a single startdir, the purpose being that APK Foundry will ignore
-this package even if it was changed during an event. For example, if
-``master/ignore`` contains the following::
+contain a single startdir, the purpose being that APK Foundry will
+ignore this package even if it was changed during an event. For example,
+if ``master/ignore`` contains the following::
 
     user/libreoffice
     user/rust
@@ -239,8 +239,8 @@ branch/ignore-deps
 
 This **optional** file is used by the builder agents. It should be a
 plain text file separated by line feeds (``\n``). Each line should
-contain a pair of startdirs, the purpose being that APK Foundry will ignore
-this dependency when calculating the build order. For example, if
+contain a pair of startdirs, the purpose being that APK Foundry will
+ignore this dependency when calculating the build order. For example, if
 ``master/ignore.deps`` contains the following::
 
     system/python3 system/easy-kernel
@@ -257,8 +257,8 @@ dependencies only on that architecture, e.g.
 architecture-independent configuration file.
 
 **Note:** ``abuild`` will still install such dependencies. This file
-only affects APK Foundry's build order solver, the primary utility being to
-break dependency cycles. If you wish to prevent a package from ever
+only affects APK Foundry's build order solver, the primary utility being
+to break dependency cycles. If you wish to prevent a package from ever
 being installed, add ``!pkgname`` to your world file.
 
 Skeletons
