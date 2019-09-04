@@ -38,9 +38,8 @@ assignment, like so::
     arch="all !x86_64 pmmx"
 
 The values ``all`` and ``noarch`` both correspond to the contents of the
-file ``.apkfoundry/$branch/$repo.arch`` in the project root, falling
-back on ``.apkfoundry/master/$repo.arch`` if that does not exist, and
-otherwise producing a fatal error in the orchestrator.
+file ``.apkfoundry/$branch/arch`` in the project root, otherwise
+producing a fatal error in the orchestrator.
 
 **Rationale**. The ``arch`` line is needed by the orchestrator in order
 to determine on which architectures the given package must be built. It
