@@ -2,52 +2,34 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-scriptdir="${0%/*}"
-. "$scriptdir/common"
-required_commands join mktemp
 
-usage() {
-	printf 'Usage: %s [-q] [-b BRANCH] REPO/PKG ...\n' "$PROG" >&2
-}
-
-cleanup() {
-	rm -f "$tmp"
-}
-
-while getopts b:qh opt; do
-case "$opt" in
-b)
-	branch="$OPTARG";;
-q)
-	QUIET=1;;
-*)
-	usage
-	[ "$opt" = "h" ] && exit 0
-	exit 1
-esac
-done
-shift $((OPTIND - 1))
-
-if [ -z "$branch" ]; then
-	branch="$(get_branch)"
-fi
+# af-arch BRANCH STARTDIR [STARTDIR...]
+branch="$1"
+shift
+[ -n "$branch" ] || exit 1
 
 for startdir; do
 	any=0
 	repo="${startdir%/*}"
 
 	APKBUILD="$startdir/APKBUILD"
-	[ -e "$APKBUILD" ] || fatal 1 missing APKBUILD: "$APKBUILD"
+	if ! [ -e "$APKBUILD" ]; then
+		printf 'af-arch: %s: not found\n' "$APKBUILD" >&2
+		exit 2
+	fi
 
 	archfile=".apkfoundry/$branch/arch"
-	[ -e "$archfile" ] || fatal 1 missing configuration: "$archfile"
+	if ! [ -e "$archfile" ]; then
+		printf 'af-arch: %s: not found\n' "$archfile" >&2
+		exit 2
+	fi
 
 	arch="$(grep '^arch=' "$APKBUILD" \
 		| sed "s/^arch=//; s/'//g; s/\"//g; s/#.*\$//")"
 
 	want_arches="$(grep "^$repo " "$archfile" | cut -d ' ' -f 2-)"
 	if [ -z "$want_arches" ]; then
-		notice warning: repository "'$repo'" is not enabled
+		printf 'af-arch: warning: %s: repository not enabled\n' "$repo" >&2
 		continue
 	fi
 
@@ -71,6 +53,6 @@ for startdir; do
 		fi
 	done
 	if [ "$any" -eq 0 ]; then
-		notice warning: "$startdir" is disabled on all architectures
+		printf 'af-arch: warning: %s: not enabled on any arch\n' "$startdir" >&2
 	fi
 done

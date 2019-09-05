@@ -555,6 +555,7 @@ class Event:
 
     def _calc_maintainers(self, startdirs):
         _LOGGER.info("[%s] Retrieving maintainers", str(self))
+        startdirs = [i + "/APKBUILD" for i in startdirs]
         maintainers = get_output(
             "af-maintainer", *startdirs, cwd=self._dir,
         )
@@ -567,7 +568,7 @@ class Event:
     def _calc_arches(self, startdirs):
         _LOGGER.info("[%s] Generating architecture list", str(self))
         lines = get_output(
-            "af-arch", "-b", self.target,
+            "af-arch", self.target,
             *startdirs, cwd=self._dir,
         ).strip().splitlines()
 

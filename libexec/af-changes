@@ -2,37 +2,21 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2018 Max Rees
 # See LICENSE for more information.
-scriptdir="${0%/*}"
-. "$scriptdir/common"
-required_commands git
 
-usage() {
-	printf 'Usage: %s [-q] -p BRANCH BEFORE AFTER\n' "${0##*/}" >&2
-	printf '       %s [-q] -m TARGET COMMITISH\n' "${0##*/}" >&2
-}
-
-while getopts p:mqh opt; do
+# af-changes -p BRANCH BEFORE AFTER
+# af-changes -m TARGET COMMITISH
+while getopts p:mq opt; do
 case "$opt" in
-p)
-	branch="$OPTARG";;
-m)
-  mr=1;;
-q)
-	QUIET=1;;
-*)
-	usage
-	[ "$opt" = "h" ] && exit 0
-	exit 1;;
+p) branch="$OPTARG";;
+m) mr=1;;
 esac
 done
-shift $((OPTIND - 1))
+shift "$((OPTIND - 1))"
 
 if [ -z "$branch" ] && [ -z "$mr" ]; then
-	usage
 	exit 1
 fi
 if [ -n "$branch" ] && [ -n "$mr" ]; then
-	usage
 	exit 1
 fi
 if [ -n "$mr" ]; then
@@ -42,7 +26,6 @@ fi
 before="$1"
 after="$2"
 if [ -z "$before" ] || [ -z "$after" ]; then
-	usage
 	exit 1
 fi
 
@@ -56,19 +39,23 @@ projectdir="${PWD##*/}"
 if [ -n "$mr" ]; then
 	base="$(git merge-base "$before" "$after")"
 	if [ -z "$base" ]; then
-		fatal 4 failed merge base: "$projectdir" "$before" "$after"
+		printf 'af-changes: failed merge base: %s %s %s\n' \
+			"$projectdir" "$before" "$after" >&2
+		exit 2
 	else
-		notice merge base: "$projectdir" "$before" "$after"
+		printf 'af-changes: %s %s %s\n' \
+			"$projectdir" "$before" "$after" >&2
 	fi
 	before="$base"
 fi
 
-notice changed packages: "$projectdir" "$before" "$after"
+printf 'af-changes: changed packages: %s %s %s\n' \
+	"$projectdir" "$before" "$after" >&2
 
 changes="$(git diff-tree -r --name-only --diff-filter dxu "$before..$after")"
 printf '%s' "$changes" \
 	| grep 'APKBUILD$' | sed 's#/APKBUILD$##' \
 	| while read -r pkg; do
-		notice package: "$pkg"
+		printf 'af-changes: %s\n' "$pkg" >&2
 		printf '%s\n' "$pkg"
 	done

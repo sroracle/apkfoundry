@@ -23,7 +23,6 @@ done
 shift "$((OPTIND - 1))"
 
 for APKBUILD in */*/APKBUILD; do
-	# Assumption: APKBUILD will be of the form REPO/PKGNAME
 	[ -e "$APKBUILD" ] || continue
 
 	pkgname=
