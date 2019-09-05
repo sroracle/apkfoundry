@@ -38,24 +38,24 @@ projectdir="${PWD##*/}"
 # that the merging branch is trying to perform.
 if [ -n "$mr" ]; then
 	base="$(git merge-base "$before" "$after")"
-	if [ -z "$base" ]; then
-		printf 'af-changes: failed merge base: %s %s %s\n' \
+	if [ -z "$base" ] || [ "$base" = "$after" ]; then
+		printf 'af-changes: %s: %s <-> %s failed\n' \
 			"$projectdir" "$before" "$after" >&2
 		exit 2
 	else
-		printf 'af-changes: %s %s %s\n' \
+		printf 'af-changes: %s: %s <-> %s\n' \
 			"$projectdir" "$before" "$after" >&2
 	fi
 	before="$base"
 fi
 
-printf 'af-changes: changed packages: %s %s %s\n' \
+printf 'af-changes: %s: %s..%s\n' \
 	"$projectdir" "$before" "$after" >&2
 
 changes="$(git diff-tree -r --name-only --diff-filter dxu "$before..$after")"
 printf '%s' "$changes" \
 	| grep 'APKBUILD$' | sed 's#/APKBUILD$##' \
 	| while read -r pkg; do
-		printf 'af-changes: %s\n' "$pkg" >&2
+		printf 'af-changes: %s: %s\n' "$projectdir" "$pkg" >&2
 		printf '%s\n' "$pkg"
 	done
