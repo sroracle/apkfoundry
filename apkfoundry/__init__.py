@@ -2,9 +2,10 @@
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
 import configparser # ConfigParser
+import errno        # ENXIO
 import functools    # partial
 import logging      # getLogger
-import os           # environ, pathsep
+import os           # close, environ, open, O_*, pathsep, write
 import queue        # Queue
 import shlex        # quote
 import subprocess   # check_call, check_output, DEVNULL, Popen
@@ -104,16 +105,18 @@ def read_fifo(notifypath):
         return notify.read()
 
 def write_fifo(i):
-    notifypath = get_config("dispatch").getpath("events")
-    notifypath = shlex.quote(str(notifypath / "notify.fifo"))
-    i = shlex.quote(i)
+    notifypath = get_config("dispatch").getpath("events") / "notify.fifo"
 
-    subprocess.Popen(
-        f"printf {i} > {notifypath}", shell=True,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    if not notifypath.is_fifo():
+        raise FileNotFoundError(f"{notifypath} does not exist or isn't a fifo")
+
+    try:
+        fd = os.open(notifypath, os.O_WRONLY | os.O_NONBLOCK)
+        os.write(fd, i.encode("utf-8"))
+        os.close(fd)
+    except OSError as e:
+        if e.errno != errno.ENXIO:
+            raise
 
 class IIQueue(queue.Queue):
     def __init__(self, sentinel=None, **kwargs):
