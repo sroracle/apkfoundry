@@ -59,13 +59,13 @@
        </td>
       {% else %}
        {% if not builder.online %}
-        {% set bstatus = "OFFLINE" %}
+        {% set status = "OFFLINE" %}
        {% elif not barch.idle %}
-        {% set bstatus = "BUSY" %}
+        {% set status = "BUSY" %}
        {% else %}
-        {% set bstatus = "IDLE" %}
+        {% set status = "IDLE" %}
        {% endif %}
-       <td class="bstatus bstatus-{{ bstatus }}">{{ bstatus }}</td>
+       <td class="status status-{{ status }}">{{ status }}</td>
        {% if barch.curr_job %}
         <td class="status status-{{ barch.curr_job.status }}">
          {{ link("jobs", "#" ~ barch.curr_job.id, barch.curr_job.id) }}<br>

@@ -61,6 +61,8 @@ def recv():
             if any(i == "0" for i in txt):
                 _LOGGER.critical("received stop request")
                 break
+            if all(i != "1" for i in txt):
+                continue
 
             _LOGGER.info("maybe %d new payloads", len(txt))
 

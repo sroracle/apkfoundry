@@ -9,7 +9,7 @@ from pathlib import Path
 
 import jinja2 # Environment, FileSystemBytecodeCache, PackageLoader
 
-from . import get_config
+from . import get_config, write_fifo
 from .objects import EType, EStatus, Event, Job, Task, Builder, Arch
 
 _CFG = get_config("web")
@@ -82,9 +82,12 @@ def home_page(db):
     projects = db.execute("SELECT DISTINCT project FROM events").fetchall()
     projects = [project[0] for project in projects]
 
+    dispatch_online = "ONLINE" if write_fifo("2") else "OFFLINE"
+
     tmpl = _ENV.get_template("home.tmpl")
     print(tmpl.render(
         projects=projects,
+        dispatch_online=dispatch_online,
     ))
 
 def events_page(db, query, project_page=False):

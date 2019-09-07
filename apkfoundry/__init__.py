@@ -114,9 +114,11 @@ def write_fifo(i):
         fd = os.open(notifypath, os.O_WRONLY | os.O_NONBLOCK)
         os.write(fd, i.encode("utf-8"))
         os.close(fd)
+        return True
     except OSError as e:
         if e.errno != errno.ENXIO:
             raise
+        return False
 
 class IIQueue(queue.Queue):
     def __init__(self, sentinel=None, **kwargs):

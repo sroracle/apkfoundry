@@ -31,13 +31,13 @@ blockquote { margin: 0.5em 10px; padding: 0.5em 10px; }
 .field br { clear: both; }
 table, th, td { border: 1px solid gray; border-collapse: collapse; }
 td { text-align: center; }
-.bstatus, .status { background-color: white; }
-.bstatus-BUSY, .status-START { background-color: lightskyblue; }
+.status { background-color: white; }
+.status-BUSY, .status-START { background-color: lightskyblue; }
 .status-CANCEL, .status-DEPFAIL { background-color: yellow; }
-.bstatus-IDLE, .status-SUCCESS { background-color: lightgreen; }
+.status-ONLINE, .status-IDLE, .status-SUCCESS { background-color: lightgreen; }
 .status-FAIL { background-color: red; }
 .status-ERROR { background-color: magenta; }
-.bstatus-OFFLINE, .status-IGNORE { background-color: lightgray; }
+.status-OFFLINE, .status-IGNORE { background-color: lightgray; }
 
 /* (prefers-color-scheme: light) { */
 	.status-FAIL, .status-FAIL a { color: white !important; }
