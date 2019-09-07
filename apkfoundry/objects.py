@@ -1,14 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-import enum
-import functools
-import json
-import logging
-import sqlite3
-import subprocess
-from datetime import datetime
-from typing import List
+import enum       # IntEnum, IntFlag
+import json       # dumps, loads
+import logging    # getLogger
+import sqlite3    # Error, PrepareProtocol
+import subprocess # CalledProcessError
+import datetime as dt # datetime, timezone
 
 import attr
 
@@ -28,12 +26,25 @@ def _mqtt_filter(attribute, value_):
 
     return True
 
-def _enum_normalize(cls):
+def _normalize(cls, factory=None):
     def normalize(value):
         if isinstance(value, cls):
             return value
+        if factory is not None:
+            return factory(value)
         return cls(value)
     return normalize
+
+def _json_conform(o):
+    if isinstance(o, dt.datetime):
+        if o.tzinfo is None:
+            ts = o.replace(tzinfo=dt.timezone.utc)
+        else:
+            ts = o
+
+        return o.timestamp()
+
+    raise TypeError
 
 @enum.unique
 class EType(enum.IntEnum):
@@ -206,7 +217,7 @@ class Builder:
     def __attrs_post_init__(self):
         self.topic = f"builders/{self.name}"
 
-        normalize = _enum_normalize(BStatus)
+        normalize = _normalize(BStatus)
         for arch, status in self.arches.items():
             self.arches[arch] = normalize(status)
 
@@ -215,7 +226,7 @@ class Builder:
 
     def to_mqtt(self):
         payload = attr.asdict(self, filter=_mqtt_filter)
-        payload = json.dumps(payload)
+        payload = json.dumps(payload, default=_json_conform)
         return payload.encode("utf-8")
 
     @classmethod
@@ -238,10 +249,13 @@ class Task:
     maintainer: str = attr.ib(default=None)
     tail: str = attr.ib(default=None)
     artifacts = attr.ib(default=None)
-    status = attr.ib(default=EStatus.NEW, converter=_enum_normalize(EStatus))
+    status = attr.ib(default=EStatus.NEW, converter=_normalize(EStatus))
 
-    created: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
-    updated: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
+    created: dt.datetime = attr.ib(
+        default=dt.datetime.min,
+        converter=_normalize(dt.datetime, dt.datetime.utcfromtimestamp)
+    )
+    updated: dt.datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
 
     dir = attr.ib(default=None, metadata=_MQTT_SKIP)
     _topic = attr.ib(default=None, metadata=_MQTT_SKIP)
@@ -287,7 +301,7 @@ class Task:
 
     def to_mqtt(self):
         payload = attr.asdict(self, recurse=True, filter=_mqtt_filter)
-        payload = json.dumps(payload)
+        payload = json.dumps(payload, default=_json_conform)
         return payload.encode("utf-8")
 
     @classmethod
@@ -333,12 +347,15 @@ class Job:
     event = attr.ib() # Event or int
     builder: str = attr.ib(default=None)
     arch: str = attr.ib()
-    status = attr.ib(default=EStatus.NEW, converter=_enum_normalize(EStatus))
+    status = attr.ib(default=EStatus.NEW, converter=_normalize(EStatus))
     tasks = attr.ib(default=None)
     payload = attr.ib(default=None)
 
-    created: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
-    updated: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
+    created: dt.datetime = attr.ib(
+        default=dt.datetime.min,
+        converter=_normalize(dt.datetime, dt.datetime.utcfromtimestamp)
+    )
+    updated: dt.datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
 
     dir = attr.ib(default=None, metadata=_MQTT_SKIP)
     _topic = attr.ib(default=None, metadata=_MQTT_SKIP)
@@ -380,7 +397,7 @@ class Job:
 
     def to_mqtt(self):
         payload = attr.asdict(self, recurse=True, filter=_mqtt_filter)
-        payload = json.dumps(payload)
+        payload = json.dumps(payload, default=_json_conform)
         return payload.encode("utf-8")
 
     @classmethod
@@ -438,19 +455,22 @@ class Job:
 class Event:
     id: int = attr.ib(default=None)
     project: str = attr.ib()
-    type: int = attr.ib(default=EType.PUSH, converter=_enum_normalize(EType))
+    type: int = attr.ib(default=EType.PUSH, converter=_normalize(EType))
     clone: str = attr.ib()
     target: str = attr.ib()
     revision: str = attr.ib()
     user: str = attr.ib()
     reason: str = attr.ib()
-    status = attr.ib(default=EStatus.NEW, converter=_enum_normalize(EStatus))
+    status = attr.ib(default=EStatus.NEW, converter=_normalize(EStatus))
     mrid: int = attr.ib(default=None)
     mrclone: str = attr.ib(default=None)
     mrbranch: str = attr.ib(default=None)
 
-    created: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
-    updated: datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
+    created: dt.datetime = attr.ib(
+        default=dt.datetime.min,
+        converter=_normalize(dt.datetime, dt.datetime.utcfromtimestamp)
+    )
+    updated: dt.datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
 
     _dir = attr.ib(default=None, metadata=_MQTT_SKIP)
     _topic = attr.ib(default=None, metadata=_MQTT_SKIP)
