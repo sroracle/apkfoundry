@@ -125,15 +125,19 @@ def events_page(db, query, project_page=False):
 
 def jobs_page(db, query, event_page=False):
     event = jinja2.Undefined(name="event")
+    now = getnow()
+
     if event_page:
         event = Event.db_search(db, eventid=query["eventid"]).fetchone()
 
         if event is None:
             error(404, "Unknown event")
 
+        event.created = timeelement(event.created, now)
+        event.updated = timeelement(event.updated, now)
+
     html_ok()
     jobs = Job.db_search(db, **query).fetchall()
-    now = getnow()
 
     for job in jobs:
         job.created = timeelement(job.created, now)
@@ -153,15 +157,19 @@ def jobs_page(db, query, event_page=False):
 
 def tasks_page(db, query, job_page=False):
     job = jinja2.Undefined(name="job")
+    now = getnow()
+
     if job_page:
         job = Job.db_search(db, jobid=query["jobid"]).fetchone()
 
         if job is None:
             error(404, "Unknown job")
 
+        job.created = timeelement(job.created, now)
+        job.updated = timeelement(job.updated, now)
+
     html_ok()
     tasks = Task.db_search(db, **query).fetchall()
-    now = getnow()
 
     for i, task in enumerate(tasks):
         if task.maintainer is None:
