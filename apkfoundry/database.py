@@ -11,8 +11,10 @@ SCHEMA = SITE_PACKAGE / "share" / "schema.sql"
 
 _LOGGER = logging.getLogger(__name__)
 
-def db_start(readonly=False):
+def db_start(readonly=False, bootstrap=False):
     filename = get_config("database").getpath("filename")
+    if not filename.exists() and not readonly:
+        bootstrap = True
 
     if readonly:
         filename = f"file:{filename}?mode=ro"
@@ -22,7 +24,7 @@ def db_start(readonly=False):
         detect_types=sqlite3.PARSE_DECLTYPES,
     )
 
-    if not readonly:
+    if not readonly and bootstrap:
         with open(SCHEMA, "r") as f:
             db.executescript(f.read())
 
@@ -41,4 +43,4 @@ def db_thread():
         af_exit()
 
 if __name__ == "__main__":
-    db_start()
+    db_start(bootstrap=True)
