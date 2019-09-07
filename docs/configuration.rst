@@ -203,9 +203,11 @@ Then, for events that modify APKBUILDs in the ``master`` branch:
   architectures.
 * If the APKBUILD is in the ``user`` repository, then jobs will be
   generated for the ``ppc64`` and ``x86_64`` architectures.
-* The ordering of lines in the file is significant. Here, all builds in
-  the ``system`` repository will occur before builds in the ``user``
-  repository.
+* The ordering of lines in the file is not significant. The dependency
+  resolution engine always considers APKBUILDs from every available
+  repository. In order to prevent one repository from depending on
+  another, change the ``repositories`` file in its skeleton as
+  appropriate.
 
 If an architecture is not listed in this file, then no builds will occur
 for that architecture, even if changed APKBUILDs have ``arch="all"``,
