@@ -1,5 +1,30 @@
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS builders (
+  builder     TEXT PRIMARY KEY,
+  online      BOOLEAN,
+  updated     TIMESTAMP NOT NULL
+    DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER IF NOT EXISTS builders_timestamp
+  AFTER UPDATE ON builders
+FOR EACH ROW BEGIN
+  UPDATE builders SET updated = CURRENT_TIMESTAMP WHERE builder = OLD.builder;
+END;
+
+CREATE TABLE IF NOT EXISTS arches (
+  builder     TEXT NOT NULL,
+  arch        TEXT NOT NULL,
+	idle        BOOLEAN,
+  curr_job    INT,
+  prev_job    INT,
+  PRIMARY KEY(builder, arch),
+  FOREIGN KEY(builder) REFERENCES builders(builder),
+  FOREIGN KEY(curr_job) REFERENCES jobs(jobid),
+  FOREIGN KEY(prev_job) REFERENCES jobs(jobid)
+);
+
 CREATE TABLE IF NOT EXISTS events (
   eventid     INTEGER PRIMARY KEY,
   project     TEXT    NOT NULL,
@@ -37,7 +62,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     DEFAULT CURRENT_TIMESTAMP,
   updated     TIMESTAMP NOT NULL
     DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(eventid) REFERENCES events(eventid)
+  FOREIGN KEY(eventid) REFERENCES events(eventid),
+  FOREIGN KEY(builder) REFERENCES builders(builder)
 );
 
 CREATE TRIGGER IF NOT EXISTS jobs_timestamp
@@ -73,6 +99,34 @@ FOR EACH ROW BEGIN
     ELSE status
     END
   WHERE eventid = NEW.eventid;
+END;
+
+CREATE TRIGGER IF NOT EXISTS jobs_builders
+  BEFORE UPDATE OF builder ON jobs
+FOR EACH ROW BEGIN
+  INSERT OR IGNORE INTO builders (builder) VALUES (NEW.builder);
+END;
+
+CREATE TRIGGER IF NOT EXISTS jobs_arches_curr
+  AFTER UPDATE OF builder, status ON jobs
+FOR EACH ROW WHEN
+  NEW.status = 4 -- start
+BEGIN
+  INSERT OR IGNORE INTO arches (builder, arch)
+    VALUES (NEW.builder, NEW.arch);
+  UPDATE arches SET curr_job = NEW.jobid
+    WHERE builder = NEW.builder AND arch = NEW.arch;
+END;
+
+CREATE TRIGGER IF NOT EXISTS jobs_arches_prev
+  AFTER UPDATE OF builder, status ON jobs
+FOR EACH ROW WHEN
+  NEW.status & 8 = 8 -- done
+BEGIN
+  INSERT OR IGNORE INTO arches (builder, arch)
+    VALUES (NEW.builder, NEW.arch);
+  UPDATE arches SET curr_job = NULL, prev_job = NEW.jobid
+    WHERE builder = NEW.builder AND arch = NEW.arch;
 END;
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -135,6 +189,18 @@ FOR EACH ROW BEGIN
     END
   WHERE jobid = NEW.jobid;
 END;
+
+CREATE VIEW IF NOT EXISTS builders_full AS
+SELECT
+  builders.builder AS builder,
+  builders.online AS online,
+  arches.arch AS arch,
+  arches.idle AS idle,
+  arches.curr_job AS curr_job,
+  arches.prev_job AS prev_job,
+  builders.updated AS updated
+FROM builders
+INNER JOIN arches ON builders.builder = arches.builder;
 
 CREATE VIEW IF NOT EXISTS jobs_full AS
 SELECT
