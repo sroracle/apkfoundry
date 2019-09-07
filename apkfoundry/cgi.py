@@ -44,13 +44,20 @@ def getnow():
     return datetime.utcnow().replace(microsecond=0)
 
 def timeelement(dt, now):
+    delta = (now - dt)
+    days = delta.days
+    delta = int(delta.total_seconds())
+    hours, i = divmod(delta, 3600)
+    minutes = i // 60
 
-    delta = str(now - dt)[:-2]
-    delta = delta.replace(":", "h", 1)
-    delta = delta.replace(":", "m", 1)
-    if delta[1] == "h":
-        delta = "0" + delta
+    if days:
+        fmt = "{days}d{hours:02d}h{minutes:02d}m"
+    elif hours:
+        fmt = "{hours}h{minutes:02d}m"
+    else:
+        fmt = "{minutes}m"
 
+    delta = fmt.format(days=days, hours=hours, minutes=minutes)
     return (dt, delta)
 
 def response(status, content_type):
