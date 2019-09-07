@@ -2,7 +2,6 @@
 {#
    Parameters:
    * projects: List[str]
-   * dispatch_online: str
 #}
 {% extends "base.tmpl" %}
 {%- set page = "home" -%}
@@ -11,13 +10,6 @@
 {%- endblock -%}
 
 {% block content %}
- <p>
-  Dispatch status:
-  <span class="status status-{{ dispatch_online }}">
-   {{ dispatch_online }}
-  </span>
- </p>
-
  Projects:
  <ul>
   {% for project in projects %}
@@ -27,7 +19,7 @@
 
  Search pages:
  <ul>
-  {% for page in ("events", "jobs", "tasks", "arches") %}
+  {% for page in ("events", "jobs", "tasks") %}
    <li>{{ link(page, page|title) }}</li>
   {% endfor %}
  </ul>

@@ -76,8 +76,8 @@ elif "jobs" in query:
 elif "tasks" in query:
     cgi.tasks_page(database, query, False)
 
-elif "arches" in query or params in (["arch"], ["builder"]):
-    cgi.arches_page(database, query)
+elif ["status"] == params:
+    cgi.status_page(database, query)
 
 else:
     cgi.home_page(database)

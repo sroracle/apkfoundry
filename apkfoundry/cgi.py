@@ -82,12 +82,9 @@ def home_page(db):
     projects = db.execute("SELECT DISTINCT project FROM events").fetchall()
     projects = [project[0] for project in projects]
 
-    dispatch_online = "ONLINE" if write_fifo("2") else "OFFLINE"
-
     tmpl = _ENV.get_template("home.tmpl")
     print(tmpl.render(
         projects=projects,
-        dispatch_online=dispatch_online,
     ))
 
 def events_page(db, query, project_page=False):
@@ -194,9 +191,9 @@ def tasks_page(db, query, job_page=False):
         tasks=tasks,
     ))
 
-def arches_page(db, query):
+def status_page(db, query):
     builders = Builder.db_search(db)
-    title = "Architectures"
+    title = "System status"
     html_ok()
     now = getnow()
 
@@ -248,8 +245,9 @@ def arches_page(db, query):
 
         arches[i] = (arch, new, started, builders)
 
-    tmpl = _ENV.get_template("arches.tmpl")
+    tmpl = _ENV.get_template("status.tmpl")
     print(tmpl.render(
         title=title,
+        dispatch_online="ONLINE" if write_fifo("2") else "OFFLINE",
         arches=arches,
     ))

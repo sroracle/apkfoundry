@@ -2,6 +2,7 @@
 {#
    Parameters:
    * title: str
+   * dispatch_online: str
    * arches: List[
        arch: str,
        new: int,
@@ -16,6 +17,13 @@
 {%- endblock -%}
 
 {% block content %}
+ <p>
+  Dispatch status:
+  <span class="status status-{{ dispatch_online }}">
+   {{ dispatch_online }}
+  </span>
+ </p>
+
  <table>
   <thead>
    <tr>
@@ -65,7 +73,9 @@
        {% else %}
         {% set status = "IDLE" %}
        {% endif %}
-       <td class="status status-{{ status }}">{{ status }}</td>
+       <td class="status status-{{ status if dispatch_online == "ONLINE" else "OFFLINE" }}">
+        {{ status ~ "?" if dispatch_online == "OFFLINE" else "" }}
+       </td>
        {% if barch.curr_job %}
         <td class="status status-{{ barch.curr_job.status }}">
          {{ link("jobs", "#" ~ barch.curr_job.id, barch.curr_job.id) }}<br>

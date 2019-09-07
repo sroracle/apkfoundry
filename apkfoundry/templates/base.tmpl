@@ -97,9 +97,12 @@
  <body>
   <main>
    <h1>{% block title %}{% endblock %}</h1>
-   {% if page != "home" %}
-    <a href="">Home</a><br><br>
-   {% endif %}
+   <p>
+    {% if page != "home" %}
+     <a href="">Home</a>&nbsp;&bull;&nbsp;
+    {% endif %}
+    {{ link("status", "System status")}}<br><br>
+   </p>
    {% block content %}{% endblock %}
   </main>
  </body>
