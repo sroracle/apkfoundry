@@ -109,7 +109,11 @@
       {{ link("jobs", job.status, status=job.status) }}
      </td>
      <td>{{ time(job.created) }}</td>
-     <td>{{ time(job.updated) }}</td>
+     <td>
+      {% if job.updated[1] != job.created[1] %}
+       {{ time(job.updated) }}
+      {% endif %}
+     </td>
      <td>{{ link("jobs", job.tasks, job.id) }}</td>
     </tr>
    {% endfor %}

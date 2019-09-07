@@ -98,7 +98,11 @@
       {{ link("tasks", task.status, status=task.status) }}
      </td>
      <td>{{ time(task.created) }}</td>
-     <td>{{ time(task.updated) }}</td>
+     <td>
+      {% if task.updated[1] != task.created[1] %}
+       {{ time(task.updated) }}
+      {% endif %}
+     </td>
      <td>
       {% if task.artifacts %}
        {{ link("tasks", task.artifacts, task.id) }}

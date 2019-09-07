@@ -71,7 +71,11 @@
      {{ link("events", event.status, status=event.status) }}
     </td>
     <td>{{ time(event.created) }}</td>
-    <td>{{ time(event.updated) }}</td>
+    <td>
+     {% if event.updated[1] != event.created[1] %}
+      {{ time(event.updated) }}
+     {% endif %}
+    </td>
     <td>{{ link("events", jobs, event.id) }}</td>
     <td>{{ link("tasks", tasks, eventid=event.id) }}</td>
    </tr>
