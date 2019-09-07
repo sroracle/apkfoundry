@@ -58,7 +58,7 @@
    {% call obj_info("Created") %}
     {{ time(event.created) }}
    {% endcall %}
-   {% if event.updated[0] != event.created[0] %}
+   {% if event.updated[1] != event.created[1] %}
     {% call obj_info("Updated") %}
      {{ time(event.updated) }}
     {% endcall %}
