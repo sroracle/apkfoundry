@@ -10,7 +10,7 @@ from pathlib import Path
 import jinja2 # Environment, FileSystemBytecodeCache, PackageLoader
 
 from . import get_config
-from .objects import EType, EStatus, Event, Job, Task
+from .objects import EType, EStatus, Event, Job, Task, Builder, Arch
 
 _CFG = get_config("web")
 BASE = _CFG["base"]
@@ -192,95 +192,56 @@ def tasks_page(db, query, job_page=False):
     ))
 
 def arches_page(db, query):
-    search_builders = False
-    if query.get("arch", None):
-        arches = ((query["arch"],),)
-        ct = db.execute(
-            "SELECT COUNT(*) FROM jobs WHERE arch GLOB ?;",
-            arches[0],
-        )
-        (ct,) = ct.fetchone()
-        if ct == 0:
-            error(404, "Unknown architecture")
-
-        title = "Architecture: " + arches[0][0]
-
-    elif query.get("builder", None):
-        search_builders = True
-        builders = ((query["builder"],),)
-        arches = db.execute(
-            "SELECT DISTINCT arch FROM jobs WHERE IFNULL(builder, 'None') GLOB ?;",
-            builders[0],
-        ).fetchall()
-        if not arches:
-            error(404, "Unknown builder")
-
-        title = "Builder: " + builders[0][0]
-
-    else:
-        arches = db.execute("SELECT DISTINCT arch FROM jobs;").fetchall()
-        title = "Architectures"
-
+    builders = Builder.db_search(db)
+    title = "Architectures"
     html_ok()
     now = getnow()
-    arches = list(arches)
 
-    for i, (arch,) in enumerate(arches):
+    arches = []
+    for builder in builders:
+        arches.extend(builder.arches.keys())
+
+    builders.append(
+        Builder(
+            name=None,
+            arches={arch: Arch() for arch in arches},
+        )
+    )
+
+    for i, arch in enumerate(arches):
         new = db.execute(
             "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
             (arch, EStatus.NEW),
-        )
-        (new,) = new.fetchone()
+        ).fetchone()[0]
         started = db.execute(
             "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
             (arch, EStatus.START),
-        )
-        (started,) = started.fetchone()
+        ).fetchone()[0]
 
-        if not search_builders:
-            builders = db.execute(
-                "SELECT DISTINCT builder FROM jobs WHERE arch GLOB ?;",
-                (arch,)
-            ).fetchall()
+        for j, builder in enumerate(builders):
+            if arch not in builder.arches:
+                continue
+            barch = builder.arches[arch]
 
-        for j, (builder,) in enumerate(builders):
-            if builder is None:
+            if builder.name is None:
                 # Oldest job
-                cur_job = Job.db_search(
+                barch.curr_job = Job.db_search(
                     db,
-                    where=["builder IS NULL", "status = %d" % EStatus.NEW],
+                    builder="None",
+                    status=EStatus.NEW,
                     arch=arch,
                     order="asc",
                     limit=1,
                 ).fetchone()
-                if cur_job:
-                    cur_job.updated = timeelement(cur_job.updated, now)
+            elif barch.curr_job:
+                barch.curr_job = Job.db_search(db, jobid=barch.curr_job).fetchone()
 
-                prev_job = None
+            if barch.curr_job:
+                barch.curr_job.updated = timeelement(barch.curr_job.updated, now)
 
-            else:
-                cur_job = Job.db_search(
-                    db, builder=builder, arch=arch,
-                    status=EStatus.START, limit=1,
-                ).fetchone()
-                if cur_job:
-                    cur_job.updated = timeelement(cur_job.updated, now)
-
-                prev_job = Job.db_search(
-                    db,
-                    where=[
-                        "status != %d" % EStatus.NEW,
-                        "status != %d" % EStatus.START
-                    ],
-                    builder=builder,
-                    arch=arch,
-                    order="desc",
-                    limit=1,
-                ).fetchone()
-                if prev_job:
-                    prev_job.updated = timeelement(prev_job.updated, now)
-
-            builders[j] = (builder, cur_job, prev_job)
+            if barch.prev_job:
+                barch.prev_job = Job.db_search(db, jobid=barch.prev_job).fetchone()
+                barch.prev_job.updated = timeelement(barch.prev_job.updated, now)
 
         arches[i] = (arch, new, started, builders)
 
