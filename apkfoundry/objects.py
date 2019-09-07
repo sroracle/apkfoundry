@@ -79,12 +79,6 @@ class EStatus(enum.IntFlag):
         if protocol is sqlite3.PrepareProtocol:
             return int(self)
 
-@enum.unique
-class BStatus(enum.IntFlag):
-    OFFLINE = 0
-    AVAILABLE = 1
-    BUSY = 2
-
     def __str__(self):
         return self.name
 
@@ -166,7 +160,11 @@ def _db_search(classes, db, where=None, **query):
             continue
 
         for cls in classes:
-            if field == cls.__name__.lower() + "id":
+            if field == cls.__name__.lower() + "id" and hasattr(cls, "id"):
+                where.append(f"{field} = :{field}")
+                break
+
+            elif field == cls.__name__.lower() and hasattr(cls, "name"):
                 where.append(f"{field} = :{field}")
                 break
 
@@ -208,21 +206,101 @@ def _db_search(classes, db, where=None, **query):
     return rows
 
 @attr.s(kw_only=True, slots=True)
+class Arch:
+    idle: bool = attr.ib(default=False)
+    curr_job = attr.ib(default=None)
+    prev_job = attr.ib(default=None)
+
+@attr.s(kw_only=True, slots=True)
 class Builder:
     name: str = attr.ib()
-    arches: dict = attr.ib()
+    online: bool = attr.ib(default=False)
+    arches: dict = attr.ib(factory=dict)
+
+    updated: dt.datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
 
     topic = attr.ib(default=None, metadata=_MQTT_SKIP)
+    arch = attr.ib(default=None, metadata=_MQTT_SKIP)
+    _idle = attr.ib(default=None, metadata=_MQTT_SKIP)
+    _curr_job = attr.ib(default=None, metadata=_MQTT_SKIP)
+    _prev_job = attr.ib(default=None, metadata=_MQTT_SKIP)
+    _tables = ("builders_full",)
 
     def __attrs_post_init__(self):
         self.topic = f"builders/{self.name}"
 
-        normalize = _normalize(BStatus)
-        for arch, status in self.arches.items():
-            self.arches[arch] = normalize(status)
+        for name, arch in self.arches.items():
+            if isinstance(arch, Arch):
+                continue
+            self.arches[name] = Arch(**arch)
 
     def __str__(self):
         return self.topic
+
+    @classmethod
+    def from_db_row(cls, cursor_, row):
+        return cls(
+            name=row[0],
+            online=row[1],
+            arch=row[2],
+            idle=row[3],
+            curr_job=row[4],
+	    prev_job=row[5],
+            updated=row[6],
+        )
+
+    @classmethod
+    def db_search(cls, db, where=None, **query):
+        rows = _db_search((cls,), db, where, **query)
+        if not rows:
+            return rows
+
+        rows = list(rows)
+        names = {row.name for row in rows}
+        merged_rows = []
+        for name in names:
+            same_rows = [row for row in rows if row.name == name]
+
+            same_rows[0].arches = {
+                row.arch: Arch(
+                    idle=row._idle,
+                    curr_job=row._curr_job,
+                    prev_job=row._prev_job,
+                ) for row in same_rows
+            }
+
+            merged_rows.append(same_rows[0])
+
+        return merged_rows
+
+    def db_process(self, db):
+        db.execute(
+            """INSERT OR IGNORE INTO builders (builder)
+            VALUES (?);""",
+            (self.name,),
+        )
+
+        db.execute(
+            """UPDATE builders SET online = ?
+            WHERE builder = ?;""",
+            (self.online, self.name),
+        )
+
+        rows = [(self.name, name) for name in self.arches]
+        db.executemany(
+            """INSERT OR IGNORE INTO arches (builder, arch)
+            VALUES (?, ?);""",
+            rows,
+        )
+
+        rows = [(arch.idle, self.name, name) for name, arch in self.arches.items()]
+        db.executemany(
+            """UPDATE arches SET idle = ?
+            WHERE builder = ? AND arch = ?;""",
+            rows,
+        )
+
+        db.commit()
 
     def to_mqtt(self):
         payload = attr.asdict(self, filter=_mqtt_filter)

@@ -6,12 +6,13 @@ import logging                  # getLogger
 import sys                      # exit
 from concurrent.futures import ThreadPoolExecutor
 
+import attr
 import paho.mqtt.client as mqtt
 from paho.mqtt.matcher import MQTTMatcher
 
 from . import get_config, agent_queue
 from .build import run_job
-from .objects import EStatus, Job, BStatus, Builder
+from .objects import EStatus, Job, Builder, Arch
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,12 +58,10 @@ class Agent:
 
         self.builder = Builder(
             name=cfg["name"],
-            arches={arch: BStatus.AVAILABLE for arch in self.setarch},
+            online=True,
+            arches={name: Arch(idle=True) for name in self.setarch},
         )
-        self._will = Builder(
-            name=cfg["name"],
-            arches={arch: BStatus.OFFLINE for arch in self.setarch},
-        )
+        self._will = attr.evolve(self.builder, online=False)
 
         self.jobs = {}
         self.jobsdir = cfg.getpath("jobs")
@@ -155,8 +154,8 @@ class Agent:
                 self._reject_job(job, "unsupported arch")
                 return
 
-            if self.builder.arches[job.arch] != BStatus.AVAILABLE:
-                self._reject_job(job, "arch is unavailable")
+            if not self.builder.arches[job.arch].idle:
+                self._reject_job(job, "arch is busy")
                 return
 
             if not any(self._mask.iter_match(msg.topic)):

@@ -7,7 +7,7 @@ import logging                  # getLogger
 import paho.mqtt.client as mqtt
 
 from . import get_config, db_queue, dispatch_queue, af_exit
-from .objects import EStatus, Job, BStatus, Builder, Task
+from .objects import EStatus, Job, Builder, Task
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,19 +75,32 @@ class Dispatcher:
             )
             return
 
-        for arch, status in builder.arches.items():
-            if arch not in self.builders:
-                self.builders[arch] = set()
+        db_queue.put(builder)
 
-            if status == BStatus.AVAILABLE:
-                self.builders[arch].add(builder.name)
+        if builder.online:
+            _LOGGER.info("builder %s -> online", builder.name)
+        else:
+            for builders in self.builders.values():
+                builders.discard(builder.name)
+            _LOGGER.info("builder %s -> offline", builder.name)
+            return
+
+        for name, arch in builder.arches.items():
+            if name not in self.builders:
+                self.builders[name] = set()
+
+            if arch.idle:
+                self.builders[name].add(builder.name)
+                _LOGGER.info(
+                    "builder %s/%s -> idle",
+                    builder.name, name,
+                )
             else:
-                self.builders[arch].discard(builder.name)
-
-            _LOGGER.info(
-                "builder %s/%s -> %s",
-                builder.name, arch, status,
-            )
+                self.builders[name].discard(builder.name)
+                _LOGGER.info(
+                    "builder %s/%s -> busy",
+                    builder.name, name,
+                )
 
     def _task_recv(self, msg):
         try:
