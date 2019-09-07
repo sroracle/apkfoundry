@@ -543,6 +543,11 @@ class Event:
 
         self.id = cursor.lastrowid
         db.commit()
+        cursor = db.execute(
+            "SELECT created FROM events WHERE eventid = ?;",
+            (self.id,),
+        )
+        (self.created,) = cursor.fetchone()
 
     def _debug_dump(self):
         _LOGGER.debug("[%s] Clone: %s", str(self), self.clone)
