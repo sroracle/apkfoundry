@@ -199,7 +199,7 @@ def tasks_page(db, query, job_page=False):
     ))
 
 def status_page(db, query):
-    builders = Builder.db_search(db)
+    builders = list(Builder.db_search(db))
     title = "System status"
     html_ok()
     now = getnow()
@@ -215,21 +215,11 @@ def status_page(db, query):
         )
     )
 
-    for i, arch in enumerate(arches):
-        new = db.execute(
-            "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
-            (arch, EStatus.NEW),
-        ).fetchone()[0]
-        started = db.execute(
-            "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
-            (arch, EStatus.START),
-        ).fetchone()[0]
+    for builder in builders:
+        if builder.name:
+            builder.updated = timeelement(builder.updated, now)
 
-        for j, builder in enumerate(builders):
-            if arch not in builder.arches:
-                continue
-            barch = builder.arches[arch]
-
+        for arch, barch in builder.arches.items():
             if builder.name is None:
                 # Oldest job
                 barch.curr_job = Job.db_search(
@@ -250,11 +240,22 @@ def status_page(db, query):
                 barch.prev_job = Job.db_search(db, jobid=barch.prev_job).fetchone()
                 barch.prev_job.updated = timeelement(barch.prev_job.updated, now)
 
-        arches[i] = (arch, new, started, builders)
+    for i, arch in enumerate(arches):
+        new = db.execute(
+            "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
+            (arch, EStatus.NEW),
+        ).fetchone()[0]
+        started = db.execute(
+            "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
+            (arch, EStatus.START),
+        ).fetchone()[0]
+
+        arches[i] = (arch, new, started)
 
     tmpl = _ENV.get_template("status.tmpl")
     print(tmpl.render(
         title=title,
-        dispatch_online="ONLINE" if write_fifo("2") else "OFFLINE",
         arches=arches,
+        builders=builders,
+        dispatch_online=write_fifo("2"),
     ))
