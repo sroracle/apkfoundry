@@ -14,6 +14,11 @@
   Searching tasks
  {%- endif -%}
 {%- endblock -%}
+{%- block search_link -%}
+ {%- if job_page -%}
+  <li>{{ link("tasks", "Search", jobid=job.id) }}</li>
+ {%- endif -%}
+{%- endblock -%}
 
 {% block content %}
  {% if job_page %}

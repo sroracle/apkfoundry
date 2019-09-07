@@ -14,6 +14,11 @@
   Searching events
  {%- endif -%}
 {%- endblock -%}
+{%- block search_link -%}
+ {%- if project_page -%}
+  <li{{ link("events", "Search", project=project) }}</li>
+ {%- endif -%}
+{%- endblock -%}
 
 {% block content %}
  {% if not project_page %}

@@ -1,11 +1,22 @@
+body { font-family: monospace, monospace; }
+header {
+  padding: 2rem 2rem 0 2rem;
+  margin: auto;
+}
 main {
-  font-family: monospace, monospace;
   padding: 2rem;
   margin: auto;
 }
 pre { padding: 1em; border: 0; }
 h1, h2, h3, h4, h5 { margin-bottom: .1rem; }
 blockquote { margin: 0.5em 10px; padding: 0.5em 10px; }
+header nav ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+header nav ul li { display: inline-block; }
+header nav ul li::before { content: " • "; }
+header nav ul li:first-child::before { content: ""; }
 
 /* (prefers-color-scheme: light) { */
 	body { background: #fbf1c7; color: #3c3836; }

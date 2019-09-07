@@ -14,6 +14,11 @@
   Searching jobs
  {%- endif -%}
 {%- endblock -%}
+{%- block search_link -%}
+ {%- if event_page -%}
+  <li>{{ link("jobs", "Search", eventid=event.id) }}</li>
+ {%- endif -%}
+{%- endblock -%}
 
 {% block content %}
  {% if event_page %}

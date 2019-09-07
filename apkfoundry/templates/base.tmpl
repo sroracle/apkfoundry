@@ -95,14 +95,17 @@
   <base href="{{ base }}">
  </head>
  <body>
-  <main>
+  <header>
    <h1>{% block title %}{% endblock %}</h1>
-   <p>
-    {% if page != "home" %}
-     <a href="">Home</a>&nbsp;&bull;&nbsp;
-    {% endif %}
-    {{ link("status", "System status")}}<br><br>
-   </p>
+   <nav>
+    <ul>
+     <li><a href="">Home</a></li>
+     <li>{{ link("status", "System status")}}</li>
+     {% block search_link %}{% endblock %}
+    </ul>
+   </nav>
+  </header>
+  <main>
    {% block content %}{% endblock %}
   </main>
  </body>
