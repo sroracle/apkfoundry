@@ -597,18 +597,7 @@ class Event:
             _LOGGER.info("No jobs generated!")
             return {}
 
-        jobs = {}
-        for arch in arches:
-            jobs[arch] = Job(
-                id=None,
-                event=self,
-                builder=None,
-                arch=arch,
-                status=EStatus.NEW,
-                tasks=arches[arch],
-            )
-
-        rows = [(self.id, arch) for arch in jobs]
+        rows = [(self.id, arch) for arch in arches]
 
         _LOGGER.info("[%s] Adding jobs to database", str(self))
         db.executemany(
@@ -617,13 +606,11 @@ class Event:
         )
         db.commit()
 
-        cursor = db.execute(
-            "SELECT arch, jobid FROM jobs WHERE eventid = ?;",
-            (self.id,),
-        )
-
-        for row in cursor:
-            jobs[row[0]].id = row[1]
+        jobs = Job.db_search(db, eventid=self.id)
+        jobs = {job.arch: job for job in jobs}
+        for job in jobs.values():
+            job.event = self
+            job.tasks = arches[job.arch]
 
         return jobs
 
