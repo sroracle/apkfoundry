@@ -230,7 +230,7 @@ def status_page(db, query):
                     builder="None",
                     status=EStatus.NEW,
                     arch=arch,
-                    order="asc",
+                    asc=1,
                     limit=1,
                 ).fetchone()
             elif barch.curr_job:

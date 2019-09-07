@@ -193,6 +193,17 @@ def _db_search(classes, db, where=None, **query):
     if where:
         sql += " WHERE " + " AND ".join(where)
 
+    order = query.get("order", None)
+    if order in ("created", "updated"):
+        sql += f" ORDER BY {order}"
+    else:
+        sql += " ORDER BY rowid"
+
+    if query.get("asc", None):
+        sql += " ASC"
+    else:
+        sql += " DESC"
+
     if query.get("limit", None):
         sql += " LIMIT :limit"
     if query.get("offset", None):

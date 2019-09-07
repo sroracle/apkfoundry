@@ -49,6 +49,16 @@
  </div>
 {%- endmacro -%}
 
+{%- macro checkbox(name, label, value) -%}
+ {% set checked = query[name] == value %}
+ <div class="field">
+  <label for="{{ name }}">{{ label }}:</label>&nbsp;
+  <input type="checkbox" name="{{ name }}" id="{{ name }}"
+   value="{{ value }}" {% if checked %}checked{% endif %}>
+  <br>
+ </div>
+{%- endmacro -%}
+
 {%- macro fselect(name, label, options, value=none) -%}
  {%- if value is none -%}
   {% set value = query[name] or "" %}
@@ -70,6 +80,8 @@
    <input name="{{ page }}" type="hidden">
   {% endif %}
   {{ caller() }}
+  {{ fselect("order", "Order by", ["created", "updated"]) }}
+  {{ checkbox("asc", "Put in ascending order", "1") }}
   <input type="submit" value="Search">
   (*) supports globbing
  </form>
