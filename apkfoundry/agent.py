@@ -37,6 +37,7 @@ class Agent:
         self._mqtt.username_pw_set(cfg["username"], cfg["password"])
         self._mqtt.on_connect = self._on_connect
         self._mqtt.on_message = self._on_message
+        self._mqtt.enable_logger(_LOGGER)
 
         self._host = host
         self._port = port
