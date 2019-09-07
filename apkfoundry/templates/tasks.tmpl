@@ -32,6 +32,14 @@
      {{ link("jobs", job.status, status=job.status) }}
     </span>
    {% endcall %}
+   {% call obj_info("Created") %}
+    {{ time(job.created) }}
+   {% endcall %}
+   {% if job.updated[1] != job.created[1] %}
+    {% call obj_info("Updated") %}
+     {{ time(job.updated) }}
+    {% endcall %}
+   {% endif %}
   </ul>
  {% else %}
   {% call searchform() %}
