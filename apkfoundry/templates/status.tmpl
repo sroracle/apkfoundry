@@ -3,7 +3,7 @@
    Parameters:
    * title: str
    * arches: List[
-       arch: str,
+       name: str,
        new: int,
        started: int,
      ]
@@ -28,8 +28,8 @@
   <thead>
    <tr>
     <th></th>
-    {% for arch, _, _ in arches %}
-     <th>{{ link("jobs", arch, arch=arch) }}</th>
+    {% for name, _, _ in arches %}
+     <th>{{ link("jobs", name, arch=name) }}</th>
     {% endfor %}
    </tr>
   </thead>
@@ -65,44 +65,60 @@
     {% if builder.name is not none %}
      <tr>
       <td>Status</td>
-      {% for arch, barch in builder.arches.items() %}
-       {% if not builder.online %}
-        {% set status = "OFFLINE" %}
-       {% elif not barch.idle %}
-        {% set status = "BUSY" %}
-       {% else %}
-        {% set status = "IDLE" %}
-       {% endif %}
-       <td class="status status-{{ status if dispatch_online else "OFFLINE" }}">
+      {% for name, _, _ in arches %}
+       {% if name in builder.arches %}
+        {% set arch = builder.arches[name] %}
+        {% if not builder.online %}
+         {% set status = "OFFLINE" %}
+        {% elif not arch.idle %}
+         {% set status = "BUSY" %}
+        {% else %}
+         {% set status = "IDLE" %}
+        {% endif %}
+        <td class="status status-{{ status if dispatch_online else "OFFLINE" }}">
         {{ status ~ ("?" if not dispatch_online else "") }}
-       </td>
+        </td>
+       {% else %}
+        <td></td>
+       {% endif %}
       {% endfor %}
      </tr>
     {% endif %}
-    <tr>
-     <td>{% if builder.name is none %}Next{% else %}Current{% endif %}</td>
-     {%
-      for arch, barch in builder.arches.items()
-     %}
-      {% if barch.curr_job %}
-       <td class="status status-{{ barch.curr_job.status }}">
-        {{ link("jobs", "#" ~ barch.curr_job.id, barch.curr_job.id) }}<br>
-        {{ time(barch.curr_job.updated) }}
-       </td>
-      {% else %}
-       <td></td>
-      {% endif %}
-     {% endfor %}
-    </tr>
+    {% set rows = builder.arches.values()|map(attribute="curr_jobs")|map("length")|max %}
+    {% for i in range(0, rows) %}
+     <tr>
+      <td>{% if builder.name is none %}Next{% else %}Current{% endif %}</td>
+      {% for name, _, _ in arches %}
+       {% if name in builder.arches %}
+        {% set arch = builder.arches[name] %}
+        {% if arch.curr_jobs|length > i %}
+         <td class="status status-{{ arch.curr_jobs[i].status }}">
+          {{ link("jobs", "#" ~ arch.curr_jobs[i].id, arch.curr_jobs[i].id) }}<br>
+          {{ time(arch.curr_jobs[i].updated) }}
+         </td>
+        {% else %}
+         <td></td>
+        {% endif %}
+       {% else %}
+        <td></td>
+       {% endif %}
+      {% endfor %}
+     </tr>
+    {% endfor %}
     {% if builder.name is not none %}
      <tr>
       <td>Previous</td>
-      {% for arch, barch in builder.arches.items() %}
-       {% if barch.prev_job %}
-        <td class="status status-{{ barch.prev_job.status }}">
-         {{ link("jobs", "#" ~ barch.prev_job.id ~ ": " ~ barch.prev_job.status, barch.prev_job.id) }}<br>
-         {{ time(barch.prev_job.updated) }}
-        </td>
+      {% for name, _, _ in arches %}
+       {% if name in builder.arches %}
+        {% set arch = builder.arches[name] %}
+        {% if arch.prev_job %}
+         <td class="status status-{{ arch.prev_job.status }}">
+          {{ link("jobs", "#" ~ arch.prev_job.id ~ ": " ~ arch.prev_job.status, arch.prev_job.id) }}<br>
+          {{ time(arch.prev_job.updated) }}
+         </td>
+        {% else %}
+         <td></td>
+        {% endif %}
        {% else %}
         <td></td>
        {% endif %}

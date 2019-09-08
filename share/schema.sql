@@ -16,14 +16,22 @@ END;
 CREATE TABLE IF NOT EXISTS arches (
   builder     TEXT NOT NULL,
   arch        TEXT NOT NULL,
-	idle        BOOLEAN,
-  curr_job    INT,
-  prev_job    INT,
+  idle        BOOLEAN,
   PRIMARY KEY(builder, arch),
-  FOREIGN KEY(builder) REFERENCES builders(builder),
-  FOREIGN KEY(curr_job) REFERENCES jobs(jobid),
-  FOREIGN KEY(prev_job) REFERENCES jobs(jobid)
+  FOREIGN KEY(builder) REFERENCES builders(builder)
 );
+
+CREATE TRIGGER IF NOT EXISTS arches_builders
+  BEFORE INSERT ON arches
+FOR EACH ROW WHEN
+  CASE NEW.builder
+  WHEN NULL
+  THEN NOT EXISTS (SELECT 1 FROM builders WHERE builder IS NULL)
+  ELSE TRUE
+  END
+BEGIN
+  INSERT OR IGNORE INTO builders (builder) VALUES (NEW.builder);
+END;
 
 CREATE TABLE IF NOT EXISTS events (
   eventid     INTEGER PRIMARY KEY,
@@ -103,30 +111,14 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS jobs_builders
   BEFORE UPDATE OF builder ON jobs
-FOR EACH ROW BEGIN
-  INSERT OR IGNORE INTO builders (builder) VALUES (NEW.builder);
-END;
-
-CREATE TRIGGER IF NOT EXISTS jobs_arches_curr
-  AFTER UPDATE OF builder, status ON jobs
 FOR EACH ROW WHEN
-  NEW.status = 4 -- start
+  CASE NEW.builder
+  WHEN NULL
+  THEN NOT EXISTS (SELECT 1 FROM arches WHERE builder IS NULL AND arch = NEW.arch)
+  ELSE TRUE
+  END
 BEGIN
-  INSERT OR IGNORE INTO arches (builder, arch)
-    VALUES (NEW.builder, NEW.arch);
-  UPDATE arches SET curr_job = NEW.jobid
-    WHERE builder = NEW.builder AND arch = NEW.arch;
-END;
-
-CREATE TRIGGER IF NOT EXISTS jobs_arches_prev
-  AFTER UPDATE OF builder, status ON jobs
-FOR EACH ROW WHEN
-  NEW.status & 8 = 8 -- done
-BEGIN
-  INSERT OR IGNORE INTO arches (builder, arch)
-    VALUES (NEW.builder, NEW.arch);
-  UPDATE arches SET curr_job = NULL, prev_job = NEW.jobid
-    WHERE builder = NEW.builder AND arch = NEW.arch;
+  INSERT OR IGNORE INTO arches (builder, arch) VALUES (NEW.builder, NEW.arch);
 END;
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -189,18 +181,6 @@ FOR EACH ROW BEGIN
     END
   WHERE jobid = NEW.jobid;
 END;
-
-CREATE VIEW IF NOT EXISTS builders_full AS
-SELECT
-  builders.builder AS builder,
-  builders.online AS online,
-  arches.arch AS arch,
-  arches.idle AS idle,
-  arches.curr_job AS curr_job,
-  arches.prev_job AS prev_job,
-  builders.updated AS updated
-FROM builders
-INNER JOIN arches ON builders.builder = arches.builder;
 
 CREATE VIEW IF NOT EXISTS jobs_full AS
 SELECT

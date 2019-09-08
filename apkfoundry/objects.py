@@ -219,7 +219,7 @@ def _db_search(classes, db, where=None, **query):
 @attr.s(kw_only=True, slots=True)
 class Arch:
     idle: bool = attr.ib(default=False)
-    curr_job = attr.ib(default=None)
+    curr_jobs: list = attr.ib(factory=list)
     prev_job = attr.ib(default=None)
 
 @attr.s(kw_only=True, slots=True)
@@ -229,13 +229,7 @@ class Builder:
     arches: dict = attr.ib(factory=dict)
 
     updated: dt.datetime = attr.ib(default=None, metadata=_MQTT_SKIP)
-
     topic = attr.ib(default=None, metadata=_MQTT_SKIP)
-    arch = attr.ib(default=None, metadata=_MQTT_SKIP)
-    _idle = attr.ib(default=None, metadata=_MQTT_SKIP)
-    _curr_job = attr.ib(default=None, metadata=_MQTT_SKIP)
-    _prev_job = attr.ib(default=None, metadata=_MQTT_SKIP)
-    _tables = ("builders_full",)
 
     def __attrs_post_init__(self):
         self.topic = f"builders/{self.name}"
@@ -249,40 +243,47 @@ class Builder:
         return self.topic
 
     @classmethod
-    def from_db_row(cls, cursor_, row):
-        return cls(
-            name=row[0],
-            online=row[1],
-            arch=row[2],
-            idle=row[3],
-            curr_job=row[4],
-	    prev_job=row[5],
-            updated=row[6],
-        )
+    def db_search(cls, db):
+        builders = db.execute(
+            """SELECT builder, online, updated FROM builders
+            WHERE builder IS NOT NULL;"""
+        ).fetchall()
 
-    @classmethod
-    def db_search(cls, db, where=None, **query):
-        rows = _db_search((cls,), db, where, **query)
-        if not rows:
-            return rows
+        for i, builder in enumerate(builders):
+            builders[i] = builder = cls(
+                name=builder[0],
+                online=builder[1],
+                updated=builder[2],
+            )
 
-        rows = list(rows)
-        names = {row.name for row in rows}
-        merged_rows = []
-        for name in names:
-            same_rows = [row for row in rows if row.name == name]
+            arches = db.execute(
+                "SELECT arch, idle FROM arches WHERE builder = ?;",
+                (builder.name,)
+            )
 
-            same_rows[0].arches = {
-                row.arch: Arch(
-                    idle=row._idle,
-                    curr_job=row._curr_job,
-                    prev_job=row._prev_job,
-                ) for row in same_rows
-            }
+            for (name, idle) in arches:
+                arch = builder.arches[name] = Arch(
+                    idle=idle,
+                )
 
-            merged_rows.append(same_rows[0])
+                arch.curr_jobs = list(Job.db_search(
+                    db,
+                    builder=builder.name,
+                    arch=name,
+                    status=EStatus.START,
+                ))
 
-        return merged_rows
+                arch.prev_job = list(Job.db_search(
+                    db,
+                    builder=builder.name,
+                    arch=name,
+                    status=EStatus.DONE,
+                    order="updated",
+                    limit=1,
+                ))
+                arch.prev_job = arch.prev_job[0] if arch.prev_job else None
+
+        return builders
 
     def db_process(self, db):
         db.execute(

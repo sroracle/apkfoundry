@@ -199,7 +199,7 @@ def tasks_page(db, query, job_page=False):
     ))
 
 def status_page(db, query):
-    builders = list(Builder.db_search(db))
+    builders = Builder.db_search(db)
     title = "System status"
     html_ok()
     now = getnow()
@@ -211,7 +211,7 @@ def status_page(db, query):
     builders.append(
         Builder(
             name=None,
-            arches={arch: Arch() for arch in arches},
+            arches={name: Arch() for name in arches},
         )
     )
 
@@ -219,38 +219,34 @@ def status_page(db, query):
         if builder.name:
             builder.updated = timeelement(builder.updated, now)
 
-        for arch, barch in builder.arches.items():
+        for name, arch in builder.arches.items():
             if builder.name is None:
                 # Oldest job
-                barch.curr_job = Job.db_search(
+                arch.curr_jobs = Job.db_search(
                     db,
                     builder="None",
                     status=EStatus.NEW,
-                    arch=arch,
+                    arch=name,
                     asc=1,
-                    limit=1,
-                ).fetchone()
-            elif barch.curr_job:
-                barch.curr_job = Job.db_search(db, jobid=barch.curr_job).fetchone()
+                ).fetchall() or []
 
-            if barch.curr_job:
-                barch.curr_job.updated = timeelement(barch.curr_job.updated, now)
+            for job in arch.curr_jobs:
+                job.updated = timeelement(job.updated, now)
 
-            if barch.prev_job:
-                barch.prev_job = Job.db_search(db, jobid=barch.prev_job).fetchone()
-                barch.prev_job.updated = timeelement(barch.prev_job.updated, now)
+            if arch.prev_job:
+                arch.prev_job.updated = timeelement(arch.prev_job.updated, now)
 
-    for i, arch in enumerate(arches):
+    for i, name in enumerate(arches):
         new = db.execute(
             "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
-            (arch, EStatus.NEW),
+            (name, EStatus.NEW),
         ).fetchone()[0]
         started = db.execute(
             "SELECT COUNT(*) FROM jobs WHERE arch GLOB ? AND status = ?;",
-            (arch, EStatus.START),
+            (name, EStatus.START),
         ).fetchone()[0]
 
-        arches[i] = (arch, new, started)
+        arches[i] = (name, new, started)
 
     tmpl = _ENV.get_template("status.tmpl")
     print(tmpl.render(
