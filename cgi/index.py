@@ -57,17 +57,17 @@ cgi.setenv("query", query)
 if ["project"] == params:
     cgi.events_page(database, query, True)
 
-elif ["events"] == params and query["events"]:
+elif "events" in params and query["events"]:
     query["eventid"] = query["events"]
     del query["events"]
     cgi.jobs_page(database, query, True)
 
-elif ["jobs"] == params and query["jobs"]:
+elif "jobs" in params and query["jobs"]:
     query["jobid"] = query["jobs"]
     del query["jobs"]
     cgi.tasks_page(database, query, True)
 
-elif ["tasks"] == params and query["tasks"]:
+elif "tasks" in params and query["tasks"]:
     query["taskid"] = query["tasks"]
     del query["tasks"]
     cgi.artifacts_page(database, query)
