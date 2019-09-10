@@ -334,8 +334,8 @@ def cont_make(
         shutil.chown(cdir / i, group="apkfoundry")
         (cdir / i).chmod(0o775)
 
-    (cdir / BUILDDIR.lstrip("/")).mkdir(parents=True)
-    (cdir / JOBDIR.lstrip("/")).mkdir(parents=True)
+    (cdir / BUILDDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
+    (cdir / JOBDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
 
     af_info = cdir / "af/info"
     af_info.mkdir(parents=True)
