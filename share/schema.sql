@@ -137,16 +137,6 @@ CREATE TABLE IF NOT EXISTS tasks (
   FOREIGN KEY(jobid) REFERENCES jobs(jobid)
 );
 
-CREATE TABLE IF NOT EXISTS artifacts (
-  artifactid  INTEGER PRIMARY KEY,
-  taskid      INTEGER NOT NULL,
-  name        TEXT NOT NULL,
-  size        INTEGER NOT NULL,
-  created     TIMESTAMP NOT NULL
-    DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(taskid) REFERENCES tasks(taskid)
-);
-
 CREATE TRIGGER IF NOT EXISTS tasks_timestamp
   AFTER UPDATE ON tasks
 FOR EACH ROW BEGIN
