@@ -2,8 +2,9 @@
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
 import argparse     # ArgumentParser
+import errno        # EBADF
 import logging      # getLogger
-import os           # umask, write
+import os           # close, umask, write
 import selectors    # DefaultSelector, EVENT_READ
 import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
 import sys          # exc_info
@@ -313,13 +314,15 @@ class RootConn(socketserver.StreamRequestHandler):
     def setup(self):
         super().setup()
         self.cdir = None
-        self.stdin = self.stdout = self.stderr = None
+        self.fds = [-1, -1, -1]
         self.pid = self.uid = -1
 
     def handle(self):
         announced = False
 
         while True:
+            self._close_fds()
+
             try:
                 argv, fds = recv_fds(self.request)
                 self.pid, self.uid, _ = get_creds(self.request)
@@ -337,7 +340,7 @@ class RootConn(socketserver.StreamRequestHandler):
             if not fds:
                 self._err("No file descriptors given")
                 continue
-            self.stdin, self.stdout, self.stderr = fds
+            self.fds = list(fds)
 
             argv = argv.decode("utf-8")
             argv = argv.split("\0")
@@ -373,12 +376,26 @@ class RootConn(socketserver.StreamRequestHandler):
                 rc, _ = cont.run(
                     argv,
                     net=True, ro_root=False,
-                    stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
+                    stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
                 )
 
                 send_retcode(self.request, rc)
             except ConnectionError:
                 pass
+
+    def finish(self):
+        self._close_fds()
+
+    def _close_fds(self):
+        for i, fd in enumerate(self.fds):
+            if fd == -1:
+                continue
+            try:
+                os.close(fd)
+            except OSError as e:
+                if e.errno != errno.EBADF:
+                    raise
+            self.fds[i] = -1
 
     def _init(self, argv):
         getopts = _ParseOrRaise(
@@ -427,7 +444,7 @@ class RootConn(socketserver.StreamRequestHandler):
 
     def _err(self, msg):
         try:
-            os.write(self.stderr, msg.encode("utf-8") + b"\n")
+            os.write(self.fds[2], msg.encode("utf-8") + b"\n")
         except OSError:
             pass
 
