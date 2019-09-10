@@ -51,6 +51,11 @@ shuffle_repo() {
 cd "$startdir"
 
 set +e
+# If the pkgver/pkgrel hasn't been bumped, then it will try to
+# create .apks where symlinks already exist, and those symlinks
+# point to a readonly bind mount. So just remove the existing
+# symlinks first.
+abuild cleanpkg >/dev/null 2>&1
 (
 	. ./APKBUILD
 	for i in "$source"; do
