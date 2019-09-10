@@ -17,10 +17,10 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(threadName)s] %(message)s",
 )
 
-startup_flush()
-
 threading.Thread(name="db", target=db_thread).start()
 threading.Thread(name="mqtt", target=dispatch_thread).start()
 threading.Thread(name="inbound", target=inbound_thread).start()
+
+startup_flush()
 
 recv()

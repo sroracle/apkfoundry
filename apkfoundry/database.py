@@ -6,6 +6,7 @@ import queue
 import sqlite3
 
 from . import get_config, dispatch_queue, db_queue, af_exit, SITE_PACKAGE
+from .objects import EStatus, Event, Job, Task
 
 SCHEMA = SITE_PACKAGE / "share" / "schema.sql"
 
@@ -30,10 +31,19 @@ def db_start(readonly=False, bootstrap=False):
 
     return db
 
+def db_flush(db):
+    new_jobs = Job.db_search(db, status=EStatus.NEW, asc=True)
+
+    for job in new_jobs:
+        job.event = Event.db_search(db, eventid=job.event).fetchone()
+        job.tasks = Task.db_search(db, jobid=job.id).fetchall()
+        dispatch_queue.put(job)
+
 def db_thread():
     db = db_start()
 
     try:
+        db_flush(db)
         for obj in db_queue:
             obj.db_process(db)
     except Exception as e:
