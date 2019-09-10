@@ -114,11 +114,10 @@ def generate_graph(cont, tasks, ignored_deps):
 
     return graph
 
-def run_task(job, cont, task, log=None):
+def run_task(agent, job, cont, task, log=None):
     env = {}
-    jobdir = job.dir.relative_to(job.dir.parent.parent.parent.parent.parent)
     buildbase = Path(container.BUILDDIR) / task.startdir
-    env["AF_TASKDIR"] = f"/af/jobs/{jobdir}/{task.startdir}"
+    env["AF_TASKDIR"] = f"/af/jobs/{job.id}/{task.startdir}"
     env["AF_BRANCH"] = job.event.target
     env["ABUILD_SRCDIR"] = str(buildbase / "src")
     env["ABUILD_PKGBASEDIR"] = str(buildbase / "pkg")
@@ -142,18 +141,19 @@ def run_task(job, cont, task, log=None):
         _LOGGER.info("[%s] network access enabled", task.startdir)
 
     if log is None:
-        log = task.dir / "log"
+        log = task.dir / "build.log"
         log = open(log, "w")
 
     try:
         rc, _ = cont.run(
             ["/af/libexec/af-worker", task.startdir],
-            jobdir=jobdir,
+            jobdir=job.id,
             repo=task.repo,
             stdout=log, stderr=log,
             env=env,
             net=net,
         )
+
 
     finally:
         try:
@@ -163,7 +163,7 @@ def run_task(job, cont, task, log=None):
 
     return rc
 
-def run_graph(job, graph, cont, keep_going=False, keep_files=True):
+def run_graph(agent, job, graph, cont, keep_going=False, keep_files=True):
     tasks = {task.startdir: task for task in job.tasks}
     initial = {task.startdir for task in job.tasks}
     done = set()
@@ -201,7 +201,7 @@ def run_graph(job, graph, cont, keep_going=False, keep_files=True):
             repo_f = cont.cdir / "af/info/repo"
             repo_f.write_text(task.repo)
 
-            rc = run_task(job, cont, task)
+            rc = run_task(agent, job, cont, task)
 
             if rc in (0, 10):
                 _LOGGER.info("(%d/%d) Success: %s", cur, tot, startdir)
@@ -256,10 +256,17 @@ def run_job(agent, job):
 
     topic = job.topic.split("/")
     event = job.event
-    cdir = f"{event.project}.{event.type}.{event.target}.{job.arch}"
-    cdir = agent.containers / cdir
-    job.dir = agent.jobsdir / event.project / str(event.type) / event.target
-    job.dir = job.dir / job.arch / str(job.id)
+    cdir = (
+        agent.containers
+        / f"{event.project}.{event.type}.{event.target}.{job.arch}"
+    )
+    job.dir = (
+        agent.artdir
+        / job.arch
+        / f"{event.project}.{event.type}.{event.target}/jobs/{job.id}"
+    )
+    job.dir.mkdir(parents=True, exist_ok=True)
+    (job.dir.parent.parent / "repos").mkdir(parents=True, exist_ok=True)
 
     if not cdir.is_dir():
         container.cont_make(
@@ -269,7 +276,8 @@ def run_job(agent, job):
             arch=job.arch,
             setarch=agent.setarch[job.arch],
             mounts={
-                "jobsdir": agent.jobsdir,
+                "jobsdir": job.dir.parent,
+                "repodest": job.dir.parent.parent / "repos",
             },
         )
         bootstrap = True
@@ -301,4 +309,4 @@ def run_job(agent, job):
         job.status = EStatus.ERROR
         return
 
-    job.status = run_graph(job, graph, cont)
+    job.status = run_graph(agent, job, graph, cont)

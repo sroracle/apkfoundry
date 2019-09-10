@@ -26,10 +26,11 @@ class Agent:
 
         "setarch",
         "builder",
-        "jobs",
-        "jobsdir",
-        "workers",
+        "artdir",
+        "remote_artdir",
         "containers",
+        "jobs",
+        "workers",
     )
 
     def __init__(self, cfg, host, port):
@@ -64,7 +65,8 @@ class Agent:
         self._will = attr.evolve(self.builder, online=False)
 
         self.jobs = {}
-        self.jobsdir = cfg.getpath("jobs")
+        self.artdir = cfg.getpath("artifacts")
+        self.remote_artdir = cfg.getpath("remote_artifacts")
 
         self.workers = ThreadPoolExecutor(
             max_workers=cfg.getint("concurrency"),

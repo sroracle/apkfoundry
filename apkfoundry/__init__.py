@@ -51,7 +51,8 @@ _DEFAULT_CONFIG = {
     "agent": {
         "name": "agent01",
         "containers": str(_HOME / "containers"),
-        "jobs": str(_HOME / "jobs"),
+        "artifacts": str(_HOME / "artifacts"),
+        "remote_artifacts": "user@localhost:/var/lib/apkfoundry/artifacts",
         "username": "agent01",
         "password": "password",
         "arches": "apk_arch1\napk_arch2:setarch2",

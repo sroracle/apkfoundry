@@ -22,7 +22,7 @@ JOBDIR = "/af/jobs"
 MOUNTS = {
     "aportsdir": "/af/aports",
     "jobsdir": "/af/jobs",
-    "repodest": "/af/packages",
+    "repodest": "/af/repos",
     "srcdest": "/var/cache/distfiles",
 }
 

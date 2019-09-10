@@ -34,7 +34,9 @@ split into restricted files away from more mundane options.
     ; Path to the directory under which to store containers.
     containers = /var/lib/apkfoundry/containers
     ; Path to the directory under which to store job artifacts.
-    jobs = /var/lib/apkfoundry/jobs
+    artifacts = /var/lib/apkfoundry/artifacts
+    ; rsync URI to which artifacts are pulled from and pushed to.
+    remote_artifacts = user@localhost:/var/lib/apkfoundry/artifacts
     ; The MQTT username for the builder agent.
     username=agent01
     ; The MQTT password for the builder agent.

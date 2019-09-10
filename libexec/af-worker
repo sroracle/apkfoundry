@@ -20,7 +20,7 @@ shuffle_repo() {
 	local error="${1:-0}"
 
 	arch="$(apk --print-arch)"
-	for apk in $(cat "$AF_TASKDIR/manifest"); do
+	for apk in $(cat "$AF_TASKDIR/manifest.txt"); do
 		if ! [ -e "$REPODEST/$repo/$arch/$apk" ]; then
 			if [ "$error" -eq 0 ]; then
 				printf '>>> ERROR: apk does not exist: %s' "$apk"
@@ -52,7 +52,7 @@ if abuild up2date 2>/dev/null; then
 	exit 10
 fi
 
-abuild listpkg > "$AF_TASKDIR/manifest"
+abuild listpkg > "$AF_TASKDIR/manifest.txt"
 abuild fetch deps mkusers
 trap cleanup EXIT INT TERM
 
