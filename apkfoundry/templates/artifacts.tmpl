@@ -10,6 +10,13 @@
 {%- block title -%}
  {{ link("tasks", "Task #" ~ task.id, task.id) }}
 {%- endblock -%}
+{%- block prev_next -%}
+ {%- if task.id > 1 -%}
+  <li>{{ link("tasks", "Previous task", task.id - 1) }}</li>
+ {%- endif -%}
+ <li>{{ link("tasks", "Next task", task.id + 1) }}</li>
+{%- endblock -%}
+
 {% block content %}
  <ul>
   {% call obj_info("Job") %}

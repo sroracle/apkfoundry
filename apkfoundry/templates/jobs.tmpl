@@ -19,6 +19,14 @@
   <li>{{ link("jobs", "Search", eventid=event.id) }}</li>
  {%- endif -%}
 {%- endblock -%}
+{%- block prev_next -%}
+ {%- if event_page -%}
+  {%- if event.id > 1 -%}
+   <li>{{ link("events", "Previous event", event.id - 1) }}</li>
+  {%- endif -%}
+  <li>{{ link("events", "Next event", event.id + 1) }}</li>
+ {%- endif -%}
+{%- endblock -%}
 
 {% block content %}
  {% if event_page %}

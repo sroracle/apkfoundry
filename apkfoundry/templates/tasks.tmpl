@@ -19,6 +19,14 @@
   <li>{{ link("tasks", "Search", jobid=job.id) }}</li>
  {%- endif -%}
 {%- endblock -%}
+{%- block prev_next -%}
+ {%- if job_page -%}
+  {%- if job.id > 1 -%}
+   <li>{{ link("jobs", "Previous job", job.id - 1) }}</li>
+  {%- endif -%}
+  <li>{{ link("jobs", "Next job", job.id + 1) }}</li>
+ {%- endif -%}
+{%- endblock -%}
 
 {% block content %}
  {% if job_page %}
