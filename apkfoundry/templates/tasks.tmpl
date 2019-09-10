@@ -48,20 +48,20 @@
   </ul>
  {% else %}
   {% call searchform() %}
-   {{ input("jobid", "Job ID", type="number") }}
+   {{ input("jobid", "Job#", type="number") }}
    {{ input("repo", "Repository (*)") }}
    {{ input("pkg", "Package (*)") }}
    {{ input("maintainer", "Maintainer (*)") }}
    {{ fselect("status", "Status", statuses) }}
    {{ input("builder", "Builder (*)") }}
    {{ input("arch", "Arch (*)") }}
-   {{ input("eventid", "Event ID", type="number") }}
+   {{ input("eventid", "Event#", type="number") }}
    {{ input("project", "Project (*)") }}
    {{ input("user", "User (*)") }}
    {{ fselect("type", "Type", event_types) }}
    {{ input("clone", "Clone URI (*)") }}
    {{ input("target", "Target branch (*)") }}
-   {{ input("mrid", "Merge request ID") }}
+   {{ input("mrid", "MR#") }}
    {{ input("mrclone", "Merge request clone URI (*)") }}
    {{ input("mrbranch", "Merge request branch (*)") }}
   {% endcall %}
@@ -70,9 +70,9 @@
  <table>
   <thead>
    <tr>
-    <th>ID</th>
+    <th>Task#</th>
     {% if not job_page %}
-     <th>Job</th>
+     <th>Job#</th>
     {% endif %}
     <th>Repository</th>
     <th>Package</th>
@@ -80,15 +80,14 @@
     <th>Status</th>
     <th>Created</th>
     <th>Updated</th>
-    <th>Artifacts</th>
    </tr>
   </thead>
   <tbody>
    {% for task in tasks %}
     <tr>
-     <td>{{ link("tasks", task.id, task.id) }}</td>
+     <td>{{ link("tasks", "#" ~ task.id, task.id) }}</td>
      {% if not job_page %}
-      <td>{{ link("jobs", task.job, task.job) }}</td>
+      <td>{{ link("jobs", "#" ~ task.job, task.job) }}</td>
      {% endif %}
      <td>{{ link("tasks", task.repo, repo=task.repo) }}</td>
      <td>{{ link("tasks", task.pkg, pkg=task.pkg) }}</td>

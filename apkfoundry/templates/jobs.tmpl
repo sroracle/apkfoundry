@@ -26,7 +26,7 @@
    {% call obj_info("Project") %}
     {{ link("project", event.project, event.project) }}
    {% endcall %}
-   {% call obj_info("Event") %}
+   {% call obj_info("Type") %}
     {{ link("events", event.type, type=event.type) }}
    {% endcall %}
    {% call obj_info("Clone") %}
@@ -36,7 +36,7 @@
     {{ link("events", event.target, project=event.project, target=event.target) }}
    {% endcall %}
    {%- if event.type == "mr" -%}
-    {% call obj_info("Merge request ID") %}
+    {% call obj_info("MR#") %}
      {{ link("events", event.mrid, project=event.project, mrid=event.mrid) }}
     {% endcall %}
     {% call obj_info("Merge request clone") %}
@@ -71,7 +71,7 @@
   </ul>
  {% else %}
   {% call searchform() %}
-   {{ input("eventid", "Event ID", type="number") }}
+   {{ input("eventid", "Event#", type="number") }}
    {{ input("builder", "Builder (*)") }}
    {{ input("arch", "Arch (*)") }}
    {{ fselect("status", "Status", statuses) }}
@@ -80,7 +80,7 @@
    {{ fselect("type", "Type", event_types) }}
    {{ input("clone", "Clone URI (*)") }}
    {{ input("target", "Target branch (*)") }}
-   {{ input("mrid", "Merge request ID") }}
+   {{ input("mrid", "MR#") }}
    {{ input("mrclone", "Merge request clone URI (*)") }}
    {{ input("mrbranch", "Merge request branch (*)") }}
   {% endcall %}
@@ -89,9 +89,9 @@
  <table>
   <thead>
    <tr>
-    <th>ID</th>
+    <th>Job#</th>
     {% if not event_page %}
-     <th>Event</th>
+     <th>Event#</th>
     {% endif %}
     <th>Builder</th>
     <th>Arch</th>
@@ -104,9 +104,9 @@
   <tbody>
    {% for job in jobs %}
     <tr>
-     <td>{{ link("jobs", job.id, job.id) }}</td>
+     <td>{{ link("jobs", "#" ~ job.id, job.id) }}</td>
      {% if not event_page %}
-      <td>{{ link("events", job.event, job.event) }}</td>
+      <td>{{ link("events", "#" ~ job.event, job.event) }}</td>
      {% endif %}
      <td>{{ link("jobs", job.builder, builder=job.builder) }}</td>
      <td>{{ link("jobs", job.arch, arch=job.arch) }}</td>

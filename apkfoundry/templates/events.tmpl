@@ -28,7 +28,7 @@
    {{ fselect("type", "Type", event_types) }}
    {{ input("clone", "Clone URI (*)") }}
    {{ input("target", "Target branch (*)") }}
-   {{ input("mrid", "Merge request ID") }}
+   {{ input("mrid", "MR#") }}
    {{ input("mrclone", "Merge request clone URI (*)") }}
    {{ input("mrbranch", "Merge request branch (*)") }}
    {{ fselect("status", "Status", statuses) }}
@@ -38,7 +38,7 @@
  <table>
   <thead>
    <tr>
-    <th>ID</th>
+    <th>Event#</th>
     {% if not project_page %}
      <th>Project</th>
     {% endif %}
@@ -58,7 +58,7 @@
   <tbody>
    {% for event, jobs, tasks in events %}
    <tr>
-    <td>{{ link("events", event.id, event.id) }}</td>
+    <td>{{ link("events", "#" ~ event.id, event.id) }}</td>
     {% if not project_page %}
      <td>{{ link("project", event.project, event.project) }}</td>
     {% endif %}
@@ -66,7 +66,7 @@
     <td>{{ event.target }}</td>
     <td>
     {% if event.mrid %}
-     {{ link("events", event.mrid, project=event.project, mrid=event.mrid) }}
+     {{ link("events", "#" ~ event.mrid, project=event.project, mrid=event.mrid) }}
     {% endif %}
     </td>
     <td>{{ event.revision[:16] }}</td>
