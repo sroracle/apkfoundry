@@ -163,10 +163,9 @@ def _db_search(classes, db, where=None, **query):
                 where.append(f"{field} = :{field}")
                 break
 
-            if field in ("status", "type"):
-                if hasattr(cls, "status"):
-                    where.append(f"{field} & :{field} == :{field}")
-                    break
+            elif field in ("status", "type") and hasattr(cls, field):
+                where.append(f"{field} & :{field} == :{field}")
+                break
 
             fields = attr.fields_dict(cls)
             if field in fields:
