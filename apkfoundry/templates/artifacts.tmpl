@@ -2,6 +2,7 @@
 {#
    Parameters:
    * task: Task
+   * dir_exists: bool
    * artifacts: List[os.DirEntry, str link]
 #}
 {% extends "base.tmpl" %}
@@ -34,28 +35,32 @@
   {% endcall %}
  </ul>
 
- <table>
-  <thead>
-   <tr>
-    <th>Filename</th>
-    <th>Size</th>
-   </tr>
-  </thead>
-  <tbody>
-   {% for (artifact, link) in artifacts %}
+ {% if dir_exists %}
+  <table>
+   <thead>
     <tr>
-     <td>
-      <a href="{{ link }}">
-        {{ artifact.name }}
-        {{
-         "@" if artifact.is_symlink() else (
-         "/" if artifact.is_dir(follow_symlinks=False) else "")
-        }}
-       </a>
-      </td>
-     <td>{{ artifact.stat().st_size|filesizeformat(binary=true) }}</td>
+     <th>Filename</th>
+     <th>Size</th>
     </tr>
-   {% endfor %}
-  </tbody>
- </table>
+   </thead>
+   <tbody>
+    {% for (artifact, link) in artifacts %}
+     <tr>
+      <td>
+       <a href="{{ link }}">
+         {{ artifact.name }}
+         {{
+          "@" if artifact.is_symlink() else (
+          "/" if artifact.is_dir(follow_symlinks=False) else "")
+         }}
+        </a>
+       </td>
+      <td>{{ artifact.stat(follow_symlinks=False).st_size|filesizeformat(binary=true) }}</td>
+     </tr>
+    {% endfor %}
+   </tbody>
+  </table>
+ {% else %}
+  <p>Task directory doesn't exist</p>
+ {% endif %}
 {% endblock %}

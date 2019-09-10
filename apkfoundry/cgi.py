@@ -215,20 +215,23 @@ def artifacts_page(db, query):
         / task.startdir
     )
 
-    if not task.dir.exists():
-        error(404, "Task directory not found")
-
     html_ok()
 
-    art_uri = _CFG.getpath("artifacts")
-    artifacts = [
-        (i, art_uri / Path(i).relative_to(_ARTDIR)) \
-        for i in os.scandir(task.dir)
-    ]
+    if task.dir.exists():
+        dir_exists = True
+        art_uri = _CFG.getpath("artifacts")
+        artifacts = [
+            (i, art_uri / Path(i).relative_to(_ARTDIR)) \
+            for i in os.scandir(task.dir)
+        ]
+    else:
+        artifacts = jinja2.Undefined(name="artifacts")
+        dir_exists = False
 
     tmpl = _ENV.get_template("artifacts.tmpl")
     print(tmpl.render(
         task=task,
+        dir_exists=dir_exists,
         artifacts=artifacts,
     ))
 
