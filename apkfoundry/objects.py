@@ -39,7 +39,7 @@ def _json_conform(o):
     if isinstance(o, dt.datetime):
         return dt_timestamp(o)
 
-    raise TypeError
+    raise TypeError(f"Cannot conform: {type(o)}")
 
 @enum.unique
 class EType(enum.IntEnum):
@@ -310,7 +310,7 @@ class Builder:
         db.commit()
 
     def to_mqtt(self):
-        payload = attr.asdict(self, filter=_mqtt_filter)
+        payload = attr.asdict(self, recurse=True, filter=_mqtt_filter)
         payload = json.dumps(payload, default=_json_conform)
         return payload.encode("utf-8")
 
@@ -384,7 +384,9 @@ class Task:
         return f"{self.repo}/{self.pkg}"
 
     def to_mqtt(self):
-        payload = attr.asdict(self, recurse=True, filter=_mqtt_filter)
+        payload = attr.asdict(self, recurse=False, filter=_mqtt_filter)
+        if not isinstance(payload["job"], int):
+            payload["job"] = payload["job"].id
         payload = json.dumps(payload, default=_json_conform)
         return payload.encode("utf-8")
 
@@ -479,8 +481,17 @@ class Job:
     def topic(self, value):
         self._topic = value
 
-    def to_mqtt(self):
-        payload = attr.asdict(self, recurse=True, filter=_mqtt_filter)
+    def to_mqtt(self, recurse=False):
+        payload = attr.asdict(self, recurse=recurse, filter=_mqtt_filter)
+        if not recurse:
+            if not isinstance(payload["event"], int):
+                payload["event"] = payload["event"].id
+
+            payload["tasks"] = [
+                i if isinstance(i, int) else i.id \
+                for i in payload["tasks"]
+            ]
+
         payload = json.dumps(payload, default=_json_conform)
         return payload.encode("utf-8")
 

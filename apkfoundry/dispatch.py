@@ -124,7 +124,7 @@ class Dispatcher:
             return
 
         _LOGGER.info("[%s] publish", str(job))
-        self._mqtt.publish(str(job), job.to_mqtt(), 2)
+        self._mqtt.publish(str(job), job.to_mqtt(recurse=True), 2)
 
     def _job_recv(self, msg):
         try:

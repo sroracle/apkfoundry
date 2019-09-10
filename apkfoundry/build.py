@@ -264,6 +264,9 @@ def run_job(agent, job):
     job.status = EStatus.START
     agent_queue.put(job)
 
+    for task in job.tasks:
+        task.job = job
+
     topic = job.topic.split("/")
     event = job.event
     cdir = (
