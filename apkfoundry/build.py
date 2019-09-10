@@ -161,6 +161,12 @@ def run_task(agent, job, cont, task, log=None):
         except (AttributeError, TypeError):
             pass
 
+    try:
+        _LOGGER.info("[%s] pushing artifacts", job)
+        agent.rsync(job.arch, "push")
+    except subprocess.CalledProcessError:
+        pass
+
     return rc
 
 def run_graph(agent, job, graph, cont, keep_going=False, keep_files=True):

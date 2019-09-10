@@ -4,17 +4,19 @@
 import functools                # partial
 import logging                  # getLogger
 import sys                      # exit
+import threading                # Lock
 from concurrent.futures import ThreadPoolExecutor
 
 import attr
 import paho.mqtt.client as mqtt
 from paho.mqtt.matcher import MQTTMatcher
 
-from . import get_config, agent_queue
+from . import get_config, agent_queue, run
 from .build import run_job
 from .objects import EStatus, Job, Builder, Arch
 
 _LOGGER = logging.getLogger(__name__)
+_RSYNC_LOCK = threading.Lock()
 
 class Agent:
     __slots__ = (
@@ -112,6 +114,32 @@ class Agent:
 
         self._mqtt.publish(str(job), job.to_mqtt(), 2)
 
+    def rsync(self, arch, direction):
+        if direction == "pull":
+            src = self.remote_artdir / arch
+            dst = self.artdir / arch
+        elif direction == "push":
+            src = self.artdir / arch
+            dst = self.remote_artdir / arch
+        else:
+            raise ValueError
+
+        src = str(src).rstrip("/") + "/"
+        dst = str(dst)
+
+        with _RSYNC_LOCK:
+            run(
+                "rsync",
+                "--recursive",
+                "--links",
+                "--times",
+                "--update",
+                "--protect-args",
+                "--itemize-changes",
+                src,
+                dst,
+            )
+
     def _job_done(self, job, future):
         exc = future.exception()
         if exc:
@@ -120,6 +148,9 @@ class Agent:
         else:
             _LOGGER.info("[%s] done", job)
             self.publish_job(job)
+
+        _LOGGER.info("[%s] pushing artifacts", job)
+        self.rsync(job.arch, "push")
 
     def _reject_job(self, job, reason):
         _LOGGER.warning("[%s] reject: %s", job, reason)
@@ -163,6 +194,9 @@ class Agent:
             if not any(self._mask.iter_match(msg.topic)):
                 self._reject_job(job, "job not whitelisted")
                 return
+
+            _LOGGER.info("[%s] pulling artifacts", job)
+            self.rsync(job.arch, "pull")
 
             _LOGGER.info("[%s] starting", job)
             future = self.workers.submit(run_job, self, job)
