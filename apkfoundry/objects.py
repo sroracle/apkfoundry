@@ -191,7 +191,9 @@ def _db_search(classes, db, where=None, **query):
     if order in ("created", "updated"):
         sql += f" ORDER BY {order}"
     else:
-        sql += " ORDER BY rowid"
+        key = cls.__name__.lower() + "id"
+        key = key if hasattr(classes[0], "id") else "rowid"
+        sql += f" ORDER BY {key}"
 
     if query.get("asc", None):
         sql += " ASC"
