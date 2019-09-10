@@ -33,6 +33,11 @@
     {{ link("tasks", task.status, status=task.status) }}
    </span>
   {% endcall %}
+  {% if task.tail %}
+   {% call obj_info("Message") %}
+    {{ task.tail }}
+   {% endcall %}
+  {% endif %}
  </ul>
 
  {% if dir_exists %}

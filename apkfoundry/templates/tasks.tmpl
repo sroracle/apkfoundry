@@ -78,6 +78,7 @@
     <th>Package</th>
     <th>Maintainer</th>
     <th>Status</th>
+    <th>Message</th>
     <th>Created</th>
     <th>Updated</th>
    </tr>
@@ -100,6 +101,9 @@
      </td>
      <td class="status status-{{ task.status }}">
       {{ link("tasks", task.status, status=task.status) }}
+     </td>
+     <td>
+      {{ task.tail }}
      </td>
      <td>{{ time(task.created) }}</td>
      <td>
