@@ -4,6 +4,7 @@
 import logging    # getLogger
 import os         # utime
 import re         # compile
+import shutil     # rmtree
 import subprocess # PIPE
 import textwrap   # TextWrapper
 from pathlib import Path
@@ -122,12 +123,18 @@ def run_task(agent, job, cont, task, log=None):
     env["AF_BRANCH"] = job.event.target
     env["ABUILD_SRCDIR"] = str(buildbase / "src")
     env["ABUILD_PKGBASEDIR"] = str(buildbase / "pkg")
-    tmp = cont.cdir / str(buildbase).lstrip("/") / "tmp"
-    tmp.mkdir(parents=True, exist_ok=True)
-    tmp = str(buildbase / "tmp")
-    env["TEMP"] = env["TMP"] = tmp
-    env["TEMPDIR"] = env["TMPDIR"] = tmp
-    env["HOME"] = tmp
+
+    tmp_d = cont.cdir / str(buildbase).lstrip("/") / "tmp"
+    try:
+        shutil.rmtree(tmp_d.parent)
+    except Exception:
+        pass
+    tmp_d.mkdir(parents=True, exist_ok=True)
+
+    tmp_e = str(buildbase / "tmp")
+    env["TEMP"] = env["TMP"] = tmp_e
+    env["TEMPDIR"] = env["TMPDIR"] = tmp_e
+    env["HOME"] = tmp_e
 
     APKBUILD = cont.cdir / f"af/info/aportsdir/{task.startdir}/APKBUILD"
     if not APKBUILD.is_file():
@@ -171,9 +178,15 @@ def run_task(agent, job, cont, task, log=None):
     except subprocess.CalledProcessError:
         pass
 
+    if rc in (0, 10):
+        try:
+            shutil.rmtree(tmp_d.parent)
+        except Exception:
+            pass
+
     return rc
 
-def run_graph(agent, job, graph, cont, keep_going=False, keep_files=True):
+def run_graph(agent, job, graph, cont, keep_going=False):
     tasks = {task.startdir: task for task in job.tasks}
     initial = {task.startdir for task in job.tasks}
     done = set()
@@ -218,8 +231,6 @@ def run_graph(agent, job, graph, cont, keep_going=False, keep_files=True):
                 task.status = EStatus.SUCCESS
                 agent_queue.put(task)
                 done.add(startdir)
-                if not keep_files:
-                    shutil.rmtree(cont.cdir / "build" / startdir)
 
             else:
                 if rc == 11:
