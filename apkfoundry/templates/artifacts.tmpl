@@ -1,0 +1,61 @@
+{# vim: set ft=jinja: #}
+{#
+   Parameters:
+   * task: Task
+   * artifacts: List[os.DirEntry, str link]
+#}
+{% extends "base.tmpl" %}
+{%- set page = "artifacts" -%}
+{%- block title -%}
+ {{ link("tasks", "Task #" ~ task.id, task.id) }}
+{%- endblock -%}
+{% block content %}
+ <ul>
+  {% call obj_info("Job") %}
+   {{ link("jobs", "#" ~ task.job, task.job) }}
+  {% endcall %}
+  {% call obj_info("Repository") %}
+   {{ link("tasks", task.repo, repo=task.repo) }}
+  {% endcall %}
+  {% call obj_info("Package") %}
+   {{ link("tasks", task.pkg, pkg=task.pkg) }}
+  {% endcall %}
+  {% call obj_info("Maintainer") %}
+   {{ link(
+     "tasks",
+     task.maintainer.split(" <", maxsplit=1)|first,
+     maintainer=task.maintainer
+    ) }}
+  {% endcall %}
+  {% call obj_info("Status") %}
+   <span class="status status-{{ task.status }}">
+    {{ link("tasks", task.status, status=task.status) }}
+   </span>
+  {% endcall %}
+ </ul>
+
+ <table>
+  <thead>
+   <tr>
+    <th>Filename</th>
+    <th>Size</th>
+   </tr>
+  </thead>
+  <tbody>
+   {% for (artifact, link) in artifacts %}
+    <tr>
+     <td>
+      <a href="{{ link }}">
+        {{ artifact.name }}
+        {{
+         "@" if artifact.is_symlink() else (
+         "/" if artifact.is_dir(follow_symlinks=False) else "")
+        }}
+       </a>
+      </td>
+     <td>{{ artifact.stat().st_size|filesizeformat(binary=true) }}</td>
+    </tr>
+   {% endfor %}
+  </tbody>
+ </table>
+{% endblock %}

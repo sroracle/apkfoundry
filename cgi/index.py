@@ -67,6 +67,11 @@ elif ["jobs"] == params and query["jobs"]:
     del query["jobs"]
     cgi.tasks_page(database, query, True)
 
+elif ["tasks"] == params and query["tasks"]:
+    query["taskid"] = query["tasks"]
+    del query["tasks"]
+    cgi.artifacts_page(database, query)
+
 elif "events" in query:
     cgi.events_page(database, query, False)
 

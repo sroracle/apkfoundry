@@ -338,7 +338,6 @@ class Task:
     pkg: str = attr.ib()
     maintainer: str = attr.ib(default=None)
     tail: str = attr.ib(default=None)
-    artifacts = attr.ib(default=None)
     status = attr.ib(default=EStatus.NEW, converter=_normalize(EStatus))
 
     created: dt.datetime = attr.ib(

@@ -2,7 +2,7 @@
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
 import http   # HTTPStatus
-import os     # environ
+import os     # environ, scandir
 import sys    # exit
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +12,7 @@ import jinja2 # Environment, FileSystemBytecodeCache, PackageLoader
 from . import get_config, write_fifo
 from .objects import EType, EStatus, Event, Job, Task, Builder, Arch
 
+_ARTDIR = get_config("dispatch").getpath("artifacts")
 _CFG = get_config("web")
 BASE = _CFG["base"]
 PRETTY = _CFG.getboolean("pretty")
@@ -185,17 +186,50 @@ def tasks_page(db, query, job_page=False):
         task.created = timeelement(task.created, now)
         task.updated = timeelement(task.updated, now)
 
-        if task.status & EStatus.DONE:
-            task.artifacts = db.execute(
-                "SELECT COUNT(*) FROM artifacts WHERE taskid = ?;", (task.id,),
-            )
-            (task.artifacts,) = task.artifacts.fetchone()
-
     tmpl = _ENV.get_template("tasks.tmpl")
     print(tmpl.render(
         job=job,
         job_page=job_page,
         tasks=tasks,
+    ))
+
+def artifacts_page(db, query):
+    now = getnow()
+
+    task = Task.db_search(db, taskid=query["taskid"]).fetchone()
+    if task is None:
+        error(404, "Unknown task")
+
+    task.created = timeelement(task.created, now)
+    task.updated = timeelement(task.updated, now)
+    if task.maintainer is None:
+        task.maintainer = "None"
+
+    job = Job.db_search(db, jobid=task.job).fetchone()
+    event = Event.db_search(db, eventid=job.event).fetchone()
+
+    task.dir = (
+        _ARTDIR
+        / job.arch
+        / f"{event.project}.{event.type}.{event.target}/jobs/{job.id}"
+        / task.startdir
+    )
+
+    if not task.dir.exists():
+        error(404, "Task directory not found")
+
+    html_ok()
+
+    art_uri = _CFG.getpath("artifacts")
+    artifacts = [
+        (i, art_uri / Path(i).relative_to(_ARTDIR)) \
+        for i in os.scandir(task.dir)
+    ]
+
+    tmpl = _ENV.get_template("artifacts.tmpl")
+    print(tmpl.render(
+        task=task,
+        artifacts=artifacts,
     ))
 
 def status_page(db, query):

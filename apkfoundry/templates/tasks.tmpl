@@ -107,11 +107,6 @@
        {{ time(task.updated) }}
       {% endif %}
      </td>
-     <td>
-      {% if task.artifacts %}
-       {{ link("tasks", task.artifacts, task.id) }}
-      {% endif %}
-     </td>
     </tr>
    {% endfor %}
   </tbody>
