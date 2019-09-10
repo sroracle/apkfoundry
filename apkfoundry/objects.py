@@ -6,11 +6,11 @@ import json       # dumps, loads
 import logging    # getLogger
 import sqlite3    # Error, PrepareProtocol
 import subprocess # CalledProcessError
-import datetime as dt # datetime, timezone
+import datetime as dt # datetime
 
 import attr
 
-from . import dispatch_queue, get_output, get_config, git_init
+from . import dispatch_queue, get_output, get_config, git_init, dt_timestamp
 
 _MQTT_SKIP = {
     "mqtt_skip": True,
@@ -37,12 +37,7 @@ def _normalize(cls, factory=None):
 
 def _json_conform(o):
     if isinstance(o, dt.datetime):
-        if o.tzinfo is None:
-            ts = o.replace(tzinfo=dt.timezone.utc)
-        else:
-            ts = o
-
-        return o.timestamp()
+        return dt_timestamp(o)
 
     raise TypeError
 

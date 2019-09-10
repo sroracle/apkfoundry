@@ -11,6 +11,7 @@ import shlex        # quote
 import subprocess   # check_call, check_output, DEVNULL, Popen
 import sys          # stderr, stdout
 import threading    # Event
+import datetime as dt # timezone
 from pathlib import Path
 
 SITE_CONF = Path("/etc/apkfoundry")
@@ -196,3 +197,11 @@ def git_init(dir, clone, *,
 
     run("git", "checkout", "--quiet", "--force", rev, cwd=dir)
     run("git", "checkout", "--quiet", "--force", "origin/apkfoundry", cwd=dir / ".apkfoundry")
+
+def dt_timestamp(dto):
+    if dto.tzinfo is None:
+        ts = dto.replace(tzinfo=dt.timezone.utc)
+    else:
+        ts = dto
+
+    return dto.timestamp()

@@ -33,9 +33,11 @@ shuffle_repo() {
 		fi
 
 		mv "$REPODEST/$repo/$arch/$apk" "$AF_TASKDIR/$apk"
+		touch -r APKBUILD "$AF_TASKDIR/$apk"
 
 		if [ "$error" -eq 0 ]; then
 			ln -sr "$AF_TASKDIR/$apk" "$REPODEST/$repo/$arch/$apk"
+			touch -hr APKBUILD "$REPODEST/$repo/$arch/$apk"
 		fi
 	done
 
@@ -47,6 +49,20 @@ shuffle_repo() {
 }
 
 cd "$startdir"
+
+set +e
+(
+	. ./APKBUILD
+	for i in "$source"; do
+		case "$i" in
+		*::http://*|*::ftp://*|*::https://*) ;;
+		http://*|ftp://*|https://*) ;;
+		*) touch -r APKBUILD "$i";;
+		esac
+	done
+)
+set -e
+
 if abuild up2date 2>/dev/null; then
 	printf '>>> Package is up to date'
 	exit 10

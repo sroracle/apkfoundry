@@ -2,12 +2,13 @@
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
 import logging    # getLogger
+import os         # utime
 import re         # compile
 import subprocess # PIPE
 import textwrap   # TextWrapper
 from pathlib import Path
 
-from . import git_init, agent_queue
+from . import git_init, agent_queue, dt_timestamp
 from . import container
 from .digraph import Digraph
 from .objects import EStatus
@@ -136,6 +137,9 @@ def run_task(agent, job, cont, task, log=None):
         for line in f:
             if _NET_OPTION.search(line) is not None:
                 net = True
+
+    timestamp = dt_timestamp(job.created)
+    os.utime(APKBUILD, (timestamp, timestamp))
 
     if net:
         _LOGGER.info("[%s] network access enabled", task.startdir)
