@@ -5,6 +5,6 @@
 
 # Add /dev/null so that we always get the filename prepended, even if only one
 # APKBUILD is given
-grep '^# Maintainer:' $APKBUILDS /dev/null \
+grep '^# Maintainer:' "$@" /dev/null \
 	| sed -E 's@/APKBUILD:# Maintainer:\s*@ @' \
 	| sort -uk 1,1
