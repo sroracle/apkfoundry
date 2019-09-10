@@ -254,15 +254,16 @@ def run_graph(agent, job, graph, cont, keep_going=False):
                     for rdep in depfails:
                         _LOGGER.error("Depfail: %s", rdep)
                         tasks[rdep].status = EStatus.DEPFAIL
-                        tasks[rdep].tail = f"Depfail due to {startdir} failing"
+                        tasks[rdep].tail = f"Depfail on {startdir}"
                         agent_queue.put(tasks[rdep])
                     done.update(depfails)
 
                 else:
+                    _LOGGER.error("Failing fast due to previous error")
                     cancels = initial - done
                     for rdep in cancels:
-                        tasks[rdep].status = EStatus.CANCEL
-                        tasks[rdep].tail = f"Cancelled due to {startdir} failing"
+                        tasks[rdep].status = EStatus.DEPFAIL
+                        tasks[rdep].tail = f"Fail-fast on {startdir}"
                         agent_queue.put(tasks[rdep])
                     done.update(cancels)
                     graph.reset_graph()
