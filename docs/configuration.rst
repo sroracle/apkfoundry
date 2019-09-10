@@ -59,7 +59,7 @@ split into restricted files away from more mundane options.
     ; The filename for the SQLite3 APK Foundry database. This should be
     ; read-writable by orchestrator, and readable by www. The file need
     ; only be accessable on the orchestrator machine.
-    filename=/srv/apkfoundry/database.sqlite3
+    filename=/var/lib/apkfoundry/database.sqlite3
 
     [dispatch]
     ; The MQTT username for the job dispatcher.
@@ -72,6 +72,8 @@ split into restricted files away from more mundane options.
     ; The path under which the git repositories of the various projects
     ; will be stored.
     projects=/var/lib/apkfoundry/projects
+    ; Path to the directory under which to store job artifacts.
+    artifacts = /var/lib/apkfoundry/artifacts
     ; List of IP addresses from which to accept requests.
     remotes=127.0.0.1
     ; Whether to remove event files after they are processed. This
@@ -89,6 +91,8 @@ split into restricted files away from more mundane options.
     base=https://example.com/cgi-bin/apkfoundry-index.py
     ; URL for style.css.
     css=/style.css
+    ; URL for the artifacts directory
+    artifacts=/artifacts
     ; Whether to use PATH_INFO to generate pretty URIs.
     pretty=false
     ; Default maximum number of rows to return on each page.

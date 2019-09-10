@@ -71,6 +71,7 @@ _DEFAULT_CONFIG = {
         "password": "password",
         "events": str(_HOME / "events"),
         "projects": str(_HOME / "projects"),
+        "artifacts": str(_HOME / "artifacts"),
         "remotes": "127.0.0.1",
         "keep_events": "false",
     },
@@ -81,6 +82,7 @@ _DEFAULT_CONFIG = {
     "web": {
         "base": "https://example.com/cgi-bin/apkfoundry-index.py",
         "css": "/style.css",
+        "artifacts": "/artifacts",
         "pretty": "false",
         "limit": "50",
         "debug": "false",
