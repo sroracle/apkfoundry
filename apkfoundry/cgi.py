@@ -264,7 +264,7 @@ def status_page(db, query):
                     builder="None",
                     status=EStatus.NEW,
                     arch=name,
-                    asc=1,
+                    asc=True,
                 ).fetchall() or []
 
             for job in arch.curr_jobs:

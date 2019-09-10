@@ -80,7 +80,7 @@
    <input name="{{ page }}" type="hidden">
   {% endif %}
   {{ caller() }}
-  {{ fselect("order", "Order by", ["created", "updated"]) }}
+  {{ fselect("order", "Order by", ["created", "updated", "rowid"]) }}
   {{ checkbox("asc", "Put in ascending order", "1") }}
   <input type="submit" value="Search">
   (*) supports globbing

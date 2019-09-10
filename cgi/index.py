@@ -40,6 +40,9 @@ if "limit" in query:
 else:
     query["limit"] = cgi.LIMIT
 
+if "order" not in query or not query["order"]:
+    query["order"] = "updated"
+
 if "type" in query and query["type"]:
     try:
         query["type"] = EType[query["type"]]
