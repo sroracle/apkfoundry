@@ -222,6 +222,17 @@ for that architecture, even if changed APKBUILDs have ``arch="all"``,
 If a repository is not listed in this file, then no builds will occur
 for that repository.
 
+branch/fail-fast
+^^^^^^^^^^^^^^^^
+
+This **optional** file is used by the builder agents. If it exists,
+then, if any build FAILs or ERRORs out for any reason, all remaining
+builds will be marked as DEPFAIL regardless of the actual dependencies
+between them. By default, the builder will try to continue as much as
+possible by only marking packages that directly or indirectly depend on
+the failing package as DEPFAIL, then recalculating the build order and
+continuing the job.
+
 branch/ignore
 ^^^^^^^^^^^^^
 

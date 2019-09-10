@@ -186,9 +186,9 @@ def run_task(agent, job, cont, task, log=None):
 
     return rc
 
-def run_graph(agent, job, graph, cont, keep_going=False):
+def run_graph(agent, job, graph, cont, keep_going=True):
     tasks = {task.startdir: task for task in job.tasks}
-    initial = {task.startdir for task in job.tasks}
+    initial = set(tasks.keys())
     done = set()
 
     while True:
@@ -323,10 +323,16 @@ def run_job(agent, job):
         return
     cont = container.Container(cdir, rootd_conn=conn)
 
-    ignored_deps = cdir / "af/aports/.apkfoundry" / event.target / "ignore-deps"
+    conf_d = cdir / "af/aports/.apkfoundry" / event.target
+
+    ignored_deps = conf_d / "ignore-deps"
     if ignored_deps.is_file():
         ignored_deps = ignored_deps.read_text().strip().splitlines()
         ignored_deps = [i.split() for i in ignored_deps]
+
+    keep_going = True
+    if (conf_d / "fail-fast").is_file():
+        keep_going = False
 
     graph = generate_graph(cont, job.tasks, ignored_deps)
     if not graph:
@@ -334,4 +340,4 @@ def run_job(agent, job):
         job.status = EStatus.ERROR
         return
 
-    job.status = run_graph(agent, job, graph, cont)
+    job.status = run_graph(agent, job, graph, cont, keep_going=keep_going)
