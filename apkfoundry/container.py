@@ -175,6 +175,7 @@ class Container:
             ro_aports=True,
             ro_root=True,
             skip_rootd=False,
+            setsid=True,
             **kwargs):
 
         root_bind = "--ro-bind" if ro_root else "--bind"
@@ -275,6 +276,9 @@ class Container:
                 # Used by apk_db_run_script
                 "--cap-add", "CAP_SYS_CHROOT",
             ])
+
+        if setsid:
+            args.append("--new-session")
 
         setarch_f = self.cdir / "af/info/setarch"
         if setarch_f.is_file():

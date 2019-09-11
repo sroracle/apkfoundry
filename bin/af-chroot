@@ -22,6 +22,7 @@ def _container_run(opts, rootd_conn=None):
         repo=opts.repo,
         ro_aports=opts.ro_aports,
         ro_root=opts.ro_root,
+        setsid=opts.setsid,
     )
 
 logging.basicConfig(
@@ -55,6 +56,10 @@ opts.add_argument(
 opts.add_argument(
     "--rw-aports", dest="ro_aports", action="store_false",
     help="Mount APORTSDIR as read/write",
+)
+opts.add_argument(
+    "--new-session", dest="setsid", action="store_true",
+    help="Start a new session for the container",
 )
 opts.add_argument(
     "cdir", metavar="DIR",
