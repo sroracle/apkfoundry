@@ -81,6 +81,7 @@ def generate_graph(cont, tasks, ignored_deps):
             name = line[1]
             startdir = line[2]
             origins[name] = startdir
+            graph.add_node(startdir)
         elif line[0] == "d":
             startdir = line[1]
             name = line[2]
