@@ -68,7 +68,7 @@ if abuild up2date 2>/dev/null; then
 	exit 10
 fi
 
-abuild listpkg > "$AF_TASKDIR/manifest.txt"
+abuild listpkg | sort -u > "$AF_TASKDIR/manifest.txt"
 abuild fetch deps mkusers
 trap cleanup EXIT INT TERM
 
