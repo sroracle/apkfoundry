@@ -5,13 +5,12 @@ import logging    # getLogger
 import os         # utime
 import re         # compile
 import shutil     # rmtree
-import subprocess # PIPE
 import textwrap   # TextWrapper
 from pathlib import Path
 
 from . import git_init, agent_queue, dt_timestamp
 from . import container
-from .digraph import Digraph
+from .digraph import generate_graph
 from .objects import EStatus
 from .socket import client_init
 
@@ -55,67 +54,6 @@ def _stats_builds(tasks):
             break
 
     return rc
-
-def generate_graph(cont, tasks, ignored_deps):
-    graph = Digraph()
-    rc, proc = cont.run(
-        ("/af/libexec/af-deps", *[task.startdir for task in tasks]),
-        stdout=subprocess.PIPE,
-        encoding="utf-8",
-        skip_rootd=True,
-    )
-    if rc != 0:
-        _LOGGER.error("af-deps failed with status %d", rc)
-        return None
-
-    origins = {}
-    deps = {}
-    for line in proc.stdout.split("\n"):
-        line = line.strip().split(maxsplit=2)
-        if not line:
-            continue
-
-        assert len(line) == 3
-
-        if line[0] == "o":
-            name = line[1]
-            startdir = line[2]
-            origins[name] = startdir
-            graph.add_node(startdir)
-        elif line[0] == "d":
-            startdir = line[1]
-            name = line[2]
-            if startdir not in deps:
-                deps[startdir] = []
-            deps[startdir].append(name)
-        else:
-            _LOGGER.error("invalid af-deps output: %r", line)
-            return None
-
-    for rdep, names in deps.items():
-        graph.add_node(rdep)
-
-        for name in names:
-            if name not in origins:
-                _LOGGER.warning("unknown dependency: %s", name)
-                continue
-            dep = origins[name]
-            graph.add_node(dep)
-
-            if dep == rdep:
-                continue
-
-            if [dep, rdep] in ignored_deps or [rdep, dep] in ignored_deps:
-                continue
-
-            graph.add_edge(dep, rdep)
-
-    acyclic = graph.is_acyclic(exc=True)
-    if acyclic is not True:
-        _LOGGER.error("cycle detected: %s", " -> ".join(acyclic.cycle))
-        return None
-
-    return graph
 
 def run_task(agent, job, cont, task, log=None):
     env = {}
@@ -335,8 +273,11 @@ def run_job(agent, job):
     if (conf_d / "fail-fast").is_file():
         keep_going = False
 
-    graph = generate_graph(cont, job.tasks, ignored_deps)
-    if not graph:
+    graph = generate_graph(
+        ignored_deps,
+        cont=cont,
+    )
+    if not graph or not graph.is_acyclic():
         _LOGGER.error("failed to generate dependency graph")
         job.status = EStatus.ERROR
         return

@@ -4,7 +4,11 @@
 # Based on py-dag 3.0.1
 # https://github.com/thieman/py-dag
 # See LICENSE.dag for more information.
-import collections   # deque, OrderedDict
+import collections # deque, OrderedDict
+import logging     # getLogger
+import subprocess  # PIPE, run
+
+_LOGGER = logging.getLogger(__name__)
 
 class DAGValidationError(Exception):
     def __init__(self, cycle):
@@ -170,6 +174,7 @@ class Digraph:
         try:
             self.topological_sort()
         except DAGValidationError as e:
+            _LOGGER.error("cycle detected: %s", " -> ".join(e.cycle))
             if exc:
                 return e
             return False
@@ -206,3 +211,73 @@ class Digraph:
             unvisited = [i for i, visited in nodes.items() if visited == 0]
 
         return tsort
+
+def generate_graph(ignored_deps, skip_check=False, cont=None):
+    graph = Digraph()
+    args = ["af-deps"]
+    if skip_check:
+        args.append("-s")
+
+    if cont:
+        args[0] = "/af/libexec/af-deps"
+        rc, proc = cont.run(
+            args,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+            skip_rootd=True,
+        )
+    else:
+        proc = subprocess.run(
+            args,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+        )
+        rc = proc.returncode
+
+    if rc != 0:
+        _LOGGER.error("af-deps failed with status %d", rc)
+        return None
+
+    origins = {}
+    deps = {}
+    for line in proc.stdout.split("\n"):
+        line = line.strip().split(maxsplit=2)
+        if not line:
+            continue
+
+        assert len(line) == 3
+
+        if line[0] == "o":
+            name = line[1]
+            startdir = line[2]
+            origins[name] = startdir
+            graph.add_node(startdir)
+        elif line[0] == "d":
+            startdir = line[1]
+            name = line[2]
+            if startdir not in deps:
+                deps[startdir] = []
+            deps[startdir].append(name)
+        else:
+            _LOGGER.error("invalid af-deps output: %r", line)
+            return None
+
+    for rdep, names in deps.items():
+        graph.add_node(rdep)
+
+        for name in names:
+            if name not in origins:
+                _LOGGER.warning("unknown dependency: %s", name)
+                continue
+            dep = origins[name]
+            graph.add_node(dep)
+
+            if dep == rdep:
+                continue
+
+            if [dep, rdep] in ignored_deps or [rdep, dep] in ignored_deps:
+                continue
+
+            graph.add_edge(dep, rdep)
+
+    return graph
