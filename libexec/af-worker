@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-startdir="$1"
-repo="${startdir%%/*}"
+export AF_STARTDIR="$1"
+export AF_REPO="${AF_STARTDIR%%/*}"
 
 cleanup() {
 	case "$AF_STATUS" in
@@ -21,7 +21,7 @@ shuffle_repo() {
 
 	arch="$(apk --print-arch)"
 	for apk in $(cat "$AF_TASKDIR/manifest.txt"); do
-		if ! [ -e "$REPODEST/$repo/$arch/$apk" ]; then
+		if ! [ -e "$REPODEST/$AF_REPO/$arch/$apk" ]; then
 			if [ "$error" -eq 0 ]; then
 				printf '>>> ERROR: apk does not exist: %s' "$apk"
 				error=12
@@ -32,12 +32,12 @@ shuffle_repo() {
 			fi
 		fi
 
-		mv "$REPODEST/$repo/$arch/$apk" "$AF_TASKDIR/$apk"
+		mv "$REPODEST/$AF_REPO/$arch/$apk" "$AF_TASKDIR/$apk"
 		touch -r APKBUILD "$AF_TASKDIR/$apk"
 
 		if [ "$error" -eq 0 ]; then
-			ln -sr "$AF_TASKDIR/$apk" "$REPODEST/$repo/$arch/$apk"
-			touch -hr APKBUILD "$REPODEST/$repo/$arch/$apk"
+			ln -sr "$AF_TASKDIR/$apk" "$REPODEST/$AF_REPO/$arch/$apk"
+			touch -hr APKBUILD "$REPODEST/$AF_REPO/$arch/$apk"
 		fi
 	done
 
@@ -48,7 +48,7 @@ shuffle_repo() {
 	return 0
 }
 
-cd "$startdir"
+cd "$AF_STARTDIR"
 
 set +e
 (
