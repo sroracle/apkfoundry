@@ -130,6 +130,31 @@ split into restricted files away from more mundane options.
     ; build.
     note_keyword=!build
 
+    ; GitLab integration.
+    ; If the following two options are specified, the dispatcher will
+    ; attempt to post the status of each job update to its relevant
+    ; commit. This will show as a "pending", "running", "succeeded", or
+    ; "failed" symbol on each newest commit in a push to a branch, or on
+    ; any related merge request.
+    ;
+    ; Authentication is done via GitLab's "Personal Access Token"
+    ; feature. Follow the instructions from GitLab's documentation, and
+    ; paste the resulting token here. NOTE: the user to which the token
+    ; belongs must have sufficient privilege in order to post job statuses
+    ; to commits.
+    ; https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html
+    ;
+    ; If no token is specified, this feature will be disabled.
+    gitlab_token=
+
+    ; GitLab API endpoint for this project.
+    ; Specify as https://gitlab.example.com/api/v4/projects/<your project ID>,
+    ; where the ID can be a number (from the project settings page) or a
+    ; url-encoded project path (e.g. group%2Fproject for group/project)
+    ;
+    ; If no endpoint is specified, this feature will be disabled.
+    gitlab_endpoint=
+
 Site bootstrap skeleton
 ^^^^^^^^^^^^^^^^^^^^^^^
 

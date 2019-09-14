@@ -12,6 +12,7 @@ import attr
 from . import get_config, EStatus, EType
 from . import get_output, git_init, dt_timestamp
 from . import dispatch_queue
+from .post_integrations import JOB_POST_HOOKS
 
 _MQTT_SKIP = {
     "mqtt_skip": True,
@@ -507,6 +508,14 @@ class Job:
             )
 
         db.commit()
+
+        self.event = Event.db_search(db, eventid=self.event).fetchone()
+        if not self.event:
+            _LOGGER.error("[%s] Unknown event ID", self)
+            return
+
+        for hook in JOB_POST_HOOKS:
+            hook(self)
 
     @classmethod
     def db_search(cls, db, where=None, **query):

@@ -49,6 +49,8 @@ _DEFAULT_CONFIG = {
         "note": "false",
         "note_users": "",
         "note_keyword": "!build",
+        "gitlab_token": "",
+        "gitlab_endpoint": "",
     },
     "agent": {
         "name": "agent01",
