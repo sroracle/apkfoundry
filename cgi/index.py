@@ -7,7 +7,7 @@ import os     # environ
 from urllib.parse import parse_qsl
 
 import apkfoundry.cgi as cgi
-from apkfoundry.objects import EType, EStatus
+from apkfoundry import EStatus, EType
 from apkfoundry.database import db_start
 
 try:
