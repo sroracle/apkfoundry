@@ -9,7 +9,13 @@
 {%- set page = "tasks" -%}
 {%- block title -%}
  {%- if job_page -%}
-  {{ link("jobs", "Job #" ~ job.id, job.id) }}
+  {{ link(
+   "jobs",
+   "Job #%d: Event #%d/%s [%s]"|format(
+    job.id, job.event, job.arch, job.status
+   ),
+   job.id,
+  ) }}
  {%- else -%}
   Searching tasks
  {%- endif -%}

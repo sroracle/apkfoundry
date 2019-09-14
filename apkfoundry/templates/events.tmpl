@@ -9,7 +9,7 @@
 {%- set page = "events" -%}
 {%- block title -%}
  {%- if project_page -%}
-  {{ link("project", project, project) }}
+  {{ link("project", "Project: " ~ project, project) }}
  {%- else -%}
   Searching events
  {%- endif -%}

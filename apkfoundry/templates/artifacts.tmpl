@@ -8,7 +8,13 @@
 {% extends "base.tmpl" %}
 {%- set page = "artifacts" -%}
 {%- block title -%}
- {{ link("tasks", "Task #" ~ task.id, task.id) }}
+ {{ link(
+  "tasks",
+  "Task #%d: Job #%d/%s [%s]"|format(
+   task.id, task.job, task.startdir, task.status,
+  ),
+  task.id,
+ ) }}
 {%- endblock -%}
 {%- block prev_next -%}
  {%- if task.id > 1 -%}
