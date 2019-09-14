@@ -4,20 +4,16 @@
 import logging # getLogger
 
 from . import inbound_queue, af_exit
-from .gitlab import HOOKS as _GL_HOOKS
+from .recv_integrations import RECV_HOOKS
 
 _LOGGER = logging.getLogger(__name__)
-
-_HOOKS = {
-    **_GL_HOOKS,
-}
 
 def inbound_thread():
     try:
         for eventpath, payload in inbound_queue:
-            for prefix in _HOOKS:
+            for prefix in RECV_HOOKS:
                 if eventpath.name.startswith(prefix + "-"):
-                    hook = _HOOKS[prefix]
+                    hook = RECV_HOOKS[prefix]
                     break
             else:
                 _LOGGER.debug("[%s] no matching hook", eventpath)

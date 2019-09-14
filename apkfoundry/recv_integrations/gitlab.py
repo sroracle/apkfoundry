@@ -3,8 +3,8 @@
 # See LICENSE for more information.
 import logging # getLogger
 
-from . import db_queue, get_config
-from .objects import EStatus, JSONSchema, Push, MergeRequest
+from .. import get_config, EStatus, db_queue
+from ..objects import JSONSchema, Push, MergeRequest
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class GitlabPush(JSONSchema):
         return Push(
             id=None,
             project=project,
-            clone=self["project"]["git_http_url"],
+            clone=self.get_url(),
             target=self["ref"].replace("refs/heads/", "", 1),
             revision=self["after"],
             user=self["user_username"],
@@ -76,7 +76,7 @@ class _GitlabAbstractMergeRequest(JSONSchema):
         return MergeRequest(
             id=None,
             project=project,
-            clone=self[self._root]["target"]["git_http_url"],
+            clone=self.get_url(),
             target=self[self._root]["target_branch"],
             mrid=str(self[self._root]["iid"]),
             mrclone=self[self._root]["source"]["git_http_url"],
@@ -188,7 +188,7 @@ _EVENTS = {
     },
 }
 
-def _handle_gitlab(payload):
+def gitlab_recv_hook(payload):
     try:
         assert "object_kind" in payload, \
             "Missing object_kind"
@@ -209,10 +209,8 @@ def _handle_gitlab(payload):
         _LOGGER.exception("invalid payload '%s'", payload, exc_info=e)
         return
 
-    config = get_config()
-
     try:
-        config = config[url]
+        config = get_config(url)
     except KeyError:
         _LOGGER.warning("[%s] unknown project", url)
         return
@@ -231,11 +229,3 @@ def _handle_gitlab(payload):
 
     payload = payload.to_event(project)
     db_queue.put(payload)
-
-HEADERS = {
-    "HTTP_X_GITLAB_EVENT": "gitlab",
-}
-
-HOOKS = {
-    "gitlab": _handle_gitlab,
-}

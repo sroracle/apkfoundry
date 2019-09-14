@@ -10,7 +10,7 @@ import tempfile   # NamedTemporaryFile
 import shutil     # copyfileobj
 
 from apkfoundry import get_config, write_fifo
-from apkfoundry.gitlab import HEADERS as GL_HEADERS
+from apkfoundry.recv_integrations import HEADERS
 from apkfoundry.cgi import response
 
 cgitb.enable()
@@ -29,13 +29,9 @@ if os.environ["REMOTE_ADDR"] not in remotes:
     print(f"IP {os.environ['REMOTE_ADDR']} is not authorized to submit events")
     sys.exit(1)
 
-headers = {
-    **GL_HEADERS,
-}
-
-for header in headers:
+for header in HEADERS:
     if header in os.environ:
-        prefix = headers[header]
+        prefix = HEADERS[header]
         break
 else:
     response(400, "text/plain")
