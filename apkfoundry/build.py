@@ -8,10 +8,9 @@ import shutil     # rmtree
 import textwrap   # TextWrapper
 from pathlib import Path
 
-from . import git_init, agent_queue, dt_timestamp
+from . import git_init, agent_queue, dt_timestamp, EStatus
 from . import container
 from .digraph import generate_graph
-from .objects import EStatus
 from .socket import client_init
 
 _LOGGER = logging.getLogger(__name__)

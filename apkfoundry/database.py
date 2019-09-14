@@ -5,8 +5,9 @@ import logging
 import queue
 import sqlite3
 
-from . import get_config, dispatch_queue, db_queue, af_exit, SITE_PACKAGE
-from .objects import EStatus, Event, Job, Task
+from . import get_config, SITE_PACKAGE, EStatus
+from . import dispatch_queue, db_queue, af_exit
+from .objects import Event, Job, Task
 
 SCHEMA = SITE_PACKAGE / "share" / "schema.sql"
 

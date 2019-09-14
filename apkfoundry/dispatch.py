@@ -6,8 +6,9 @@ import logging                  # getLogger
 
 import paho.mqtt.client as mqtt
 
-from . import get_config, db_queue, dispatch_queue, af_exit
-from .objects import EStatus, Job, Builder, Task
+from . import get_config, EStatus
+from . import db_queue, dispatch_queue, af_exit
+from .objects import Builder, Job, Task
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -11,9 +11,9 @@ import attr
 import paho.mqtt.client as mqtt
 from paho.mqtt.matcher import MQTTMatcher
 
-from . import get_config, agent_queue, run
+from . import get_config, agent_queue, run, EStatus
 from .build import run_job
-from .objects import EStatus, Job, Builder, Arch
+from .objects import Job, Builder, Arch
 
 _LOGGER = logging.getLogger(__name__)
 _RSYNC_LOCK = threading.Lock()

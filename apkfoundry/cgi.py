@@ -9,8 +9,8 @@ from pathlib import Path
 
 import jinja2 # Environment, FileSystemBytecodeCache, PackageLoader
 
-from . import get_config, write_fifo
-from .objects import EType, EStatus, Event, Job, Task, Builder, Arch
+from . import get_config, write_fifo, EStatus, EType
+from .objects import Event, Job, Task, Builder, Arch
 
 _ARTDIR = get_config("dispatch").getpath("artifacts")
 _CFG = get_config("web")

@@ -2,6 +2,7 @@
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
 import configparser # ConfigParser
+import enum         # IntEnum, IntFlag
 import errno        # ENXIO
 import functools    # partial
 import logging      # getLogger
@@ -90,6 +91,42 @@ _DEFAULT_CONFIG = {
         "debug": "false",
     },
 }
+
+@enum.unique
+class EType(enum.IntEnum):
+    PUSH = 1
+    MR = 2
+    MANUAL = 4
+
+    def __str__(self):
+        return self.name
+
+    def __conform__(self, protocol):
+        if protocol is sqlite3.PrepareProtocol:
+            return int(self)
+
+@enum.unique
+class EStatus(enum.IntFlag):
+    NEW = 1
+    REJECT = 2
+    START = 4
+    DONE = 8
+    ERROR = DONE | 16      # 24
+    CANCEL = ERROR | 32    # 56
+    SUCCESS = DONE | 64    # 72
+    FAIL = ERROR | 128     # 152
+    DEPFAIL = CANCEL | 256 # 312
+    IGNORE = DONE | 512    # 520
+
+    def __str__(self):
+        return self.name
+
+    def __conform__(self, protocol):
+        if protocol is sqlite3.PrepareProtocol:
+            return int(self)
+
+    def __str__(self):
+        return self.name
 
 def get_config(section=None):
     files = sorted(SITE_CONF.glob("*.ini"))

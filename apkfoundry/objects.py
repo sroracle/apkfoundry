@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-import enum       # IntEnum, IntFlag
 import json       # dumps, loads
 import logging    # getLogger
 import sqlite3    # Error, PrepareProtocol
@@ -10,7 +9,9 @@ import datetime as dt # datetime
 
 import attr
 
-from . import dispatch_queue, get_output, get_config, git_init, dt_timestamp
+from . import get_config, EStatus, EType
+from . import get_output, git_init, dt_timestamp
+from . import dispatch_queue
 
 _MQTT_SKIP = {
     "mqtt_skip": True,
@@ -40,42 +41,6 @@ def _json_conform(o):
         return dt_timestamp(o)
 
     raise TypeError(f"Cannot conform: {type(o)}")
-
-@enum.unique
-class EType(enum.IntEnum):
-    PUSH = 1
-    MR = 2
-    MANUAL = 4
-
-    def __str__(self):
-        return self.name
-
-    def __conform__(self, protocol):
-        if protocol is sqlite3.PrepareProtocol:
-            return int(self)
-
-@enum.unique
-class EStatus(enum.IntFlag):
-    NEW = 1
-    REJECT = 2
-    START = 4
-    DONE = 8
-    ERROR = DONE | 16      # 24
-    CANCEL = ERROR | 32    # 56
-    SUCCESS = DONE | 64    # 72
-    FAIL = ERROR | 128     # 152
-    DEPFAIL = CANCEL | 256 # 312
-    IGNORE = DONE | 512    # 520
-
-    def __str__(self):
-        return self.name
-
-    def __conform__(self, protocol):
-        if protocol is sqlite3.PrepareProtocol:
-            return int(self)
-
-    def __str__(self):
-        return self.name
 
 def _validate_schema(schema, dct):
     for (key, value) in schema.items():
