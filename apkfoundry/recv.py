@@ -6,7 +6,8 @@ import json    # load, JSONDecodeError
 import logging # getLogger
 import os      # open, O_NONBLOCK, O_RDONLY, read
 
-from . import get_config, inbound_queue, af_exit, read_fifo
+from . import get_config, af_exit, read_fifo
+from .recv_integrations import RECV_HOOKS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,23 +16,33 @@ _EVENTDIR = _CFG.getpath("events")
 _NOTIFYPATH = _EVENTDIR / "notify.fifo"
 _KEEP_EVENTS = _CFG.getboolean("keep_events")
 
-def _load_eventpath(eventpath):
+def process_eventfile(eventfile):
     try:
-        with open(eventpath, "r") as eventfile:
-            payload = json.load(eventfile)
-            inbound_queue.put((eventpath, payload))
+        with open(eventfile, "r") as f:
+            payload = json.load(f)
 
-    except (FileNotFoundError, PermissionError, json.JSONDecodeError) as e:
-        _LOGGER.exception("[%s] exception:", eventpath, exc_info=e)
+        for prefix in RECV_HOOKS:
+            if eventfile.name.startswith(prefix + "-"):
+                hook = RECV_HOOKS[prefix]
+                break
+        else:
+            _LOGGER.debug("[%s] no matching hook", eventfile)
+            return
+
+        _LOGGER.info("[%s] received event from %s", eventfile, prefix)
+        hook(payload)
+
+    except Exception as e:
+        _LOGGER.exception("[%s] exception:", eventfile, exc_info=e)
 
     finally:
         if _KEEP_EVENTS:
             return
 
         try:
-            eventpath.unlink()
-        except Exception:
-            _LOGGER.warning("failed to delete %s", eventpath)
+            eventfile.unlink()
+        except Exception as e:
+            _LOGGER.warning("[%s] failed to delete: %s", eventfile, e)
 
 def startup_flush():
     try:
@@ -51,8 +62,8 @@ def startup_flush():
         if e.errno != errno.EAGAIN:
             raise
 
-    for eventpath in _EVENTDIR.glob("*.json"):
-        _load_eventpath(eventpath)
+    for eventfile in _EVENTDIR.glob("*.json"):
+        process_eventfile(eventfile)
 
 def recv():
     try:
@@ -66,8 +77,8 @@ def recv():
 
             _LOGGER.info("maybe %d new payloads", len(txt))
 
-            for eventpath in _EVENTDIR.glob("*.json"):
-                _load_eventpath(eventpath)
+            for eventfile in _EVENTDIR.glob("*.json"):
+                process_eventfile(eventfile)
 
     except (Exception, KeyboardInterrupt) as e:
         _LOGGER.exception("exception:", exc_info=e)

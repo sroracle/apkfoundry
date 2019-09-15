@@ -8,7 +8,6 @@ import threading # Thread, current_thread
 from apkfoundry.recv import recv, startup_flush
 from apkfoundry.database import db_thread
 from apkfoundry.dispatch import dispatch_thread
-from apkfoundry.inbound import inbound_thread
 
 threading.current_thread().name = "recv"
 
@@ -19,7 +18,6 @@ logging.basicConfig(
 
 threading.Thread(name="db", target=db_thread).start()
 threading.Thread(name="mqtt", target=dispatch_thread).start()
-threading.Thread(name="inbound", target=inbound_thread).start()
 
 startup_flush()
 

@@ -194,7 +194,6 @@ class IIQueue(queue.Queue):
 
 _exit_event = threading.Event()
 
-inbound_queue = IIQueue(sentinel=_exit_event)
 db_queue = IIQueue(sentinel=_exit_event)
 dispatch_queue = IIQueue(sentinel=_exit_event)
 
@@ -205,7 +204,6 @@ def af_exit(recv=False):
         if not recv:
             write_fifo("0")
 
-        inbound_queue.put(_exit_event)
         db_queue.put(_exit_event)
         dispatch_queue.put(_exit_event)
         _exit_event.set()
