@@ -47,7 +47,7 @@ def getnow():
 def timeelement(dt, now):
     delta = (now - dt)
     days = delta.days
-    delta = int(delta.total_seconds())
+    delta = delta.seconds
     hours, i = divmod(delta, 3600)
     minutes = i // 60
 
