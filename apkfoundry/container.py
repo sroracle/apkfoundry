@@ -273,6 +273,11 @@ class Container:
         if self._setuid == 0:
             args.extend([
                 "--cap-add", "CAP_CHOWN",
+                "--cap-add", "CAP_DAC_OVERRIDE",
+                # Required to restore security file caps during package installation
+                # On Linux 4.14+ these caps are tied to the user namespace in which
+                # they are created
+                "--cap-add", "CAP_SETFCAP",
                 # Used by apk_db_run_script
                 "--cap-add", "CAP_SYS_CHROOT",
             ])
