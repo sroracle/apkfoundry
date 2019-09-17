@@ -202,7 +202,6 @@ class Container:
             if name in os.environ and name not in kwargs["env"]
         })
         kwargs["env"].update({
-            "LC_ALL": "C",
             "LOGNAME": getpass.getuser(),
             "USER": getpass.getuser(),
             "UID": str(self._setuid),
