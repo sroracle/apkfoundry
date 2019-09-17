@@ -11,7 +11,7 @@ import attr
 
 from . import get_config, EStatus, EType
 from . import get_output, git_init, dt_timestamp
-from . import dispatch_queue
+from . import dispatch_queue, db_queue
 from .post_integrations import JOB_POST_HOOKS
 
 _MQTT_SKIP = {
@@ -669,15 +669,16 @@ class Event:
 
         arches = {}
         for line in lines:
-            line = line.strip().split(maxsplit=1)
-            if not line or len(line) != 2:
+            line = line.strip().split(maxsplit=2)
+            if not line or len(line) < 2:
                 continue
 
-            arch, startdir = line
+            arch, startdir = line[0:2]
+            tail = line[2] if len(line) == 3 else None
             if arch not in arches:
                 arches[arch] = []
 
-            arches[arch].append(startdir)
+            arches[arch].append((startdir, tail))
 
         return arches
 
@@ -715,14 +716,20 @@ class Event:
             assert job.id is not None, "_generate_tasks before Job.id"
             assert job.tasks is not None, "_generate_tasks before Job.tasks"
 
-            for startdir in job.tasks:
+            for startdir, tail in job.tasks:
+                if tail is None:
+                    status = EStatus.NEW
+                else:
+                    status = EStatus.SKIP
+
                 repo, pkg = startdir.split("/", maxsplit=1)
                 maintainer = maintainers.get(startdir, None)
-                rows.append((job.id, repo, pkg, maintainer))
+                rows.append((job.id, repo, pkg, maintainer, status, tail))
 
         _LOGGER.info("[%s] Adding tasks to database", str(self))
         db.executemany(
-            "INSERT INTO tasks (jobid, repo, pkg, maintainer) VALUES (?, ?, ?, ?);",
+            """INSERT INTO tasks (jobid, repo, pkg, maintainer, status, tail)
+            VALUES (?, ?, ?, ?, ?, ?);""",
             rows,
         )
         db.commit()
@@ -749,7 +756,11 @@ class Event:
             return
 
         for job in jobs.values():
-            dispatch_queue.put(job)
+            if all(i.status == EStatus.SKIP for i in job.tasks):
+                job.status = EStatus.SUCCESS
+                db_queue.put(job)
+            else:
+                dispatch_queue.put(job)
 
 @attr.s(kw_only=True, slots=True)
 class Push(Event):

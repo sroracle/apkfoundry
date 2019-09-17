@@ -53,9 +53,29 @@ printf 'af-changes: %s: %s..%s\n' \
 	"$projectdir" "$before" "$after" >&2
 
 changes="$(git diff-tree -r --name-only --diff-filter dxu "$before..$after")"
-printf '%s' "$changes" \
-	| grep 'APKBUILD$' | sed 's#/APKBUILD$##' \
-	| while read -r pkg; do
-		printf 'af-changes: %s: %s\n' "$projectdir" "$pkg" >&2
-		printf '%s\n' "$pkg"
-	done
+changes="$(printf '%s' "$changes" | grep 'APKBUILD$' | sed 's#/APKBUILD$##')"
+for startdir in $changes; do
+	rm -f "$startdir/.af-arch"
+
+	untagged_commits="$(git rev-list -i \
+		--grep '\[ci skip\]' --grep '^af-arch:' \
+		--invert-grep "$before..$after" -- "$startdir/APKBUILD")"
+
+	if [ -z "$untagged_commits" ] && [ -e ".apkfoundry/$branch/arch-pkg" ]; then
+		git log --format=%B -i \
+			--grep '\[ci skip\]' --grep '^af-arch:' \
+			"$before..$after" -- "$startdir/APKBUILD" \
+			| awk 'tolower($0) ~ /\[ci skip\]/ { printf "\n" }
+					tolower($1) == "af-arch:" {
+					$1 = ""; sub(/^ /, ""); print tolower($0) }' \
+			| sort -u > "$startdir/.af-arch"
+
+		case "$(wc -l < "$startdir/.af-arch")" in
+		1) ;;
+		*) rm -f "$startdir/.af-arch";;
+		esac
+	fi
+
+	printf 'af-changes: %s: %s\n' "$projectdir" "$startdir" >&2
+	printf '%s\n' "$startdir"
+done

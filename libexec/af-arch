@@ -8,6 +8,36 @@ branch="$1"
 shift
 [ -n "$branch" ] || exit 1
 
+af_getconf() {
+	local file="$1"
+	local key="$2"
+
+	awk -v key="$key" '
+		BEGIN { rc = 1 }
+		$1 == key { $1 = ""; sub(/^ /, ""); print $0; rc = 0 }
+		END { exit rc }' "$file"
+}
+
+af_checkarch() {
+	local rc=1
+	local i="$1"
+	shift
+
+	for j; do
+		case "$j" in
+		all | noarch)
+			rc=0;;
+		"$i")
+			rc=0;;
+		"!$i")
+			rc=1
+			break;;
+		esac
+	done
+
+	return $rc
+}
+
 for startdir; do
 	any=0
 	repo="${startdir%/*}"
@@ -27,29 +57,40 @@ for startdir; do
 	arch="$(grep '^arch=' "$APKBUILD" \
 		| sed "s/^arch=//; s/'//g; s/\"//g; s/#.*\$//")"
 
-	want_arches="$(grep "^$repo " "$archfile" | cut -d ' ' -f 2-)"
+	unset -v override_commit
+	if [ -e "$startdir/.af-arch" ]; then
+		override_commit="$(cat "$startdir/.af-arch")"
+	fi
+
+	unset -v override_pkg
+	if [ -e ".apkfoundry/$branch/arch-pkg" ]; then
+		override_pkg="$(af_getconf ".apkfoundry/$branch/arch-pkg" "$startdir")" \
+			|| unset -v override_pkg
+	fi
+
+	want_arches="$(af_getconf "$archfile" "$repo")" || true
 	if [ -z "$want_arches" ]; then
 		printf 'af-arch: warning: %s: repository not enabled\n' "$repo" >&2
 		continue
 	fi
 
 	for i in $want_arches; do
-		needs_build=0
-		for j in $arch; do
-			case "$j" in
-			all | noarch)
-				needs_build=1;;
-			"$i")
-				needs_build=1;;
-			"!$i")
-				needs_build=0
-				break;;
-			esac
-		done
+		need_build=0
+		if af_checkarch "$i" $arch; then
+			need_build=1
+		fi
 
-		if [ "$needs_build" -eq 1 ]; then
+		msg=""
+		if [ -n "${override_pkg+x}" ] && ! af_checkarch "$i" $override_pkg; then
+			msg="skipped by arch-pkg"
+		elif [ -n "${override_commit+x}" ] && ! af_checkarch "$i" $override_commit; then
+			msg="skipped by commit messages"
+		fi
+
+		if [ "$need_build" -eq 1 ]; then
 			any=1
-			printf '%s %s\n' "$i" "$startdir"
+			[ -z "$msg" ] || printf '%s %s %s\n' "$i" "$startdir" "$msg" >&2
+			printf '%s %s %s\n' "$i" "$startdir" "$msg"
 		fi
 	done
 	if [ "$any" -eq 0 ]; then

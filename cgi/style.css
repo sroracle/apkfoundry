@@ -51,7 +51,7 @@ td { text-align: center; }
 .status-ONLINE, .status-IDLE, .status-SUCCESS { background-color: lightgreen; }
 .status-FAIL { background-color: red; }
 .status-ERROR { background-color: magenta; }
-.status-OFFLINE, .status-IGNORE { background-color: lightgray; }
+.status-OFFLINE, .status-SKIP { background-color: lightgray; }
 
 /* (prefers-color-scheme: light) { */
 	.status-FAIL, .status-FAIL a { color: white !important; }

@@ -15,7 +15,6 @@ from .socket import client_init
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_STATUSES = (
-    EStatus.IGNORE,
     EStatus.SUCCESS,
     EStatus.DEPFAIL,
     EStatus.FAIL,
@@ -125,7 +124,10 @@ def run_task(agent, job, cont, task, log=None):
     return rc
 
 def run_graph(agent, job, graph, cont, keep_going=True):
-    tasks = {task.startdir: task for task in job.tasks}
+    tasks = {
+        task.startdir: task for task in job.tasks \
+        if task.status == EStatus.NEW
+    }
     initial = set(tasks.keys())
     done = set()
 

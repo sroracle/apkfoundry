@@ -118,7 +118,7 @@ class EStatus(enum.IntFlag):
     SUCCESS = DONE | 64    # 72
     FAIL = ERROR | 128     # 152
     DEPFAIL = CANCEL | 256 # 312
-    IGNORE = DONE | 512    # 520
+    SKIP = DONE | 512      # 520
 
     def __str__(self):
         return self.name

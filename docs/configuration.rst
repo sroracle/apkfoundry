@@ -222,7 +222,8 @@ This **required** file is used by ``af-arch``, the purpose being to
 define which architectures the special ``arch`` values ``"all"`` and
 ``"noarch"`` should correspond to.  It should be a plain text file
 separated by line feeds (``\n``). Each line should contain a single
-architecture. For example, if ``master/arch`` contains the following::
+repository name, followed by the architectures that the repository
+supports. For example, if ``master/arch`` contains the following::
 
     system ppc ppc64 pmmx x86_64
     user ppc64 x86_64
@@ -246,6 +247,41 @@ for that architecture, even if changed APKBUILDs have ``arch="all"``,
 
 If a repository is not listed in this file, then no builds will occur
 for that repository.
+
+branch/arch-pkg
+^^^^^^^^^^^^^^^
+
+This **optional** file is used by ``af-arch``, the purpose being to
+further restrict the ``$arch`` property of each APKBUILD in the context
+of automatic builds. It should consist of a plain text file separated by
+line feeds (``\n``). Each line should contain a single startdir,
+followed by the architecture restrictions for that startdir. For
+example, if ``master/arch-pkg`` contains the following::
+
+    system/gcc all !aarch64 !armv7
+    user/libreoffice
+
+Then, for events that modify any of the above startdirs' APKBUILDs in
+the ``master`` branch:
+
+* For ``system/gcc``, builds will be triggered for ``all``
+  (corresponding to ``system`` in ``master/arch``) except for
+  ``aarch64`` and ``armv7``.
+* For ``user/libreoffice``, no builds will be triggered (empty list).
+* For any packages not specified in this file, builds will be triggered
+  according to the intersection of their ``$arch`` and the architectures
+  enabled for their repository (as specified by the ``branch/arch``
+  file).
+
+This file is only to restrict the architectures on which an automatic
+build can be run, not to expand it. Therefore if an architecture listed
+in this file is not in the APKBUILD's ``$arch`` property, or if the
+architecture is not enabled for that repository (``branch/arch`` file),
+a build will still not be triggered for that architecture, even if it is
+explicitly listed in this file.
+
+`A similar functionality can be accessed from commit messages.
+<commits.rst>`_
 
 branch/fail-fast
 ^^^^^^^^^^^^^^^^
