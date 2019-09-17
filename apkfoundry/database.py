@@ -37,8 +37,9 @@ def db_flush(db):
 
     for job in new_jobs:
         job.event = Event.db_search(db, eventid=job.event).fetchone()
-        job.tasks = Task.db_search(db, jobid=job.id).fetchall()
-        dispatch_queue.put(job)
+        job.tasks = Task.db_search(db, jobid=job.id, status=EStatus.NEW).fetchall()
+        if job.tasks:
+            dispatch_queue.put(job)
 
 def db_thread():
     db = db_start()
