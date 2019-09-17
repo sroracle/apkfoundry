@@ -230,7 +230,7 @@ def git_init(dir, clone, *,
 
     run("git", "fetch", "--all", cwd=dir)
     if mrid:
-        run("git", "fetch", mrclone, f"{mrbranch}:mr-{mrid}", cwd=dir)
+        run("git", "fetch", "-f", mrclone, f"{mrbranch}:mr-{mrid}", cwd=dir)
 
     run("git", "checkout", "--quiet", "--force", rev, cwd=dir)
     run("git", "checkout", "--quiet", "--force", "origin/apkfoundry", cwd=dir / ".apkfoundry")
