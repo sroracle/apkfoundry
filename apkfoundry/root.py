@@ -437,7 +437,7 @@ class RootConn(socketserver.StreamRequestHandler):
         if opts.bootstrap:
             rc = cont_bootstrap(
                 self.cdir,
-                stdin=self.stdin, stdout=self.stdout, stderr=self.stderr,
+                stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
             )
 
         send_retcode(self.request, rc)
