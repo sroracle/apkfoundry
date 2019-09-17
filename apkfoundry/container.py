@@ -169,6 +169,7 @@ class Container:
             cmd,
             *,
             delete=Delete.NEVER,
+            bootstrap=False,
             jobdir=None,
             net=False,
             repo=None,
@@ -286,7 +287,7 @@ class Container:
             args.append("--new-session")
 
         setarch_f = self.cdir / "af/info/setarch"
-        if setarch_f.is_file():
+        if setarch_f.is_file() and not bootstrap:
             args.extend(["setarch", setarch_f.read_text().strip()])
 
         args.extend(cmd)
@@ -399,14 +400,14 @@ def cont_bootstrap(cdir, **kwargs):
     if world_f.exists():
         shutil.move(world_f, world_f.with_suffix(".af-bak"))
     args = ["/apk.static", "add", "--initdb"]
-    rc, _ = cont.run(args, ro_root=False, net=True, **kwargs)
+    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
     if rc != 0:
         return rc
     if world_f.with_suffix(".af-bak").exists():
         shutil.move(world_f.with_suffix(".af-bak"), world_f)
 
     args = ["/apk.static", "--update-cache", "add", "--upgrade", "--latest"]
-    rc, _ = cont.run(args, ro_root=False, net=True, **kwargs)
+    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
 
     for filename in bootstrap_files:
         if filename.with_suffix(".apk-new").exists():
