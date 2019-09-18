@@ -53,6 +53,10 @@ opts.add_argument(
     help="Just check for cycles and exit",
 )
 opts.add_argument(
+    "-g", "--graphviz", action="store_true",
+    help="Print DOT output for Graphviz",
+)
+opts.add_argument(
     "-i", "--ignore-deps", metavar="FILE",
     type=argparse.FileType("r", encoding="utf-8"),
     help="Read ignored dependencies from FILE",
@@ -128,6 +132,6 @@ elif opts.build_order:
     tsort(opts, graph)
 
 else:
-    print_graph(opts.startdirs, graph)
+    print_graph(opts.startdirs, graph, opts.graphviz)
     if not graph.is_acyclic():
         sys.exit(2)
