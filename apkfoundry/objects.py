@@ -656,7 +656,7 @@ class Event:
         )
         maintainers = maintainers.strip().splitlines()
         maintainers = [line.strip().split(maxsplit=1) for line in maintainers]
-        maintainers = {line[0]: line[1] for line in maintainers if line}
+        maintainers = {line[0]: line[1] for line in maintainers if len(line) > 1}
 
         return maintainers
 

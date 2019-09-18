@@ -75,7 +75,6 @@ opts.add_argument(
 )
 opts = opts.parse_args()
 opts.cdir = Path(opts.cdir).resolve(strict=False)
-opts.repo = opts.repo
 
 if opts.rootd:
     rc, conn = client_init(opts.cdir)

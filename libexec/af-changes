@@ -5,7 +5,7 @@
 
 # af-changes -p BRANCH BEFORE AFTER
 # af-changes -m TARGET COMMITISH
-while getopts p:mq opt; do
+while getopts p:m opt; do
 case "$opt" in
 p) branch="$OPTARG";;
 m) mr=1;;
