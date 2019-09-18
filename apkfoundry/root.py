@@ -431,7 +431,6 @@ class RootConn(socketserver.StreamRequestHandler):
             return
 
         self.cdir = opts.cdir
-        cont_refresh(self.cdir)
         rc = 0
 
         if opts.bootstrap:
