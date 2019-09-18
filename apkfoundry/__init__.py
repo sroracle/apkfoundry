@@ -39,7 +39,7 @@ _ConfigParser = functools.partial(
     },
 )
 
-_DEFAULT_CONFIG = {
+_DEFAULT_SITE_CONFIG = {
     "DEFAULT": {
         "push": "false",
         "push_branches": "",
@@ -94,6 +94,12 @@ _DEFAULT_CONFIG = {
     },
 }
 
+_DEFAULT_LOCAL_CONFIG = {
+    "DEFAULT": {
+        "on_failure": "stop",
+    },
+}
+
 @enum.unique
 class EType(enum.IntEnum):
     PUSH = 1
@@ -127,15 +133,25 @@ class EStatus(enum.IntFlag):
         if protocol is sqlite3.PrepareProtocol:
             return int(self)
 
-    def __str__(self):
-        return self.name
-
 def get_config(section=None):
     files = sorted(SITE_CONF.glob("*.ini"))
 
     config = _ConfigParser()
     config.BOOLEAN_STATES = {"true": True, "false": False}
-    config.read_dict(_DEFAULT_CONFIG)
+    config.read_dict(_DEFAULT_SITE_CONFIG)
+    config.read(files)
+
+    if section:
+        return config[section]
+
+    return config
+
+def get_local_config(dir, section=None):
+    files = sorted(Path(dir).glob("*.ini"))
+
+    config = _ConfigParser()
+    config.BOOLEAN_STATES = {"true": True, "false": False}
+    config.read_dict(_DEFAULT_LOCAL_CONFIG)
     config.read(files)
 
     if section:

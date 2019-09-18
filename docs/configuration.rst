@@ -233,7 +233,41 @@ which will be checked out as a worktree in the ``.apkfoundry`` directory
 in the repository root. This branch contains additional project-specific
 configuration files. The branch should be set up such that there is a
 subdirectory in the tree for each working branch name, each containing
-the following files:
+the following files. In the ``.apkfoundry`` directory itself there can
+be any number of ``.ini`` files in the same format as discussed
+previously; they will be read in collation order. The contents of the
+INI files can look something like the following.
+
+::
+
+    ; Global project settings are entered without a section.
+
+    ; Action to take when the builder agent encounters a build ERROR or
+    ; FAIL. Possible actions:
+    ;
+    ; * stop (default): immediately end the job.
+    ; * recalculate: recalculate the build order by removing any tasks
+    ;   that direclty or indirectly depend on this task, then continuing.
+    ; * ignore: just continue with the job.
+    ;
+    on_failure = stop
+
+    ; Settings can also be scoped by event type (overrides global
+    ; project settings).
+    ; [MR]
+    ; on_failure = ignore
+    ;
+    ; [PUSH]
+    ; on_failure = recalculate
+    ;
+    ; Or by a combination of event type and target branch (overrides
+    ; both).
+    ;
+    ; [MR:master]
+    ; on_failure = recalculate
+    ;
+    ; [PUSH:master]
+    ; on_failure = stop
 
 branch/arch
 ^^^^^^^^^^^
@@ -302,17 +336,6 @@ explicitly listed in this file.
 
 `A similar functionality can be accessed from commit messages.
 <commits.rst>`_
-
-branch/fail-fast
-^^^^^^^^^^^^^^^^
-
-This **optional** file is used by the builder agents. If it exists,
-then, if any build FAILs or ERRORs out for any reason, all remaining
-builds will be marked as DEPFAIL regardless of the actual dependencies
-between them. By default, the builder will try to continue as much as
-possible by only marking packages that directly or indirectly depend on
-the failing package as DEPFAIL, then recalculating the build order and
-continuing the job.
 
 branch/ignore
 ^^^^^^^^^^^^^

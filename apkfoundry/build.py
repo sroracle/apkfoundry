@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
+import enum       # Enum
 import logging    # getLogger
 import os         # utime
 import re         # compile
@@ -8,6 +9,7 @@ import shutil     # rmtree
 import textwrap   # TextWrapper
 from pathlib import Path
 
+from . import get_local_config
 from . import git_init, agent_queue, dt_timestamp, EStatus
 from . import container
 from .digraph import generate_graph
@@ -24,6 +26,11 @@ _REPORT_STATUSES = (
 _NET_OPTION = re.compile(r"""^options=(["']?)[^"']*\bnet\b[^"']*\1""")
 
 _wrap = textwrap.TextWrapper()
+
+class FailureAction(enum.Enum):
+    STOP = 0
+    RECALCULATE = 1
+    IGNORE = 2
 
 def _stats_list(status, l):
     if not l:
@@ -53,7 +60,7 @@ def _stats_builds(tasks):
 
     return rc
 
-def run_task(agent, job, cont, task, log=None):
+def run_task(agent, job, config, cont, task, log=None):
     env = {}
     buildbase = Path(container.BUILDDIR) / task.startdir
     env["AF_TASKDIR"] = f"/af/jobs/{job.id}/{task.startdir}"
@@ -102,7 +109,6 @@ def run_task(agent, job, cont, task, log=None):
             net=net,
         )
 
-
     finally:
         try:
             log.close()
@@ -123,13 +129,22 @@ def run_task(agent, job, cont, task, log=None):
 
     return rc
 
-def run_graph(agent, job, graph, cont, keep_going=True):
+def run_graph(agent, job, config, graph, cont):
     tasks = {
         task.startdir: task for task in job.tasks \
         if task.status == EStatus.NEW
     }
     initial = set(tasks.keys())
     done = set()
+
+    try:
+        on_failure = FailureAction[config["on_failure"].upper()]
+    except KeyError:
+        _LOGGER.error("Unknown on_failure: %s", config["on_failure"])
+        _LOGGER.error("Defaulting to STOP")
+        on_failure = FailureAction.STOP
+    else:
+        _LOGGER.info("Will %s on failure", on_failure.name)
 
     while True:
         order = []
@@ -164,7 +179,7 @@ def run_graph(agent, job, graph, cont, keep_going=True):
             repo_f = cont.cdir / "af/info/repo"
             repo_f.write_text(task.repo)
 
-            rc = run_task(agent, job, cont, task)
+            rc = run_task(agent, job, config, cont, task)
 
             if rc in (0, 10):
                 _LOGGER.info("(%d/%d) Success: %s", cur, tot, startdir)
@@ -182,7 +197,7 @@ def run_graph(agent, job, graph, cont, keep_going=True):
                 agent_queue.put(task)
                 done.add(startdir)
 
-                if keep_going:
+                if on_failure == FailureAction.RECALCULATE:
                     _LOGGER.info("Recalculating build order")
 
                     depfails = set(graph.all_downstreams(startdir))
@@ -198,15 +213,18 @@ def run_graph(agent, job, graph, cont, keep_going=True):
                         agent_queue.put(tasks[rdep])
                     done.update(depfails)
 
-                else:
-                    _LOGGER.error("Failing fast due to previous error")
+                elif on_failure == FailureAction.STOP:
+                    _LOGGER.error("Stopping due to previous error")
                     cancels = initial - done
                     for rdep in cancels:
                         tasks[rdep].status = EStatus.DEPFAIL
-                        tasks[rdep].tail = f"Fail-fast on {startdir}"
+                        tasks[rdep].tail = f"Cancelled due to {startdir}"
                         agent_queue.put(tasks[rdep])
                     done.update(cancels)
                     graph.reset_graph()
+
+                elif on_failure == FailureAction.IGNORE:
+                    _LOGGER.info("Ignoring error and continuing")
 
                 break
 
@@ -264,15 +282,21 @@ def run_job(agent, job):
     cont = container.Container(cdir, rootd_conn=conn)
 
     conf_d = cdir / "af/aports/.apkfoundry" / event.target
+    config = get_local_config(conf_d.parent)
+    for i in (
+            f"{event.type.name}:{event.target}",
+            str(event.type),
+            "DEFAULT",
+    ):
+        if i in config:
+            config = config[i]
+            break
+
 
     ignored_deps = conf_d / "ignore-deps"
     if ignored_deps.is_file():
         ignored_deps = ignored_deps.read_text().strip().splitlines()
         ignored_deps = [i.split() for i in ignored_deps]
-
-    keep_going = True
-    if (conf_d / "fail-fast").is_file():
-        keep_going = False
 
     graph = generate_graph(
         ignored_deps,
@@ -283,4 +307,4 @@ def run_job(agent, job):
         job.status = EStatus.ERROR
         return
 
-    job.status = run_graph(agent, job, graph, cont, keep_going=keep_going)
+    job.status = run_graph(agent, job, config, graph, cont)
