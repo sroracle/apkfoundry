@@ -3,9 +3,10 @@
 # See LICENSE for more information.
 import enum       # Enum
 import getpass    # getuser
+import grp        # getgrnam
 import json       # load
 import logging    # getLogger
-import os         # close, environ, getuid, getgid, pipe, stat, walk, write
+import os         # close, environ, getuid, getgid, pipe, walk, write
 import pwd        # getpwuid
 import select     # select
 import shlex      # quote
@@ -42,52 +43,53 @@ class Delete(enum.Enum):
     ON_SUCCESS = 1
     ALWAYS = 2
 
-def _idmap(userid):
-    assert _ROOTID != userid, "root ID cannot match user ID"
+def _idmap(cmd, pid, id, af_group=False):
+    assert _ROOTID != id, "root ID cannot match user ID"
+
+    if cmd == "newuidmap":
+        rootid = _ROOTID
+    else:
+        rootid = pwd.getpwuid(_ROOTID).pw_gid
+
+    if cmd == "newgidmap" and pwd.getpwuid(id).pw_name == "af-agent":
+        af_gid = grp.getgrnam("apkfoundry").gr_gid
+        assert abs(af_gid - id + 1) == 2
+        gap = 2
+    else:
+        gap = 1
 
     args = [
         "0",
-        str(_ROOTID),
-        "1",
-        str(userid),
-        str(userid),
+        str(rootid),
         "1",
 
         "1",
         str(_SUBID + 1),
-        str(userid - 2 + 1),
+        str(id - 1),
 
-        str(userid + 1),
-        str(_SUBID + userid + 1),
-        str(65534 - (userid + 1)),
+        str(id),
+        str(id),
+        str(gap),
+
+        str(id + gap),
+        str(_SUBID + id + gap),
+        str(65534 - (id + gap) + 1),
     ]
 
     assert len(args) % 3 == 0, "map must have 3 entries per line"
-    assert len(args) / 3 < 5, "map may not have more than 3 lines"
+    assert len(args) / 3 <= 5, "map may not have more than 5 lines"
 
-    return args
+    return subprocess.call((cmd, str(pid), *args))
 
 def _userns_init(pid, uid, gid):
     retcodes = []
 
-    retcodes.append(
-        subprocess.call([
-            "newuidmap", str(pid),
-            *_idmap(uid),
-        ])
-    )
+    retcodes.append(_idmap("newuidmap", pid, uid))
     if retcodes[-1] != 0:
         return retcodes
 
-    retcodes.append(
-        subprocess.call([
-            "newgidmap", str(pid),
-            *_idmap(gid),
-        ])
-    )
-
+    retcodes.append(_idmap("newgidmap", pid, gid))
     return retcodes
-
 
 def _checkfile(path):
     if not path.is_file():
@@ -151,7 +153,7 @@ class Container:
         self._setuid = self._owneruid = os.getuid()
         self._setgid = self._ownergid = os.getgid()
 
-        cdir_uid = os.stat(self.cdir).st_uid
+        cdir_uid = self.cdir.stat().st_uid
         if self._owneruid != cdir_uid:
             if self._owneruid != _ROOTID:
                 raise PermissionError(f"'{self.cdir}' belongs to '{cdir_uid}'")
