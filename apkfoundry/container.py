@@ -455,3 +455,7 @@ def cont_refresh(cdir):
             continue
 
         _force_copytree(skel, cdir)
+
+    abuild_conf = SITE_CONF / "abuild.conf"
+    if abuild_conf.is_file():
+        shutil.copy2(abuild_conf, cdir / "etc/abuild.conf")

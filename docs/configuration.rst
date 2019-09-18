@@ -205,6 +205,26 @@ Recommended contents are:
 ``etc/group``
     The ``group(5)`` user group database file.
 
+abuild.conf
+^^^^^^^^^^^
+
+In order to accommodate settings from both the builder operator and the
+individual projects, handling of the ``/etc/abuild.conf`` file is
+separate from the skeletons. The site configuration is located in
+``/etc/apkfoundry/abuild.conf``, with the following recommended minimum
+requirements::
+
+    # Include project-local abuild settings
+    if [ -e /etc/abuild.conf.local ]; then
+        . /etc/abuild.conf.local
+    fi
+
+Typically, after including the project-local settings, the site-local
+configuration will set things such as ``$JOBS``::
+
+    export JOBS=4
+    export MAKEFLAGS="$MAKEFLAGS -j$JOBS"
+
 Project-local configuration
 ---------------------------
 
@@ -379,9 +399,11 @@ container is:
 
    Skeleton for this branch and architecture. Recommended contents:
 
-   ``etc/abuild.conf``
+   ``etc/abuild.conf.local``
        The configuration file for ``abuild(1)`` itself. Usually has
-       architecture specific parameters such as ``CFLAGS``.
+       architecture specific parameters such as ``CFLAGS``. It must end
+       in with a ``.local`` extension, as ``etc/abuild.conf`` will be
+       overridden by the site configuration as discussed previously.
 
 5. ``.apkfoundry/branch/skel.repo.arch``
 
