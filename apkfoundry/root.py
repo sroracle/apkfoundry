@@ -434,6 +434,7 @@ class RootConn(socketserver.StreamRequestHandler):
         rc = 0
 
         if opts.bootstrap:
+            cont_refresh(self.cdir)
             rc = cont_bootstrap(
                 self.cdir,
                 stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
