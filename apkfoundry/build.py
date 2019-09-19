@@ -6,6 +6,7 @@ import logging    # getLogger
 import os         # utime
 import re         # compile
 import shutil     # rmtree
+import subprocess # CalledProcessError
 import textwrap   # TextWrapper
 from pathlib import Path
 
@@ -292,11 +293,12 @@ def run_job(agent, job):
             config = config[i]
             break
 
-
     ignored_deps = conf_d / "ignore-deps"
     if ignored_deps.is_file():
         ignored_deps = ignored_deps.read_text().strip().splitlines()
         ignored_deps = [i.split() for i in ignored_deps]
+    else:
+        ignored_deps = []
 
     graph = generate_graph(
         ignored_deps,
