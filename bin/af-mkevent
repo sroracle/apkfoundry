@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2019 Max Rees
+# See LICENSE for more information.
+import argparse # ArgumentParser, REMAINDER
+import getpass  # getuser
+import logging  # basicConfig
+import sys      # exit
+from pathlib import Path
+
+from apkfoundry import EType, get_config
+from apkfoundry.database import db_start
+from apkfoundry.objects import Event, Job, Task
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+
+opts = argparse.ArgumentParser(
+    usage="af-mkevent [options...] {push,mr} ...",
+)
+opts.add_argument(
+    "-a", "--arch",
+    help="Restrict to these architectures only",
+)
+opts.add_argument(
+    "-m", "--message", default="created by af-mkevent",
+    help="Reason with which to associate this event",
+)
+opts.add_argument(
+    "-u", "--user", default=getpass.getuser(),
+    help="Username with which to associate this event",
+)
+
+cmds = opts.add_subparsers()
+
+push = cmds.add_parser(
+    "push",
+    usage="af-mkevent push CLONE TARGET REVISION STARTDIR...",
+)
+push.add_argument(
+    "clone", metavar="CLONE",
+    help="Identifying clone URI for this project",
+)
+push.add_argument(
+    "target", metavar="TARGET",
+    help="Target branch for this event",
+)
+push.add_argument(
+    "revision", metavar="REVISION",
+    help="Checkout revision for this event",
+)
+push.add_argument(
+    "startdirs", metavar="STARTDIR", nargs=argparse.REMAINDER,
+    help="Build these STARTDIRs",
+)
+
+mr = cmds.add_parser(
+    "mr",
+    usage="af-mkevent mr CLONE TARGET REVISION MRID MRCLONE MRBRANCH STARTDIR...",
+)
+mr.add_argument(
+    "clone", metavar="CLONE",
+    help="Identifying clone URI for this project",
+)
+mr.add_argument(
+    "target", metavar="TARGET",
+    help="Target branch for this event",
+)
+mr.add_argument(
+    "revision", metavar="REVISION",
+    help="Checkout revision for this event",
+)
+mr.add_argument(
+    "mrid", metavar="MRID",
+    help="Merge request ID",
+)
+mr.add_argument(
+    "mrclone", metavar="MRCLONE",
+    help="Clone URI for this merge request",
+)
+mr.add_argument(
+    "mrbranch", metavar="MRBRANCH",
+    help="Source branch for this merge request",
+)
+mr.add_argument(
+    "startdirs", metavar="STARTDIR", nargs=argparse.REMAINDER,
+    help="Build these STARTDIRs",
+)
+
+opts = opts.parse_args()
+
+db = db_start()
+
+etype = EType.MR if "mrid" in opts else EType.PUSH
+if etype != EType.MR:
+    opts.mrid = opts.mrclone = opts.mrbranch = None
+
+try:
+    config = get_config(opts.clone)
+except KeyError:
+    logging.error("Unknown project %s", opts.clone)
+    sys.exit(2)
+
+try:
+    project = config["name"]
+except KeyError:
+    logging.error("Project %s has no name", opts.clone)
+    sys.exit(2)
+
+event = Event(
+    project=project,
+    type=etype,
+    clone=opts.clone,
+    target=opts.target,
+    revision=opts.revision,
+    user=opts.user,
+    reason=opts.message,
+    mrid=opts.mrid,
+    mrclone=opts.mrclone,
+    mrbranch=opts.mrbranch,
+)
+event.db_process(db, force_arches=opts.arch, startdirs=opts.startdirs)

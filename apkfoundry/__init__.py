@@ -104,7 +104,6 @@ _DEFAULT_LOCAL_CONFIG = {
 class EType(enum.IntEnum):
     PUSH = 1
     MR = 2
-    MANUAL = 4
 
     def __str__(self):
         return self.name

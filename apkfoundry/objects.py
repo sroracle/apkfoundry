@@ -660,12 +660,13 @@ class Event:
 
         return maintainers
 
-    def _calc_arches(self, startdirs):
+    def _calc_arches(self, startdirs, force_arches=None):
         _LOGGER.info("[%s] Generating architecture list", str(self))
-        lines = get_output(
-            "af-arch", self.target,
-            *startdirs, cwd=self._dir,
-        ).strip().splitlines()
+        args = ["af-arch"]
+        if force_arches is not None:
+            args += ["-a", force_arches]
+        args += [self.target, *startdirs]
+        lines = get_output(*args, cwd=self._dir).strip().splitlines()
 
         arches = {}
         for line in lines:
@@ -737,7 +738,7 @@ class Event:
         for job in jobs.values():
             job.tasks = list(Task.db_search(db, jobid=job.id))
 
-    def db_process(self, db):
+    def db_process(self, db, force_arches=None, startdirs=None):
         try:
             self._db_add(db)
             self._debug_dump()
@@ -746,9 +747,10 @@ class Event:
                 rev=self.revision,
                 mrid=self.mrid, mrclone=self.mrclone, mrbranch=self.mrbranch,
             )
-            startdirs = self._calc_startdirs()
+            if startdirs is None:
+                startdirs = self._calc_startdirs()
             maintainers = self._calc_maintainers(startdirs)
-            arches = self._calc_arches(startdirs)
+            arches = self._calc_arches(startdirs, force_arches)
             jobs = self._generate_jobs(db, arches)
             self._generate_tasks(db, jobs, maintainers)
         except (AssertionError, sqlite3.Error, subprocess.CalledProcessError) as e:
