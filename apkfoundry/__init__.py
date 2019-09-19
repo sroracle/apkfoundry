@@ -152,7 +152,15 @@ def get_local_config(dir, section=None):
     config = _ConfigParser()
     config.BOOLEAN_STATES = {"true": True, "false": False}
     config.read_dict(_DEFAULT_LOCAL_CONFIG)
-    config.read(files)
+    try:
+        config.read(files)
+    except configparser.Error as e:
+        _LOGGER.error("Could not read project INI files: %s", e)
+        _LOGGER.error("Using default configuration")
+        config = _ConfigParser()
+        config.BOOLEAN_STATES = {"true": True, "false": False}
+        config.read_dict(_DEFAULT_LOCAL_CONFIG)
+        return config
 
     if section:
         return config[section]
