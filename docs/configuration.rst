@@ -240,7 +240,8 @@ INI files can look something like the following.
 
 ::
 
-    ; Global project settings are entered without a section.
+    [DEFAULT]
+    ; Global project settings are entered in the [DEFAULT] section.
 
     ; Action to take when the builder agent encounters a build ERROR or
     ; FAIL. Possible actions:
