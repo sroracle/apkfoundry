@@ -39,12 +39,14 @@
 {%- endmacro -%}
 
 {%- macro list_counts(counts) -%}
- {%- if counts.values()|sum > 10 -%}
+ {%- set total = counts.values()|sum -%}
+ {%- if total > 10 -%}
   <p>Status summary of visible:</p>
   <ul>
    {%- for status, count in counts.items() -%}
     <li>{{ status.name.title() }}: {{ count }}</li>
    {%- endfor -%}
+   <li>Total: {{ total }}</li>
   </ul>
  {%- endif -%}
 {%- endmacro -%}
