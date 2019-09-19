@@ -1,14 +1,17 @@
 * (project, type, target) serialization to be done at dispatcher level,
   not builder level
+
   * if blocking is enabled, block project at dispatcher level until
     block is removed - new status type?
 
 * Artifact synchronization at the dispatcher needs to be made race-free
+
   * authorized_keys command= similar to rrsync but which obtains a lock
     on the repo from the dispatcher
   * dispatcher then updates APKINDEX with its own key
 
 * Interstitial logging
+
   * Attach logger, handler to object to log to a file in the artifact
     directory
   * Handler lifetime is tied to object lifetime, but this would cause a
@@ -22,6 +25,7 @@
     events.
 
 * Agent parallelism needs to be fixed
+
   * Does not currently obtain lock for each container
   * Tie in with job rejection if lock is already held
 
@@ -30,6 +34,7 @@
   ...) based on "real" arches that builders support
 
 * Cancellation
+
   * On builder side... since threads typically will not wait before they
     are started (since they will be rejected instead and returned to
     dispatcher), some sort of communication from agent to worker must be
