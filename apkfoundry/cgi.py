@@ -61,6 +61,10 @@ def timeelement(dt, now):
     delta = fmt.format(days=days, hours=hours, minutes=minutes)
     return (dt, delta)
 
+def summarize_statuses(objs):
+    counts = [obj.status for obj in objs]
+    return {i: counts.count(i) for i in set(counts)}
+
 def response(status, content_type):
     status = http.HTTPStatus(status)
     statusphrase = status.phrase
@@ -129,6 +133,7 @@ def events_page(db, query, project_page=False):
         events=events,
         project_page=project_page,
         project=project,
+        counts=summarize_statuses([i[0] for i in events]),
     ))
 
 def jobs_page(db, query, event_page=False):
@@ -161,6 +166,7 @@ def jobs_page(db, query, event_page=False):
         event=event,
         event_page=event_page,
         jobs=jobs,
+        counts=summarize_statuses(jobs),
     ))
 
 def tasks_page(db, query, job_page=False):
@@ -191,6 +197,7 @@ def tasks_page(db, query, job_page=False):
         job=job,
         job_page=job_page,
         tasks=tasks,
+        counts=summarize_statuses(tasks),
     ))
 
 def artifacts_page(db, query):

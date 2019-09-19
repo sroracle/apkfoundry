@@ -4,6 +4,7 @@
    * project_page: bool
    * project: str (if project_page)
    * events: List[(Event, jobs: int, tasks: int)]
+   * counts: Dict[EStatus, Int]
 #}
 {%- extends "base.tmpl" -%}
 {%- set page = "events" -%}
@@ -34,6 +35,8 @@
    {{ fselect("status", "Status", statuses) }}
   {% endcall %}
  {% endif %}
+
+ {{ list_counts(counts) }}
 
  <table>
   <thead>

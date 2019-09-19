@@ -4,6 +4,7 @@
    * job: Job (if job_page)
    * job_page: bool
    * tasks: List[Task]
+   * counts: Dict[EStatus, Int]
 #}
 {% extends "base.tmpl" %}
 {%- set page = "tasks" -%}
@@ -80,6 +81,8 @@
    {{ input("mrbranch", "Merge request branch (*)") }}
   {% endcall %}
  {% endif %}
+
+ {{ list_counts(counts) }}
 
  <table>
   <thead>

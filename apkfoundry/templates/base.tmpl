@@ -38,6 +38,17 @@
  </li>
 {%- endmacro -%}
 
+{%- macro list_counts(counts) -%}
+ {%- if counts.values()|sum > 10 -%}
+  <p>Status summary of visible:</p>
+  <ul>
+   {%- for status, count in counts.items() -%}
+    <li>{{ status.name.title() }}: {{ count }}</li>
+   {%- endfor -%}
+  </ul>
+ {%- endif -%}
+{%- endmacro -%}
+
 {%- macro input(name, label, value=none, type="text") -%}
  {%- if value is none -%}
   {% set value = query[name] or "" %}
