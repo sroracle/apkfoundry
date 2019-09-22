@@ -207,10 +207,12 @@ class Container:
             "LOGNAME": getpass.getuser(),
             "USER": getpass.getuser(),
             "UID": str(self._setuid),
+            "PACKAGER": "APK Foundry",
             "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
             "SRCDEST": MOUNTS["srcdest"],
             "APORTSDIR": MOUNTS["aportsdir"],
             "REPODEST": MOUNTS["repodest"],
+            "ABUILD_USERDIR": "/af/key",
             "ABUILD_GIT": "git -C /af/aports",
             "ABUILD_FETCH": "/af/libexec/af-req-root abuild-fetch",
             "ADDGROUP": "/af/libexec/af-req-root abuild-addgroup",
@@ -344,8 +346,8 @@ def cont_make(
         (cdir / mount.lstrip("/")).mkdir(parents=True)
 
     for i in ("var", "var/cache", "var/cache/distfiles"):
-        shutil.chown(cdir / i, group="apkfoundry")
         (cdir / i).chmod(0o775)
+        shutil.chown(cdir / i, group="apkfoundry")
 
     (cdir / BUILDDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
     (cdir / JOBDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
@@ -353,7 +355,9 @@ def cont_make(
     af_info = cdir / "af/info"
     af_info.mkdir(parents=True)
 
-    (cdir / "af/libexec").mkdir()
+    for i in ("af", "af/info"):
+        (cdir / i).chmod(0o755)
+        shutil.chown(cdir / i, group="apkfoundry")
 
     (af_info / "branch").write_text(branch.strip())
     (af_info / "repo").write_text(repo.strip())
@@ -387,6 +391,13 @@ def cont_make(
             cdir / MOUNTS[mount].lstrip("/")
         )
 
+    (cdir / "af/libexec").mkdir()
+
+    af_keydir = cdir / "af/key"
+    af_keydir.mkdir()
+    af_keydir.chmod(0o2770)
+    shutil.chown(af_keydir, group="apkfoundry")
+
 def cont_bootstrap(cdir, **kwargs):
     cont = Container(cdir)
     bootstrap_files = _force_copytree(SITE_CONF / "skel.bootstrap", cdir)
@@ -413,12 +424,32 @@ def cont_bootstrap(cdir, **kwargs):
     for filename in bootstrap_files:
         if filename.with_suffix(".apk-new").exists():
             shutil.move(filename.with_suffix(".apk-new"), filename)
-        elif subprocess.run(
+        elif subprocess.call(
                     [_APK_STATIC, "--root", cdir, "info",
                     "--who-owns", filename.relative_to(cdir)],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                ).returncode != 0:
+                ) != 0:
             filename.unlink()
+
+    if rc != 0:
+        return rc
+
+    keydir = cdir / "af/key"
+    args = ["abuild-keygen", "-anq"]
+    env = os.environ.copy()
+    env["ABUILD_USERDIR"] = str(keydir)
+    env["USER"] = "af-agent"
+    rc = subprocess.call(args, env=env, **kwargs)
+
+    if rc != 0:
+        return rc
+
+    privkey = (keydir / "abuild.conf").read_text().strip()
+    privkey = privkey.replace("PACKAGER_PRIVKEY=\"", "", 1).rstrip("\"")
+    pubkey = privkey + ".pub"
+    shutil.copy2(pubkey, cdir / "etc/apk/keys")
+    privkey = Path(privkey).relative_to(cdir)
+    (keydir / "abuild.conf").write_text(f"PACKAGER_PRIVKEY=\"/{privkey}\"\n")
 
     return rc
 
