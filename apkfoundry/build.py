@@ -242,12 +242,12 @@ def run_job(agent, job):
     event = job.event
     cdir = (
         agent.containers
-        / f"{event.project}.{event.type}.{event.target}.{job.arch}"
+        / f"{event.project}.{event.type!s}.{event.target}.{job.arch}"
     )
     job.dir = (
         agent.artdir
         / job.arch
-        / f"{event.project}.{event.type}.{event.target}/jobs/{job.id}"
+        / f"{event.project}.{event.type!s}.{event.target}/jobs/{job.id}"
     )
     job.dir.mkdir(parents=True, exist_ok=True)
     (job.dir.parent.parent / "repos").mkdir(parents=True, exist_ok=True)

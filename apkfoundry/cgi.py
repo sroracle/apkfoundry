@@ -218,7 +218,7 @@ def artifacts_page(db, query):
     task.dir = (
         _ARTDIR
         / job.arch
-        / f"{event.project}.{event.type}.{event.target}/jobs/{job.id}"
+        / f"{event.project}.{event.type!s}.{event.target}/jobs/{job.id}"
         / task.startdir
     )
 
