@@ -380,7 +380,7 @@ def cont_make(
         (cdir / "af/info" / mount).symlink_to(mounts[mount])
 
     for mount in MOUNTS:
-        if mount in mounts:
+        if mount in mounts and mounts[mount]:
             continue
 
         (cdir / "af/info" / mount).symlink_to(
