@@ -38,16 +38,16 @@ split into restricted files away from more mundane options.
     ; rsync URI to which artifacts are pulled from and pushed to.
     remote_artifacts = user@localhost:/var/lib/apkfoundry/artifacts
     ; The MQTT username for the builder agent.
-    username=agent01
+    username = agent01
     ; The MQTT password for the builder agent.
-    password=password
+    password = password
     ; Architectures supported by this builder agent.
     arches = apk_arch1
              apk_arch2:setarch2
     ; MQTT wildcard topic on which to listen for jobs.
-    mask=jobs/#
+    mask = jobs/#
     ; Number of disjoint jobs allowed to run concurrently.
-    concurrency=1
+    concurrency = 1
 
     [container]
     ; ID of the af-root user.
@@ -61,49 +61,49 @@ split into restricted files away from more mundane options.
     ; The filename for the SQLite3 APK Foundry database. This should be
     ; read-writable by orchestrator, and readable by www. The file need
     ; only be accessable on the orchestrator machine.
-    filename=/var/lib/apkfoundry/database.sqlite3
+    filename = /var/lib/apkfoundry/database.sqlite3
 
     [dispatch]
     ; The MQTT username for the job dispatcher.
-    username=dispatch
+    username = dispatch
     ; The MQTT password for the job dispatcher.
-    password=password
+    password = password
     ; The path under which the notification FIFO and event files are
     ; stored. This path should be mode 3730 af-dispatch:www.
-    events=/var/lib/apkfoundry/events
+    events = /var/lib/apkfoundry/events
     ; The path under which the git repositories of the various projects
     ; will be stored.
-    projects=/var/lib/apkfoundry/projects
+    projects = /var/lib/apkfoundry/projects
     ; Path to the directory under which to store job artifacts.
     artifacts = /var/lib/apkfoundry/artifacts
     ; List of IP addresses from which to accept requests.
-    remotes=127.0.0.1
+    remotes = 127.0.0.1
     ; Whether to remove event files after they are processed. This
     ; should generally be disabled except for debugging.
-    keep_events=false
+    keep_events = false
 
     [irc]
     ; The hostname of the IRC server.
-    host=localhost
+    host = localhost
     ; The port number on which the IRC server listens.
-    port=6697
+    port = 6697
     ; Whether the connection should use SSL or not.
-    ssl=true
+    ssl = true
     ; Nickname of the bot.
-    nick=APKFoundry
+    nick = APKFoundry
     ; Username of the bot.
-    username=apkfoundry
+    username = apkfoundry
     ; GECOS ("real name") of the bot.
-    gecos=APK Foundry Status Bot
+    gecos = APK Foundry Status Bot
     ; Whether to use colors / bold / etc in messages.
-    colors=false
+    colors = false
 
     ; For each channel that the bot should join, list the topics
     ; for which that channel should receive messages. For example,
     ; if the #apkfoundry channel should receive messages for each
     ; job that FAILs or ERRORs out:
-    #apkfoundry=jobs/ERROR/#
-                jobs/FAIL/#
+    #apkfoundry = jobs/ERROR/#
+                  jobs/FAIL/#
     ; Announcing tasks is also supported. By default, no channels are
     ; configured, so no channels will be joined and no messages will be
     ; sent. BE MINDFUL OF WHAT TOPICS YOU LIST HERE! For example,
@@ -115,51 +115,51 @@ split into restricted files away from more mundane options.
 
     [mqtt]
     ; The hostname of the MQTT broker.
-    host=localhost
+    host = localhost
     ; The port number on which the MQTT broker listens.
-    port=1883
+    port = 1883
 
     [web]
     ; URL for the web interface index.
-    base=https://example.com/cgi-bin/apkfoundry-index.py
+    base = https://example.com/cgi-bin/apkfoundry-index.py
     ; URL for style.css.
-    css=/style.css
+    css = /style.css
     ; URL for the artifacts directory
-    artifacts=/artifacts
+    artifacts = /artifacts
     ; Whether to use PATH_INFO to generate pretty URIs.
-    pretty=false
+    pretty = false
     ; Default maximum number of rows to return on each page.
-    limit=50
+    limit = 50
     ; Whether to show debugging information (CGI tracebacks, SQL queries,
     ; etc).
-    debug=false
+    debug = false
 
     [https://example.com/user/packages.git]
     ; Project name.
-    name=user:packages
+    name = user:packages
 
     ; Whether to trigger builds on push events or not.
-    push=false
+    push = false
     ; A list of branches on which push events will trigger builds.
-    push_branches=
+    push_branches =
 
     ; Whether to trigger builds on merge request events or not.
-    mr=false
+    mr = false
     ; A list of target branches on which merge request events will
     ; trigger builds.
-    mr_branches=
+    mr_branches =
     ; A list of users to allow merge request events. If empty, any user
     ; can trigger an event. Otherwise, only the users on the list can.
-    mr_users=
+    mr_users =
 
     ; Whether to trigger builds on comments on merge requests or not.
-    note=false
+    note = false
     ; A list of users to allow note events. If empty, any user can
     ; trigger an event. Otherwise, only the users on the list can.
-    note_users=
+    note_users =
     ; A keyword that must be present in the comment to trigger the
     ; build.
-    note_keyword=!build
+    note_keyword = !build
 
     ; GitLab integration.
     ; If the following two options are specified, the dispatcher will
@@ -176,7 +176,7 @@ split into restricted files away from more mundane options.
     ; https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html
     ;
     ; If no token is specified, this feature will be disabled.
-    gitlab_token=
+    gitlab_token =
 
     ; GitLab API endpoint for this project.
     ; Specify as https://gitlab.example.com/api/v4/projects/<your project ID>,
@@ -184,7 +184,7 @@ split into restricted files away from more mundane options.
     ; url-encoded project path (e.g. group%2Fproject for group/project)
     ;
     ; If no endpoint is specified, this feature will be disabled.
-    gitlab_endpoint=
+    gitlab_endpoint =
 
 Site bootstrap skeleton
 ^^^^^^^^^^^^^^^^^^^^^^^
