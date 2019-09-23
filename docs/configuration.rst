@@ -82,6 +82,37 @@ split into restricted files away from more mundane options.
     ; should generally be disabled except for debugging.
     keep_events=false
 
+    [irc]
+    ; The hostname of the IRC server.
+    host=localhost
+    ; The port number on which the IRC server listens.
+    port=6697
+    ; Whether the connection should use SSL or not.
+    ssl=true
+    ; Nickname of the bot.
+    nick=APKFoundry
+    ; Username of the bot.
+    username=apkfoundry
+    ; GECOS ("real name") of the bot.
+    gecos=APK Foundry Status Bot
+    ; Whether to use colors / bold / etc in messages.
+    colors=false
+
+    ; For each channel that the bot should join, list the topics
+    ; for which that channel should receive messages. For example,
+    ; if the #apkfoundry channel should receive messages for each
+    ; job that FAILs or ERRORs out:
+    #apkfoundry=jobs/ERROR/#
+                jobs/FAIL/#
+    ; Announcing tasks is also supported. By default, no channels are
+    ; configured, so no channels will be joined and no messages will be
+    ; sent. BE MINDFUL OF WHAT TOPICS YOU LIST HERE! For example,
+    ; specifying any status (jobs/#) and/or including certain statuses
+    ; such as CANCEL, DEPFAIL, NEW, or START will result in a lot of
+    ; spam...
+    ;
+    ; Channels must start with #.
+
     [mqtt]
     ; The hostname of the MQTT broker.
     host=localhost

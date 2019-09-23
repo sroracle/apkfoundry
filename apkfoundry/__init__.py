@@ -80,6 +80,15 @@ _DEFAULT_SITE_CONFIG = {
         "remotes": "127.0.0.1",
         "keep_events": "false",
     },
+    "irc": {
+        "host": "localhost",
+        "port": "6697",
+        "ssl": "true",
+        "nick": "APKFoundry",
+        "username": "apkfoundry",
+        "gecos": "APK Foundry Status Bot",
+        "colors": "false",
+    },
     "mqtt": {
         "host": "localhost",
         "port": "1883",

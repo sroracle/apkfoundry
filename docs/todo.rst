@@ -50,10 +50,8 @@
       -- A. Wilcox
 
 * af-req-root - needs to be suffixed by architecture...
-* ``f"{event.type}"`` is ``str(int)`` - needs fixing in build, cgi
 * global replace ``/`` in branch by ``:``
 * ``webhook``: rate limiting
 * ``webhook``: GitLab secret token
-* ``irc``: restore
 * Artifact arch dirs need to be automatically created
 * Configure shared distfiles
