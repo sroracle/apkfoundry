@@ -253,6 +253,17 @@ INI files can look something like the following.
     ;
     on_failure = stop
 
+    ; Key with which to re-sign APKs outside of the container. The key
+    ; should exist in /etc/apkfoundry/keys/{project name} on each builder
+    ; that it is used. By default, a key is created along with the
+    ; container and that is used for signing packages inside of it. When
+    ; this option is left blank (the default), no re-signing will occur.
+    ; Since the internal key is tied to the lifetime of the container, it
+    ; is recommended that its public key (/af/key/*.pub) is copied at some
+    ; point for the packages to be directly usable if this option is left
+    ; blank.
+    key =
+
     ; Settings can also be scoped by event type (overrides global
     ; project settings).
     ; [MR]

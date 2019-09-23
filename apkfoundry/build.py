@@ -6,11 +6,11 @@ import logging    # getLogger
 import os         # utime
 import re         # compile
 import shutil     # rmtree
-import subprocess # CalledProcessError
+import subprocess # call, CalledProcessError
 import textwrap   # TextWrapper
 from pathlib import Path
 
-from . import get_local_config
+from . import get_local_config, SITE_CONF
 from . import git_init, agent_queue, dt_timestamp, EStatus
 from . import container
 from .digraph import generate_graph
@@ -60,6 +60,21 @@ def _stats_builds(tasks):
             break
 
     return rc
+
+def _parse_key(project, key):
+    if not key:
+        return ""
+
+    if "/" in key:
+        _LOGGER.error("Key name '%s' cannot contain slashes", key)
+        return ""
+
+    key = SITE_CONF / "keys" / project / key
+    if not key.exists():
+        _LOGGER.error("Key '%s' not found, using internal key", key)
+        return ""
+
+    return str(key)
 
 def run_task(agent, job, config, cont, task, log=None):
     env = {}
@@ -116,17 +131,34 @@ def run_task(agent, job, config, cont, task, log=None):
         except (AttributeError, TypeError):
             pass
 
-    try:
-        _LOGGER.info("[%s] pushing artifacts", job)
-        agent.rsync(job.arch, "push")
-    except subprocess.CalledProcessError:
-        pass
-
     if rc in (0, 10):
         try:
             shutil.rmtree(tmp_d.parent)
         except Exception:
             pass
+
+    apks = []
+    if config["key"]:
+        manifest = task.dir / "manifest.txt"
+        if manifest.exists():
+            apks = manifest.read_text().strip().splitlines()
+        apks = [task.dir / i for i in apks if (task.dir / i).exists()]
+    if apks:
+        args = ["fakeroot", "--", "resignapk", "-ik", config["key"], *apks]
+        if subprocess.call(args) != 0:
+            rc = 12
+        # You would think you would have to rebuild the APKINDEX as
+        # well, but it appears that the C: field of the .apk in the
+        # APKINDEX is independent of the key that signs it. This may
+        # change in a future version of apk-tools, and would need to be
+        # handled here. It will be a PITA though since `abuild index`
+        # applies some extra logic over what `apk index` does.
+
+    try:
+        _LOGGER.info("[%s] pushing artifacts", job)
+        agent.rsync(job.arch, "push")
+    except subprocess.CalledProcessError:
+        pass
 
     return rc
 
@@ -137,6 +169,8 @@ def run_graph(agent, job, config, graph, cont):
     }
     initial = set(tasks.keys())
     done = set()
+
+    config["key"] = _parse_key(job.event.project, config["key"])
 
     try:
         on_failure = FailureAction[config["on_failure"].upper()]
@@ -177,8 +211,6 @@ def run_graph(agent, job, config, graph, cont):
 
             task.dir = job.dir / startdir
             task.dir.mkdir(parents=True, exist_ok=True)
-            repo_f = cont.cdir / "af/info/repo"
-            repo_f.write_text(task.repo)
 
             rc = run_task(agent, job, config, cont, task)
 
@@ -285,7 +317,7 @@ def run_job(agent, job):
     conf_d = cdir / "af/aports/.apkfoundry" / event.target
     config = get_local_config(conf_d.parent)
     for i in (
-            f"{event.type.name}:{event.target}",
+            f"{event.type!s}:{event.target}",
             str(event.type),
             "DEFAULT",
     ):

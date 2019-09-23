@@ -96,6 +96,7 @@ _DEFAULT_SITE_CONFIG = {
 
 _DEFAULT_LOCAL_CONFIG = {
     "DEFAULT": {
+        "key": "",
         "on_failure": "stop",
     },
 }
