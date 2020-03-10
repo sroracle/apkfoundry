@@ -218,6 +218,7 @@ class Container:
             "ADDGROUP": "/af/libexec/af-req-root abuild-addgroup",
             "ADDUSER": "/af/libexec/af-req-root abuild-adduser",
             "SUDO_APK": "/af/libexec/af-req-root abuild-apk",
+            "APK_FETCH": "/af/libexec/af-req-root apk",
         })
 
         args = [
@@ -248,6 +249,11 @@ class Container:
         if repo:
             (self.cdir / "af/info/repo").write_text(repo.strip())
 
+        if (self.cdir / "af/info/cache").exists():
+            args.extend((
+                "--bind", self.cdir / "af/info/cache", "/etc/apk/cache",
+            ))
+
         if self.rootd_conn and not skip_rootd:
             rc = client_refresh(
                 self.rootd_conn,
@@ -277,6 +283,7 @@ class Container:
         if self._setuid == 0:
             args.extend([
                 "--cap-add", "CAP_CHOWN",
+                "--cap-add", "CAP_FOWNER",
                 "--cap-add", "CAP_DAC_OVERRIDE",
                 # Required to restore security file caps during package installation
                 # On Linux 4.14+ these caps are tied to the user namespace in which
@@ -335,25 +342,31 @@ def cont_make(
         *,
         arch=None,
         setarch=None,
-        mounts=None):
+        mounts=None,
+        cache=None):
 
     cdir = Path(cdir)
-    cdir.mkdir()
+    (cdir / "af").mkdir(parents=True, exist_ok=True)
     shutil.chown(cdir, group="apkfoundry")
     cdir.chmod(0o770)
 
     for mount in MOUNTS.values():
-        (cdir / mount.lstrip("/")).mkdir(parents=True)
+        (cdir / mount.lstrip("/")).mkdir(parents=True, exist_ok=True)
 
-    for i in ("var", "var/cache", "var/cache/distfiles"):
-        (cdir / i).chmod(0o775)
-        shutil.chown(cdir / i, group="apkfoundry")
+    for i in ("etc", "var"):
+        for dirpath, _, filenames in os.walk(cdir / i):
+            dirpath = Path(dirpath)
+            dirpath.chmod(0o775)
+            shutil.chown(dirpath, group="apkfoundry")
+            for filename in filenames:
+                (dirpath / filename).chmod(0o664)
+                shutil.chown(dirpath / filename, group="apkfoundry")
 
     (cdir / BUILDDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
     (cdir / JOBDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
 
     af_info = cdir / "af/info"
-    af_info.mkdir(parents=True)
+    af_info.mkdir()
 
     for i in ("af", "af/info"):
         (cdir / i).chmod(0o755)
@@ -398,15 +411,21 @@ def cont_make(
     af_keydir.chmod(0o2770)
     shutil.chown(af_keydir, group="apkfoundry")
 
+    if cache:
+        (cdir / "af/info/cache").symlink_to(cache)
+
 def cont_bootstrap(cdir, **kwargs):
     cont = Container(cdir)
     bootstrap_files = _force_copytree(SITE_CONF / "skel.bootstrap", cdir)
 
-    (cdir / "dev").mkdir()
-    (cdir / "tmp").mkdir()
-    (cdir / "var/tmp").mkdir(parents=True)
+    (cdir / "dev").mkdir(exist_ok=True)
+    (cdir / "tmp").mkdir(exist_ok=True)
+    (cdir / "var/tmp").mkdir(exist_ok=True, parents=True)
     (cdir / "tmp").chmod(0o1777)
     (cdir / "var/tmp").chmod(0o1777)
+
+    if (cdir / "af/info/cache").exists():
+        (cdir / "etc/apk/cache").mkdir(parents=True, exist_ok=True)
 
     world_f = cdir / "etc/apk/world"
     if world_f.exists():
@@ -446,6 +465,8 @@ def cont_bootstrap(cdir, **kwargs):
 
     privkey = (keydir / "abuild.conf").read_text().strip()
     privkey = privkey.replace("PACKAGER_PRIVKEY=\"", "", 1).rstrip("\"")
+    shutil.chown(privkey, group="apkfoundry")
+    Path(privkey).chmod(0o640)
     pubkey = privkey + ".pub"
     shutil.copy2(pubkey, cdir / "etc/apk/keys")
     privkey = Path(privkey).relative_to(cdir)
@@ -456,10 +477,6 @@ def cont_bootstrap(cdir, **kwargs):
 def cont_refresh(cdir):
     cdir = Path(cdir)
 
-    branch = cdir / "af/info/branch"
-    if not branch.is_file():
-        raise FileNotFoundError("/af/info/branch file is required")
-    branch = branch.read_text().strip()
     repo = cdir / "af/info/repo"
     if not repo.is_file():
         raise FileNotFoundError("/af/info/repo file is required")
@@ -472,7 +489,7 @@ def cont_refresh(cdir):
     shutil.copy2(arch, cdir / "etc/apk/arch")
     arch = arch.read_text().strip()
 
-    conf_d = cdir / "af/info/aportsdir/.apkfoundry" / branch
+    conf_d = cdir / "af/info/aportsdir/.apkfoundry"
 
     for skel in (
             SITE_CONF / "skel",
@@ -483,6 +500,7 @@ def cont_refresh(cdir):
         ):
 
         if not skel.is_dir():
+            _LOGGER.debug(f"could not find {skel}")
             continue
 
         _force_copytree(skel, cdir)

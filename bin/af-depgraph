@@ -6,6 +6,7 @@ import argparse # ArgumentParser, FileType, REMAINDER
 import logging  # basicConfig
 import sys      # exit
 
+from apkfoundry.container import Container
 from apkfoundry.digraph import generate_graph
 
 def print_list(startdirs, func, sep):
@@ -51,6 +52,10 @@ opts = argparse.ArgumentParser(
 opts.add_argument(
     "-q", "--quiet", action="store_true",
     help="Just check for cycles and exit",
+)
+opts.add_argument(
+    "-c", "--chroot",
+    help="Chroot to CHROOT first",
 )
 opts.add_argument(
     "-g", "--graphviz", action="store_true",
@@ -103,7 +108,12 @@ if opts.ignore_deps:
         ignored_deps.append(line.strip().split())
     opts.ignore_deps.close()
 
-graph = generate_graph(ignored_deps, skip_check=opts.skip_check)
+if opts.chroot:
+    cont = Container(opts.chroot)
+else:
+    cont = None
+
+graph = generate_graph(ignored_deps, skip_check=opts.skip_check, cont=cont)
 if graph is None:
     sys.exit(3)
 

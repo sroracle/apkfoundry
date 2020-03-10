@@ -2,16 +2,12 @@
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
 import configparser # ConfigParser
-import enum         # IntEnum, IntFlag
-import errno        # ENXIO
+import enum         # Enum, IntEnum, IntFlag, unique
 import functools    # partial
-import logging      # getLogger
-import os           # close, environ, open, O_*, pathsep, write
-import queue        # Queue
-import shlex        # quote
-import subprocess   # check_call, check_output, DEVNULL, Popen
+import logging      # Formatter, getLogger, StreamHandler
+import os           # environ, pathsep
+import subprocess   # check_call, check_output
 import sys          # stderr, stdout
-import threading    # Event
 import datetime as dt # timezone
 from pathlib import Path
 
@@ -40,66 +36,10 @@ _ConfigParser = functools.partial(
 )
 
 _DEFAULT_SITE_CONFIG = {
-    "DEFAULT": {
-        "push": "false",
-        "push_branches": "",
-        "mr": "false",
-        "mr_branches": "",
-        "mr_users": "",
-        "note": "false",
-        "note_users": "",
-        "note_keyword": "!build",
-        "gitlab_token": "",
-        "gitlab_endpoint": "",
-    },
-    "agent": {
-        "name": "agent01",
-        "containers": str(_HOME / "containers"),
-        "artifacts": str(_HOME / "artifacts"),
-        "remote_artifacts": "user@localhost:/var/lib/apkfoundry/artifacts",
-        "username": "agent01",
-        "password": "password",
-        "arches": "apk_arch1\napk_arch2:setarch2",
-        "mask": "jobs/#",
-        "concurrency": "1",
-    },
     "container": {
         "rootid": "1001",
         "subid": "100000",
         "socket": str(_HOME / "root.sock"),
-    },
-    "database": {
-        "filename": str(_HOME / "database.sqlite3"),
-    },
-    "dispatch": {
-        "username": "dispatch",
-        "password": "password",
-        "events": str(_HOME / "events"),
-        "projects": str(_HOME / "projects"),
-        "artifacts": str(_HOME / "artifacts"),
-        "remotes": "127.0.0.1",
-        "keep_events": "false",
-    },
-    "irc": {
-        "host": "localhost",
-        "port": "6697",
-        "ssl": "true",
-        "nick": "APKFoundry",
-        "username": "apkfoundry",
-        "gecos": "APK Foundry Status Bot",
-        "colors": "false",
-    },
-    "mqtt": {
-        "host": "localhost",
-        "port": "1883",
-    },
-    "web": {
-        "base": "https://example.com/cgi-bin/apkfoundry-index.py",
-        "css": "/style.css",
-        "artifacts": "/artifacts",
-        "pretty": "false",
-        "limit": "50",
-        "debug": "false",
     },
 }
 
@@ -109,6 +49,18 @@ _DEFAULT_LOCAL_CONFIG = {
         "on_failure": "stop",
     },
 }
+
+class Colors(enum.Enum):
+    NORMAL = "\033[1;0m"
+    STRONG = "\033[1;1m"
+    CRITICAL = ERROR = RED = "\033[1;31m"
+    INFO = GREEN = "\033[1;32m"
+    WARNING = YELLOW = "\033[1;33m"
+    DEBUG = BLUE = "\033[1;34m"
+    MAGENTA = "\033[1;35m"
+
+    def __str__(self):
+        return self.value
 
 @enum.unique
 class EType(enum.IntEnum):
@@ -155,92 +107,6 @@ def get_config(section=None):
 
     return config
 
-def get_local_config(dir, section=None):
-    files = sorted(Path(dir).glob("*.ini"))
-
-    config = _ConfigParser()
-    config.BOOLEAN_STATES = {"true": True, "false": False}
-    config.read_dict(_DEFAULT_LOCAL_CONFIG)
-    try:
-        config.read(files)
-    except configparser.Error as e:
-        _LOGGER.error("Could not read project INI files: %s", e)
-        _LOGGER.error("Using default configuration")
-        config = _ConfigParser()
-        config.BOOLEAN_STATES = {"true": True, "false": False}
-        config.read_dict(_DEFAULT_LOCAL_CONFIG)
-        return config
-
-    if section:
-        return config[section]
-
-    return config
-
-def read_fifo(notifypath):
-    with open(notifypath, "r") as notify:
-        return notify.read()
-
-def write_fifo(i):
-    notifypath = get_config("dispatch").getpath("events") / "notify.fifo"
-
-    if not notifypath.is_fifo():
-        raise FileNotFoundError(f"{notifypath} does not exist or isn't a fifo")
-
-    try:
-        fd = os.open(notifypath, os.O_WRONLY | os.O_NONBLOCK)
-        os.write(fd, i.encode("utf-8"))
-        os.close(fd)
-        return True
-    except OSError as e:
-        if e.errno != errno.ENXIO:
-            raise
-        return False
-
-class IIQueue(queue.Queue):
-    def __init__(self, sentinel=None, **kwargs):
-        super().__init__(**kwargs)
-        self.__sentinel = sentinel or threading.Event()
-
-    def __iter__(self):
-        while True:
-            yield self.get()
-
-    def put(self, item, **kwargs):
-        if self.__sentinel.is_set() and item is not self.__sentinel:
-            raise queue.Full
-
-        super().put(item, **kwargs)
-
-        if self.__sentinel.is_set() and item is not self.__sentinel:
-            raise queue.Full
-
-    def get(self, **kwargs):
-        if self.__sentinel.is_set():
-            raise StopIteration
-
-        item = super().get(**kwargs)
-
-        if self.__sentinel.is_set() or item is self.__sentinel:
-            raise StopIteration
-
-        return item
-
-_exit_event = threading.Event()
-
-db_queue = IIQueue(sentinel=_exit_event)
-dispatch_queue = IIQueue(sentinel=_exit_event)
-
-agent_queue = IIQueue(sentinel=_exit_event)
-
-def af_exit(recv=False):
-    if not _exit_event.is_set():
-        if not recv:
-            write_fifo("0")
-
-        db_queue.put(_exit_event)
-        dispatch_queue.put(_exit_event)
-        _exit_event.set()
-
 def run(*argv, **kwargs):
     argv = [str(arg) for arg in argv]
     sys.stdout.flush()
@@ -253,21 +119,6 @@ def get_output(*argv, **kwargs):
     sys.stderr.flush()
     return subprocess.check_output(argv, encoding="utf-8", **kwargs)
 
-def git_init(dir, clone, *,
-        rev="origin/master",
-        mrid=None, mrclone=None, mrbranch=None):
-
-    if not (dir / ".git").is_dir():
-        run("git", "clone", clone, dir)
-        run("git", "worktree", "add", ".apkfoundry", "apkfoundry", cwd=dir)
-
-    run("git", "fetch", "--all", cwd=dir)
-    if mrid:
-        run("git", "fetch", "-f", mrclone, f"{mrbranch}:mr-{mrid}", cwd=dir)
-
-    run("git", "checkout", "--quiet", "--force", rev, cwd=dir)
-    run("git", "checkout", "--quiet", "--force", "origin/apkfoundry", cwd=dir / ".apkfoundry")
-
 def dt_timestamp(dto):
     if dto.tzinfo is None:
         ts = dto.replace(tzinfo=dt.timezone.utc)
@@ -275,3 +126,108 @@ def dt_timestamp(dto):
         ts = dto
 
     return dto.timestamp()
+
+class abuildLogFormatter(logging.Formatter):
+    def __init__(self, fmt=None, use_color=True, show_time=False, **kwargs):
+        if not fmt:
+            if show_time:
+                fmt = "%(magenta)s%(asctime)s "
+            else:
+                fmt = ""
+            fmt += "%(levelcolor)s%(prettylevel)s"
+            fmt += "%(normal)s%(message)s"
+
+        super().__init__(fmt, **kwargs)
+        self.use_color = use_color
+
+    def format(self, record):
+        if self.use_color:
+            try:
+                record.levelcolor = Colors[record.levelname]
+                record.strong = Colors.STRONG
+                record.normal = Colors.NORMAL
+                record.magenta = Colors.MAGENTA
+            except KeyError:
+                record.levelcolor = ""
+                record.strong = ""
+                record.normal = ""
+                record.magenta = ""
+        else:
+            record.levelcolor = ""
+            record.strong = ""
+            record.normal = ""
+            record.magenta = ""
+
+        if record.levelname == "INFO":
+            record.prettylevel = ">>> "
+        elif record.levelno == 25:
+            record.prettylevel = "\t"
+        elif record.levelno in (26, 27):
+            record.prettylevel = ""
+            msg = record.msg
+            record.msg = f"section_%s:%d:%s\r\033[0K"
+            if msg.strip():
+                record.msg += "\n" if record.levelno == 27 else ""
+                record.msg += f"{Colors.NORMAL}{Colors.STRONG}>>>"
+                record.msg += f" {Colors.BLUE}{msg}{Colors.NORMAL}"
+        else:
+            record.prettylevel = f">>> {record.levelname}: "
+
+        return super().format(record)
+
+def init_logger(name, output=sys.stderr, level="INFO", colors=False, time=False):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    handler = logging.StreamHandler(output)
+    formatter = abuildLogFormatter(use_color=colors, show_time=time)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
+
+def msg2(logger, s, *args, **kwargs):
+    if not logger or isinstance(logger, str):
+        logger = logging.getLogger(logger)
+    if isinstance(s, str):
+        logger.log(25, s, *args, **kwargs)
+    else:
+        for i in s:
+            logger.log(25, i, *args, **kwargs)
+
+_sections = []
+def section_start(logger, name, *args, **kwargs):
+    if not logger or isinstance(logger, str):
+        logger = logging.getLogger(logger)
+
+    ts = int(dt.datetime.now().timestamp())
+    _sections.append((ts, name))
+
+    logger.log(26, args[0], "start", ts, name, *args[1:], **kwargs)
+
+def section_end(logger, *args, **kwargs):
+    if not logger or isinstance(logger, str):
+        logger = logging.getLogger(logger)
+
+    if not args:
+        args = [""]
+
+    ts, name = _sections.pop()
+    logger.log(27, args[0], "end", ts, name, *args[1:], **kwargs)
+
+class CI_Env:
+    prefix = "CUSTOM_ENV_"
+
+    def __getitem__(self, key):
+        return os.environ[self.prefix + key]
+
+    def __setitem__(self, key, value):
+        os.environ[self.prefix + key] = value
+
+    def __delitem__(self, key):
+        del os.environ[self.prefix + key]
+
+    def __iter__(self):
+        return [i for i in os.environ if i.startswith(self.prefix)]
+
+    def __contains__(self, item):
+        return self.prefix + item in os.environ
+

@@ -1,0 +1,11 @@
+#!/bin/sh -e
+exec cat <<-EOF
+{
+	"builds_dir": "/srv/apkfoundry/build/af.$CUSTOM_ENV_CI_RUNNER_ID-$CUSTOM_ENV_CI_PROJECT_PATH_SLUG-$CUSTOM_ENV_CI_JOB_ID",
+	"builds_dir_is_shared": false,
+	"driver": {
+		"name": "apkfoundry",
+		"version": "0.1"
+	}
+}
+EOF

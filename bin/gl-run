@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+import logging
+import os
+import shutil
+import sys
+from os.path import relpath
+from pathlib import Path
+
+from apkfoundry import run, get_output, init_logger, msg2, section_start, section_end, CI_Env
+from apkfoundry.build import run_job
+from apkfoundry.container import cont_make
+from apkfoundry.socket import client_init
+
+FAKE_BEFORE='0000000000000000000000000000000000000000'
+
+init_logger(None, colors=True)
+
+def sanitize(value):
+    return [i.strip() for i in value.split()]
+
+def changed_pkgs(before, after):
+    pkgs = get_output(
+        "git", "diff-tree", "-r", "--name-only", "--diff-filter", "dxu",
+        f"{before}..{after}", "--", "*/*/APKBUILD",
+    ).splitlines()
+    return [i.replace("/APKBUILD", "") for i in pkgs]
+
+def get_sources():
+    run(script)
+
+    if mr:
+        os.chdir(aportsdir)
+        run(
+            "git", "fetch",
+            target_url, 
+            f"+refs/heads/{ref}:refs/heads/{ref}",
+        )
+
+    return 0
+
+def build_script():
+    os.chdir(aportsdir)
+
+    shutil.copy2(script, cdir / "af/build_script")
+    # XXX
+    run("sed", "-i", "-e", f"s@{cdir}[/]*@/@g", cdir / "af/build_script")
+
+    if mr:
+        base = get_output("git", "merge-base", before, after)
+        if not base or base == after:
+            raise ValueError(f"Could not merge {after} into {ref}")
+
+    manual_pkgs = []
+    if "AF_PACKAGES" in ci_env:
+        manual_pkgs = sanitize(ci_env["AF_PACKAGES"])
+        if manual_pkgs:
+            section_start(None, "manual_pkgs", "The following packages were manually included:")
+            msg2(None, manual_pkgs)
+            section_end(None)
+
+    section_start(None, "changed_pkgs", "Determining changed packages...")
+    pkgs = []
+    if before == FAKE_BEFORE:
+        if manual_pkgs:
+            logging.info("Manual job detected, skipping")
+        else:
+            logging.error("New branch detected, bailing out now")
+    else:
+        pkgs = changed_pkgs(before, after)
+        if not pkgs:
+            logging.error("No packages were changed")
+        msg2(None, pkgs)
+    section_end(None)
+
+    if not pkgs and not manual_pkgs:
+        return 0
+
+    section_start(None, "bootstrap", "Bootstrapping container...")
+    shutil.rmtree(aportsdir.with_suffix(".tmp"))
+    aportsdir.with_suffix(".tmp").symlink_to(
+        relpath(cdir / "tmp", aportsdir.parent
+    ))
+
+    cont_make(
+        cdir,
+        branch=ref,
+        repo="system",
+        cache="/srv/apkfoundry/apk_cache",
+    )
+    rc, conn = client_init(cdir, bootstrap=True)
+    if rc != 0:
+        logging.error("Failed to connect to rootd")
+        return rc
+    (aportsdir / ".gl-repos").symlink_to("../repos")
+    section_end(None)
+
+    return run_job(conn, cdir, script, [*pkgs, *manual_pkgs])
+
+script = sys.argv[1]
+stage = sys.argv[2]
+
+ci_env = CI_Env()
+cdir = Path(ci_env["CI_BUILDS_DIR"])
+aportsdir = Path(ci_env["CI_PROJECT_DIR"])
+runner_arch = ci_env["AF_ARCH"]
+before = ci_env["CI_COMMIT_BEFORE_SHA"]
+after = ci_env["CI_COMMIT_SHA"]
+ref = ci_env["CI_COMMIT_REF_NAME"]
+mr = ci_env["CI_MERGE_REQUEST_ID"] if "CI_MERGE_REQUEST_ID" in ci_env else None
+
+if mr:
+    target_url = ci_env["CI_MERGE_REQUEST_PROJECT_URL"]
+    ref = ci_env["CI_MERGE_REQUEST_TARGET_BRANCH_NAME"]
+    before = ref
+
+if stage == "get_sources":
+    rc = get_sources()
+
+elif stage == "build_script":
+    rc = build_script()
+    keep = cdir / "af/info/keep"
+    if rc:
+        keep.touch(exist_ok=True)
+    elif keep.is_file():
+        keep.unlink()
+
+else:
+    run(script)
+    rc = 0
+
+sys.exit(rc)

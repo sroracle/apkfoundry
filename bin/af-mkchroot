@@ -27,6 +27,10 @@ opts.add_argument(
     help="Project checkout directory (default: container root /af/aports)",
 )
 opts.add_argument(
+    "-c", "--cache",
+    help="Shared APK cache directory (default: disabled)",
+)
+opts.add_argument(
     "-r", "--repodest",
     help="Package destination directory (default: container root /af/packages)",
 )
@@ -67,6 +71,7 @@ cont_make(
         "repodest": opts.repodest,
         "srcdest": opts.srcdest,
     },
+    cache=opts.cache,
 )
 
 rc, _ = client_init(opts.cdir, bootstrap=True)

@@ -10,8 +10,7 @@ import subprocess # call, CalledProcessError
 import textwrap   # TextWrapper
 from pathlib import Path
 
-from . import get_local_config, SITE_CONF
-from . import git_init, agent_queue, dt_timestamp, EStatus
+from . import EStatus, msg2, section_start, section_end
 from . import container
 from .digraph import generate_graph
 from .socket import client_init
@@ -38,148 +37,77 @@ def _stats_list(status, l):
         return
 
     _LOGGER.info("%s: %d", status.name.title(), len(l))
-    _LOGGER.info("\n%s\n", _wrap.fill(" ".join(l)))
+    msg2(_LOGGER, "\n%s\n", _wrap.fill(" ".join(l)))
 
-def _stats_builds(tasks):
-    _LOGGER.info("Total: %d", len(tasks))
-    success = True
+def _stats_builds(done):
+    _LOGGER.info("Total: %d", len(done))
 
-    statuses = {status: [] for status in _REPORT_STATUSES}
-    for startdir, task in tasks.items():
-        for status in statuses:
-            if task.status == status:
-                statuses[status].append(startdir)
+    statuses = {
+        status: [i for i in done if done[i] == status]
+        for status in _REPORT_STATUSES
+    }
 
-    for status, tasklist in statuses.items():
-        _stats_list(status, tasklist)
+    for status, startdirs in statuses.items():
+        _stats_list(status, startdirs)
 
-    rc = EStatus.SUCCESS
-    for status in reversed(_REPORT_STATUSES):
-        if statuses[status]:
-            rc = status
-            break
+    for status in set(_REPORT_STATUSES) - {EStatus.SUCCESS}:
+        if any(statuses[status]):
+            return 1
+    return 0
 
-    return rc
-
-def _parse_key(project, key):
-    if not key:
-        return ""
-
-    if "/" in key:
-        _LOGGER.error("Key name '%s' cannot contain slashes", key)
-        return ""
-
-    key = SITE_CONF / "keys" / project / key
-    if not key.exists():
-        _LOGGER.error("Key '%s' not found, using internal key", key)
-        return ""
-
-    return str(key)
-
-def run_task(agent, job, config, cont, task, log=None):
+def run_task(cont, startdir):
     env = {}
-    buildbase = Path(container.BUILDDIR) / task.startdir
-    env["AF_TASKDIR"] = f"/af/jobs/{job.id}/{task.startdir}"
-    env["AF_BRANCH"] = job.event.target
-    env["ABUILD_SRCDIR"] = str(buildbase / "src")
-    env["ABUILD_PKGBASEDIR"] = str(buildbase / "pkg")
+    buildbase = Path(container.BUILDDIR) / startdir
 
-    tmp_d = cont.cdir / str(buildbase).lstrip("/") / "tmp"
+    tmp_real = cont.cdir / str(buildbase).lstrip("/") / "tmp"
     try:
-        shutil.rmtree(tmp_d.parent)
+        shutil.rmtree(tmp_real.parent)
     except Exception:
         pass
-    tmp_d.mkdir(parents=True, exist_ok=True)
+    tmp_real.mkdir(parents=True, exist_ok=True)
 
-    tmp_e = str(buildbase / "tmp")
-    env["TEMP"] = env["TMP"] = tmp_e
-    env["TEMPDIR"] = env["TMPDIR"] = tmp_e
-    env["HOME"] = tmp_e
+    env["ABUILD_SRCDIR"] = str(buildbase / "src")
+    env["ABUILD_PKGBASEDIR"] = str(buildbase / "pkg")
+    tmp = str(buildbase / "tmp")
 
-    APKBUILD = cont.cdir / f"af/info/aportsdir/{task.startdir}/APKBUILD"
-    if not APKBUILD.is_file():
-        raise FileNotFoundError(APKBUILD)
+    env["TEMP"] = env["TMP"] = tmp
+    env["TEMPDIR"] = env["TMPDIR"] = tmp
+    env["HOME"] = tmp
+
+    APKBUILD = cont.cdir / f"af/info/aportsdir/{startdir}/APKBUILD"
     net = False
     with open(APKBUILD) as f:
         for line in f:
             if _NET_OPTION.search(line) is not None:
                 net = True
-
-    timestamp = dt_timestamp(job.created)
-    os.utime(APKBUILD, (timestamp, timestamp))
+                break
 
     if net:
-        _LOGGER.info("[%s] network access enabled", task.startdir)
+        _LOGGER.warning("%s: network access enabled", startdir)
 
-    if log is None:
-        log = task.dir / "build.log"
-        log = open(log, "w")
+    repo = startdir.split("/")[0]
 
-    try:
-        rc, _ = cont.run(
-            ["/af/libexec/af-worker", task.startdir],
-            jobdir=job.id,
-            repo=task.repo,
-            stdout=log, stderr=log,
-            env=env,
-            net=net,
-        )
+    rc, _ = cont.run(
+        ["/af/build_script", startdir],
+        repo=repo,
+        env=env,
+        net=net,
+    )
 
-    finally:
+    if rc == 0:
         try:
-            log.close()
-        except (AttributeError, TypeError):
-            pass
-
-    if rc in (0, 10):
-        try:
-            shutil.rmtree(tmp_d.parent)
+            shutil.rmtree(tmp_real.parent)
         except Exception:
             pass
 
-    apks = []
-    if config["key"]:
-        manifest = task.dir / "manifest.txt"
-        if manifest.exists():
-            apks = manifest.read_text().strip().splitlines()
-        apks = [task.dir / i for i in apks if (task.dir / i).exists()]
-    if apks:
-        args = ["fakeroot", "--", "resignapk", "-ik", config["key"], *apks]
-        if subprocess.call(args) != 0:
-            rc = 12
-        # You would think you would have to rebuild the APKINDEX as
-        # well, but it appears that the C: field of the .apk in the
-        # APKINDEX is independent of the key that signs it. This may
-        # change in a future version of apk-tools, and would need to be
-        # handled here. It will be a PITA though since `abuild index`
-        # applies some extra logic over what `apk index` does.
-
-    try:
-        _LOGGER.info("[%s] pushing artifacts", job)
-        agent.rsync(job.arch, "push")
-    except subprocess.CalledProcessError:
-        pass
-
     return rc
 
-def run_graph(agent, job, config, graph, cont):
-    tasks = {
-        task.startdir: task for task in job.tasks \
-        if task.status == EStatus.NEW
-    }
-    initial = set(tasks.keys())
-    done = set()
+def run_graph(cont, graph, startdirs):
+    initial = set(startdirs)
+    done = {}
 
-    config["key"] = _parse_key(job.event.project, config["key"])
-
-    try:
-        on_failure = FailureAction[config["on_failure"].upper()]
-    except KeyError:
-        _LOGGER.error("Unknown on_failure: %s", config["on_failure"])
-        _LOGGER.error("Defaulting to STOP")
-        on_failure = FailureAction.STOP
-    else:
-        _LOGGER.info("Will %s on failure", on_failure.name)
+    # FIXME make configurable again
+    on_failure = FailureAction.STOP
 
     while True:
         order = []
@@ -195,43 +123,32 @@ def run_graph(agent, job, config, graph, cont):
         tot = len(order)
         cur = 0
 
-        _LOGGER.info("Build order:\n")
+        section_start(_LOGGER, "build_order", "Build order:\n")
         for startdir in order:
             cur += 1
-            _LOGGER.info("\t(%d/%d) %s", cur, tot, startdir)
-        _LOGGER.info("\n")
+            msg2(_LOGGER, "(%d/%d) %s", cur, tot, startdir)
+        section_end(_LOGGER)
 
         cur = 0
         for startdir in order:
             cur += 1
-            _LOGGER.info("(%d/%d) Start: %s", cur, tot, startdir)
-            task = tasks[startdir]
-            task.status = EStatus.START
-            agent_queue.put(task)
+            section_start(
+                _LOGGER, "build_" + startdir.replace("/", "_"),
+                "(%d/%d) Start: %s", cur, tot, startdir
+            )
 
-            task.dir = job.dir / startdir
-            task.dir.mkdir(parents=True, exist_ok=True)
+            rc = run_task(cont, startdir)
 
-            rc = run_task(agent, job, config, cont, task)
-
-            if rc in (0, 10):
-                _LOGGER.info("(%d/%d) Success: %s", cur, tot, startdir)
-                task.status = EStatus.SUCCESS
-                agent_queue.put(task)
-                done.add(startdir)
+            if rc == 0:
+                section_end(_LOGGER, "(%d/%d) Success: %s", cur, tot, startdir)
+                done[startdir] = EStatus.SUCCESS
 
             else:
-                if rc == 11:
-                    _LOGGER.error("(%d/%d) Fail: %s", cur, tot, startdir)
-                    task.status = EStatus.FAIL
-                else:
-                    _LOGGER.error("(%d/%d) ERROR: %s", cur, tot, startdir)
-                    task.status = EStatus.ERROR
-                agent_queue.put(task)
-                done.add(startdir)
+                section_end(_LOGGER, "(%d/%d) Fail: %s", cur, tot, startdir)
+                done[startdir] = EStatus.FAIL
 
                 if on_failure == FailureAction.RECALCULATE:
-                    _LOGGER.info("Recalculating build order")
+                    section_start(_LOGGER, "recalc-order", "Recalculating build order")
 
                     depfails = set(graph.all_downstreams(startdir))
                     for rdep in depfails:
@@ -241,19 +158,15 @@ def run_graph(agent, job, config, graph, cont):
                     depfails &= initial
                     for rdep in depfails:
                         _LOGGER.error("Depfail: %s", rdep)
-                        tasks[rdep].status = EStatus.DEPFAIL
-                        tasks[rdep].tail = f"Depfail on {startdir}"
-                        agent_queue.put(tasks[rdep])
-                    done.update(depfails)
+                        done[rdep] = EStatus.DEPFAIL
+
+                    section_end(_LOGGER)
 
                 elif on_failure == FailureAction.STOP:
                     _LOGGER.error("Stopping due to previous error")
-                    cancels = initial - done
+                    cancels = initial - set(done.keys())
                     for rdep in cancels:
-                        tasks[rdep].status = EStatus.DEPFAIL
-                        tasks[rdep].tail = f"Cancelled due to {startdir}"
-                        agent_queue.put(tasks[rdep])
-                    done.update(cancels)
+                        done[rdep] = EStatus.DEPFAIL
                     graph.reset_graph()
 
                 elif on_failure == FailureAction.IGNORE:
@@ -261,84 +174,26 @@ def run_graph(agent, job, config, graph, cont):
 
                 break
 
-    return _stats_builds(tasks)
+    return _stats_builds(done)
 
-def run_job(agent, job):
-    job.status = EStatus.START
-    agent_queue.put(job)
-
-    for task in job.tasks:
-        task.job = job
-
-    topic = job.topic.split("/")
-    event = job.event
-    cdir = (
-        agent.containers
-        / f"{event.project}.{event.type!s}.{event.target}.{job.arch}"
-    )
-    job.dir = (
-        agent.artdir
-        / job.arch
-        / f"{event.project}.{event.type!s}.{event.target}/jobs/{job.id}"
-    )
-    job.dir.mkdir(parents=True, exist_ok=True)
-    (job.dir.parent.parent / "repos").mkdir(parents=True, exist_ok=True)
-
-    if not cdir.is_dir():
-        container.cont_make(
-            cdir,
-            branch=event.target,
-            repo=job.tasks[0].repo,
-            arch=job.arch,
-            setarch=agent.setarch[job.arch],
-            mounts={
-                "jobsdir": job.dir.parent,
-                "repodest": job.dir.parent.parent / "repos",
-            },
-        )
-        bootstrap = True
-
-    else:
-        bootstrap = False
-
-    git_init(
-        cdir / "af/aports", event.clone,
-        rev=event.revision,
-        mrid=event.mrid, mrclone=event.mrclone, mrbranch=event.mrbranch,
-    )
-
-    rc, conn  = client_init(cdir, bootstrap=bootstrap)
-    if rc != 0:
-        _LOGGER.error("failed to connect to rootd")
-        job.status = EStatus.ERROR
-        return
+def run_job(conn, cdir, script, startdirs):
     cont = container.Container(cdir, rootd_conn=conn)
 
-    conf_d = cdir / "af/aports/.apkfoundry" / event.target
-    config = get_local_config(conf_d.parent)
-    for i in (
-            f"{event.type!s}:{event.target}",
-            str(event.type),
-            "DEFAULT",
-    ):
-        if i in config:
-            config = config[i]
-            break
-
-    ignored_deps = conf_d / "ignore-deps"
+    ignored_deps = cdir / "af/aports/.apkfoundry/ignore-deps"
     if ignored_deps.is_file():
         ignored_deps = ignored_deps.read_text().strip().splitlines()
         ignored_deps = [i.split() for i in ignored_deps]
     else:
         ignored_deps = []
 
+    section_start(_LOGGER, "gen-build-order", "Generating build order...")
     graph = generate_graph(
         ignored_deps,
         cont=cont,
     )
     if not graph or not graph.is_acyclic():
         _LOGGER.error("failed to generate dependency graph")
-        job.status = EStatus.ERROR
-        return
+        return 1
+    section_end(_LOGGER)
 
-    job.status = run_graph(agent, job, config, graph, cont)
+    return run_graph(cont, graph, startdirs)
