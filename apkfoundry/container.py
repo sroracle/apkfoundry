@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-import enum       # Enum
 import getpass    # getuser
 import grp        # getgrnam
 import json       # load
@@ -33,11 +32,6 @@ _APK_STATIC = SITE_CONF / "skel.bootstrap/apk.static"
 _CFG = get_config("container")
 _ROOTID = _CFG.getint("rootid")
 _SUBID = _CFG.getint("subid")
-
-class Delete(enum.Enum):
-    NEVER = 0
-    ON_SUCCESS = 1
-    ALWAYS = 2
 
 def _idmap(cmd, pid, id):
     assert _ROOTID != id, "root ID cannot match user ID"
@@ -160,13 +154,9 @@ class Container:
 
         self.rootd_conn = rootd_conn
 
-    def delete(self):
-        raise NotImplementedError
-
     def run(self,
             cmd,
             *,
-            delete=Delete.NEVER,
             bootstrap=False,
             net=False,
             repo=None,
@@ -307,16 +297,6 @@ class Container:
         retcodes.append(proc.returncode)
 
         success = all(i == 0 for i in retcodes)
-
-        if delete == Delete.NEVER:
-            pass
-
-        elif delete == Delete.ON_SUCCESS:
-            if success:
-                self.delete()
-
-        elif delete == Delete.ALWAYS:
-            self.delete()
 
         if not success:
             _LOGGER.debug("container failed with status %r!", retcodes)
