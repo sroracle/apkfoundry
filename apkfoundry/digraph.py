@@ -13,6 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 class DAGValidationError(Exception):
     def __init__(self, cycle):
         self.cycle = cycle
+        super().__init__()
 
 class Digraph:
     def __init__(self):

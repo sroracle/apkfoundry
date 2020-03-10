@@ -94,7 +94,7 @@ def build_script():
     (aportsdir / ".gl-repos").symlink_to("../repos")
     section_end(None)
 
-    return run_job(conn, cdir, script, [*pkgs, *manual_pkgs])
+    return run_job(conn, cdir, [*pkgs, *manual_pkgs])
 
 script = sys.argv[1]
 stage = sys.argv[2]

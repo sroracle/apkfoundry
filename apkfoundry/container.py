@@ -9,13 +9,11 @@ import logging    # getLogger
 import os         # close, environ, getuid, getgid, pipe, walk, write
 import pwd        # getpwuid
 import select     # select
-import shlex      # quote
 import shutil     # chown, copy2, copytree
-import socket     # gethostname
 import subprocess # call, Popen
 from pathlib import Path
 
-from . import get_config, LIBEXEC, run, SITE_CONF
+from . import get_config, LIBEXEC, SITE_CONF
 from .socket import client_refresh
 
 BUILDDIR = "/af/build"
@@ -43,7 +41,7 @@ class Delete(enum.Enum):
     ON_SUCCESS = 1
     ALWAYS = 2
 
-def _idmap(cmd, pid, id, af_group=False):
+def _idmap(cmd, pid, id):
     assert _ROOTID != id, "root ID cannot match user ID"
 
     if cmd == "newuidmap":
@@ -444,8 +442,10 @@ def cont_bootstrap(cdir, **kwargs):
         if filename.with_suffix(".apk-new").exists():
             shutil.move(filename.with_suffix(".apk-new"), filename)
         elif subprocess.call(
-                    [_APK_STATIC, "--root", cdir, "info",
-                    "--who-owns", filename.relative_to(cdir)],
+                    [
+                        _APK_STATIC, "--root", cdir, "info",
+                        "--who-owns", filename.relative_to(cdir)
+                    ],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 ) != 0:
             filename.unlink()
@@ -500,7 +500,7 @@ def cont_refresh(cdir):
         ):
 
         if not skel.is_dir():
-            _LOGGER.debug(f"could not find {skel}")
+            _LOGGER.debug("could not find %s", skel)
             continue
 
         _force_copytree(skel, cdir)

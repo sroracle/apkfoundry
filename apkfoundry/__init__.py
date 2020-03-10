@@ -2,7 +2,7 @@
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
 import configparser # ConfigParser
-import enum         # Enum, IntEnum, IntFlag, unique
+import enum         # Enum, IntFlag, unique
 import functools    # partial
 import logging      # Formatter, getLogger, StreamHandler
 import os           # environ, pathsep
@@ -63,18 +63,6 @@ class Colors(enum.Enum):
         return self.value
 
 @enum.unique
-class EType(enum.IntEnum):
-    PUSH = 1
-    MR = 2
-
-    def __str__(self):
-        return self.name
-
-    def __conform__(self, protocol):
-        if protocol is sqlite3.PrepareProtocol:
-            return int(self)
-
-@enum.unique
 class EStatus(enum.IntFlag):
     NEW = 1
     REJECT = 2
@@ -89,10 +77,6 @@ class EStatus(enum.IntFlag):
 
     def __str__(self):
         return self.name
-
-    def __conform__(self, protocol):
-        if protocol is sqlite3.PrepareProtocol:
-            return int(self)
 
 def get_config(section=None):
     files = sorted(SITE_CONF.glob("*.ini"))
@@ -118,14 +102,6 @@ def get_output(*argv, **kwargs):
     sys.stdout.flush()
     sys.stderr.flush()
     return subprocess.check_output(argv, encoding="utf-8", **kwargs)
-
-def dt_timestamp(dto):
-    if dto.tzinfo is None:
-        ts = dto.replace(tzinfo=dt.timezone.utc)
-    else:
-        ts = dto
-
-    return dto.timestamp()
 
 class abuildLogFormatter(logging.Formatter):
     def __init__(self, fmt=None, use_color=True, show_time=False, **kwargs):
@@ -230,4 +206,3 @@ class CI_Env:
 
     def __contains__(self, item):
         return self.prefix + item in os.environ
-

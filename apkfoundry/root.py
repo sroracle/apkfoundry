@@ -43,7 +43,7 @@ def _abuild_fetch(argv):
         nargs=1,
     )
 
-    opts = getopts.parse_args(argv)
+    getopts.parse_args(argv)
 
 def _abuild_addgroup(argv):
     getopts = _ParseOrRaise(
@@ -59,7 +59,7 @@ def _abuild_addgroup(argv):
         "group",
     )
 
-    opts = getopts.parse_args(argv)
+    getopts.parse_args(argv)
 
 def _abuild_adduser(argv):
     getopts = _ParseOrRaise(
@@ -86,7 +86,7 @@ def _abuild_adduser(argv):
         "user",
     )
 
-    opts = getopts.parse_args(argv)
+    getopts.parse_args(argv)
 
 def _apk_fetch(argv):
     getopts = _ParseOrRaise(
@@ -135,7 +135,7 @@ def _apk_fetch(argv):
         action="store_true",
     )
 
-    opts = getopts.parse_args(argv)
+    getopts.parse_args(argv)
 
 def _abuild_apk(argv):
     getopts = _ParseOrRaise(
@@ -350,10 +350,10 @@ class RootConn(socketserver.StreamRequestHandler):
                 argv = argv[1:]
                 self._init(argv)
                 continue
-            elif not self.cdir:
+            if not self.cdir:
                 self._err("Must call af-init first")
                 continue
-            elif cmd == "af-refresh":
+            if cmd == "af-refresh":
                 cont_refresh(self.cdir)
                 send_retcode(self.request, 0)
                 continue
@@ -487,5 +487,5 @@ def listen():
     )
 
     while True:
-        for key, event in sel.select():
+        for key, _ in sel.select():
             key.data[0](*key.data[1:])

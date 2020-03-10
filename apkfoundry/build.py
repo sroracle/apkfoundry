@@ -3,17 +3,14 @@
 # See LICENSE for more information.
 import enum       # Enum
 import logging    # getLogger
-import os         # utime
 import re         # compile
 import shutil     # rmtree
-import subprocess # call, CalledProcessError
 import textwrap   # TextWrapper
 from pathlib import Path
 
 from . import EStatus, msg2, section_start, section_end
 from . import container
 from .digraph import generate_graph
-from .socket import client_init
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_STATUSES = (
@@ -62,7 +59,7 @@ def run_task(cont, startdir):
     tmp_real = cont.cdir / str(buildbase).lstrip("/") / "tmp"
     try:
         shutil.rmtree(tmp_real.parent)
-    except Exception:
+    except (FileNotFoundError, PermissionError):
         pass
     tmp_real.mkdir(parents=True, exist_ok=True)
 
@@ -97,7 +94,7 @@ def run_task(cont, startdir):
     if rc == 0:
         try:
             shutil.rmtree(tmp_real.parent)
-        except Exception:
+        except (FileNotFoundError, PermissionError):
             pass
 
     return rc
@@ -176,7 +173,7 @@ def run_graph(cont, graph, startdirs):
 
     return _stats_builds(done)
 
-def run_job(conn, cdir, script, startdirs):
+def run_job(conn, cdir, startdirs):
     cont = container.Container(cdir, rootd_conn=conn)
 
     ignored_deps = cdir / "af/aports/.apkfoundry/ignore-deps"
