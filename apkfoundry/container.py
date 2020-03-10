@@ -335,7 +335,6 @@ class Container:
 
 def cont_make(
         cdir,
-        branch,
         repo,
         *,
         arch=None,
@@ -370,7 +369,6 @@ def cont_make(
         (cdir / i).chmod(0o755)
         shutil.chown(cdir / i, group="apkfoundry")
 
-    (af_info / "branch").write_text(branch.strip())
     (af_info / "repo").write_text(repo.strip())
 
     if arch is None:

@@ -47,22 +47,16 @@ opts.add_argument(
     help="Container directory",
 )
 opts.add_argument(
-    "branch", metavar="BRANCH",
-    help="Project branch",
-)
-opts.add_argument(
     "repo", metavar="REPO",
     help="Initial repository (can be changed later)",
 )
 
 opts = opts.parse_args()
 opts.cdir = Path(opts.cdir).resolve(strict=False)
-opts.branch = opts.branch
 opts.repo = opts.repo
 
 cont_make(
     opts.cdir,
-    opts.branch,
     opts.repo,
     arch=opts.arch,
     setarch=opts.setarch,
