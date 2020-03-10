@@ -16,7 +16,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define PREFIX "/srv/apkfoundry/build/af."
+#define PREFIX "/var/lib/apkfoundry/build/af."
 
 static void fail() {
 	errx(1, "%s", strerror(errno));

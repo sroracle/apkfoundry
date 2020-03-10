@@ -18,7 +18,7 @@ if "PATH" in os.environ:
     os.environ["PATH"] = str(LIBEXEC) + os.pathsep + os.environ["PATH"]
 else:
     os.environ["PATH"] = str(LIBEXEC)
-_HOME = Path("/var/lib/apkfoundry")
+HOME = Path("/var/lib/apkfoundry")
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +39,6 @@ _DEFAULT_SITE_CONFIG = {
     "container": {
         "rootid": "1001",
         "subid": "100000",
-        "socket": str(_HOME / "root.sock"),
     },
 }
 

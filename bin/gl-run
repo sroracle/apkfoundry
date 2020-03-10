@@ -85,7 +85,7 @@ def build_script():
         cdir,
         branch=ref,
         repo="system",
-        cache="/srv/apkfoundry/apk_cache",
+        cache="/var/lib/apkfoundry/apk_cache",
     )
     rc, conn = client_init(cdir, bootstrap=True)
     if rc != 0:
