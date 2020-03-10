@@ -16,9 +16,9 @@ Dependencies
 * Python 3.6+
 * GitLab runner
 * `apk-tools <https://gitlab.alpinelinux.org/alpine/apk-tools>`_
-(``apk.static`` only)
+  (``apk.static`` only)
 * `bubblewrap <https://github.com/projectatomic/bubblewrap>`_
-(installed as non-setuid)
+  (installed as non-setuid)
 * Linux kernel with unprivileged user namespace support
 * `shadow-uidmap <https://github.com/shadow-maint/shadow>`_
 * `skalibs <https://skarnet.org/software/skalibs>`_ (build-time only
