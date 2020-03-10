@@ -350,6 +350,14 @@ def cont_make(
     for mount in MOUNTS.values():
         (cdir / mount.lstrip("/")).mkdir(parents=True, exist_ok=True)
 
+    if arch is None:
+        arch = subprocess.check_output(
+            [_APK_STATIC, "--print-arch"],
+            encoding="utf-8",
+        )
+    (cdir / "etc/apk").mkdir(parents=True, exist_ok=True)
+    (cdir / "etc/apk/arch").write_text(arch.strip() + "\n")
+
     for i in ("etc", "var"):
         for dirpath, _, filenames in os.walk(cdir / i):
             dirpath = Path(dirpath)
@@ -370,13 +378,6 @@ def cont_make(
         shutil.chown(cdir / i, group="apkfoundry")
 
     (af_info / "repo").write_text(repo.strip())
-
-    if arch is None:
-        arch = subprocess.check_output(
-            [_APK_STATIC, "--print-arch"],
-            encoding="utf-8",
-        )
-    (cdir / "af/info/arch").write_text(arch.strip())
 
     if setarch:
         (cdir / "af/info/setarch").write_text(setarch.strip())
@@ -479,15 +480,9 @@ def cont_refresh(cdir):
     if not repo.is_file():
         raise FileNotFoundError("/af/info/repo file is required")
     repo = repo.read_text().strip()
-    # FIXME: maybe not needed as a separate file from /etc/apk/arch
-    arch = cdir / "af/info/arch"
-    if not arch.is_file():
-        raise FileNotFoundError("/af/info/arch file is required")
-    (cdir / "etc/apk").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(arch, cdir / "etc/apk/arch")
-    arch = arch.read_text().strip()
 
     conf_d = cdir / "af/info/aportsdir/.apkfoundry"
+    arch = (cdir / "etc/apk/arch").read_text().strip()
 
     for skel in (
             SITE_CONF / "skel",
