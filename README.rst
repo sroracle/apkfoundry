@@ -10,35 +10,16 @@ an APK-based package build orchestrator and distribution builder
 :Copyright:
   © 2019 Max Rees. GPL-2.0 open source licence.
 
-Synopsis
---------
-
-* ``af-agentd``: executes build requests and publishes the artifacts to
-  a central location
-* ``af-dispatchd``: collect event requests and dispatches them to
-  available builder agents as well as record updates from the agents
-
 Dependencies
 ------------
 
-Base set
-   * Python 3.6+
-   * `attrs <http://attrs.org>`_
-   * `paho.mqtt <https://github.com/eclipse/paho.mqtt.python>`_
-   * MQTT broker (e.g. `mosquitto <https://mosquitto.org>`_)
-
-``af-agentd``
-   * `apk-tools <https://gitlab.alpinelinux.org/alpine/apk-tools>`_
-     (``apk.static`` only)
-   * `bubblewrap <https://github.com/projectatomic/bubblewrap>`_
-     (installed as non-setuid)
-   * Linux kernel with unprivileged user namespace support
-   * `shadow-uidmap <https://github.com/shadow-maint/shadow>`_
-   * `skalibs <https://skarnet.org/software/skalibs>`_ (build-time only
-     for statically-compiled helper program)
-
-``af-irc``
-   * `PyIRC <https://code.foxkit.us/IRC/PyIRC>`_
-
-Web interface
-   * `jinja2 <http://jinja.pocoo.org>`_
+* Python 3.6+
+* GitLab runner
+* `apk-tools <https://gitlab.alpinelinux.org/alpine/apk-tools>`_
+(``apk.static`` only)
+* `bubblewrap <https://github.com/projectatomic/bubblewrap>`_
+(installed as non-setuid)
+* Linux kernel with unprivileged user namespace support
+* `shadow-uidmap <https://github.com/shadow-maint/shadow>`_
+* `skalibs <https://skarnet.org/software/skalibs>`_ (build-time only
+  for statically-compiled helper program)
