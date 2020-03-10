@@ -17,10 +17,8 @@ from . import get_config, LIBEXEC, SITE_CONF
 from .socket import client_refresh
 
 BUILDDIR = "/af/build"
-JOBDIR = "/af/jobs"
 MOUNTS = {
     "aportsdir": "/af/aports",
-    "jobsdir": "/af/jobs",
     "repodest": "/af/repos",
     "srcdest": "/var/cache/distfiles",
 }
@@ -170,7 +168,6 @@ class Container:
             *,
             delete=Delete.NEVER,
             bootstrap=False,
-            jobdir=None,
             net=False,
             repo=None,
             ro_aports=True,
@@ -236,7 +233,6 @@ class Container:
             "--bind", self.cdir / "tmp", "/tmp",
             "--bind", self.cdir / "var/tmp", "/var/tmp",
             aports_bind, mounts["aportsdir"], MOUNTS["aportsdir"],
-            "--ro-bind", mounts["jobsdir"], MOUNTS["jobsdir"],
             "--bind", mounts["repodest"], MOUNTS["repodest"],
             "--bind", mounts["srcdest"], MOUNTS["srcdest"],
             "--bind", self.cdir / BUILDDIR.lstrip("/"), BUILDDIR,
@@ -268,12 +264,6 @@ class Container:
             args.extend((
                 "--setenv", "AF_ROOT_FD", str(self.rootd_conn.fileno()),
             ))
-
-        if jobdir is not None:
-            args.extend([
-                "--bind", Path(mounts["jobsdir"]) / str(jobdir),
-                Path(MOUNTS["jobsdir"]) / str(jobdir),
-            ])
 
         if not net:
             args.append("--unshare-net")
@@ -368,7 +358,6 @@ def cont_make(
                 shutil.chown(dirpath / filename, group="apkfoundry")
 
     (cdir / BUILDDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
-    (cdir / JOBDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
 
     af_info = cdir / "af/info"
     af_info.mkdir()
