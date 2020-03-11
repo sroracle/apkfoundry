@@ -40,6 +40,8 @@ _DEFAULT_SITE_CONFIG = {
         "rootid": "1001",
         "subid": "100000",
     },
+    "setarch": {
+    },
 }
 
 _DEFAULT_LOCAL_CONFIG = {

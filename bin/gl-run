@@ -6,12 +6,14 @@ import sys
 from os.path import relpath
 from pathlib import Path
 
-from apkfoundry import run, get_output, init_logger, msg2, section_start, section_end, CI_Env
+from apkfoundry import get_config, run, get_output, CI_Env
+from apkfoundry import init_logger, msg2, section_start, section_end
 from apkfoundry.build import run_job
 from apkfoundry.container import cont_make
 from apkfoundry.socket import client_init
 
 FAKE_BEFORE='0000000000000000000000000000000000000000'
+SETARCH = get_config("setarch")
 
 init_logger(None, colors=True)
 
@@ -81,9 +83,11 @@ def build_script():
         relpath(cdir / "tmp", aportsdir.parent
     ))
 
+
     cont_make(
         cdir,
-        branch=ref,
+        arch=arch,
+        setarch=SETARCH.get(arch, None),
         repo="system",
         cache="/var/lib/apkfoundry/apk_cache",
     )
@@ -102,7 +106,7 @@ stage = sys.argv[2]
 ci_env = CI_Env()
 cdir = Path(ci_env["CI_BUILDS_DIR"])
 aportsdir = Path(ci_env["CI_PROJECT_DIR"])
-runner_arch = ci_env["AF_ARCH"]
+arch = ci_env["AF_ARCH"]
 before = ci_env["CI_COMMIT_BEFORE_SHA"]
 after = ci_env["CI_COMMIT_SHA"]
 ref = ci_env["CI_COMMIT_REF_NAME"]
