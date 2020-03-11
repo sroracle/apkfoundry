@@ -37,38 +37,35 @@ def _idmap(cmd, pid, id):
     assert _ROOTID != id, "root ID cannot match user ID"
 
     if cmd == "newuidmap":
-        rootid = _ROOTID
+        holes = {
+            0: _ROOTID,
+            id: id,
+        }
     else:
-        rootid = pwd.getpwuid(_ROOTID).pw_gid
-
-    if cmd == "newgidmap" and pwd.getpwuid(id).pw_name == "af-agent":
         af_gid = grp.getgrnam("apkfoundry").gr_gid
-        assert abs(af_gid - id + 1) == 2
-        gap = 2
-    else:
-        gap = 1
+        rootid = pwd.getpwuid(_ROOTID).pw_gid
+        holes = {
+            0: rootid,
+            id: id,
+            af_gid: af_gid,
+        }
 
-    args = [
-        "0",
-        str(rootid),
-        "1",
+    args = []
+    for mapped, real in holes.items():
+        args += [mapped, real, 1]
 
-        "1",
-        str(_SUBID + 1),
-        str(id - 1),
+    gaps = list(holes.keys())
+    gaps = list(zip(gaps[:-1], gaps[1:]))
+    gaps.append((max(holes.keys()), 65535))
 
-        str(id),
-        str(id),
-        str(gap),
-
-        str(id + gap),
-        str(_SUBID + id + gap),
-        str(65534 - (id + gap) + 1),
-    ]
+    for map0, map1 in gaps:
+        if not map0 - map1 or not map1 - (map0 + 1):
+            continue
+        args += [map0 + 1, _SUBID + map0 + 1, map1 - (map0 + 1)]
 
     assert len(args) % 3 == 0, "map must have 3 entries per line"
-    assert len(args) / 3 <= 5, "map may not have more than 5 lines"
 
+    args = [str(i) for i in args]
     return subprocess.call((cmd, str(pid), *args))
 
 def _userns_init(pid, uid, gid):
@@ -425,7 +422,6 @@ def cont_bootstrap(cdir, **kwargs):
     args = ["abuild-keygen", "-anq"]
     env = os.environ.copy()
     env["ABUILD_USERDIR"] = str(keydir)
-    env["USER"] = "af-agent"
     rc = subprocess.call(args, env=env, **kwargs)
 
     if rc != 0:
