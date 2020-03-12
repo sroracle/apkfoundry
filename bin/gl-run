@@ -6,7 +6,7 @@ import sys
 from os.path import relpath
 from pathlib import Path
 
-from apkfoundry import get_config, run, get_output, CI_Env
+from apkfoundry import get_config, run, get_output, CI_Env, HOME
 from apkfoundry import init_logger, msg2, section_start, section_end
 from apkfoundry.build import run_job
 from apkfoundry.container import cont_make
@@ -89,7 +89,7 @@ def build_script():
         arch=arch,
         setarch=SETARCH.get(arch, None),
         repo=bootstrap_repo,
-        cache="/var/lib/apkfoundry/apk_cache",
+        cache=cache,
     )
     rc, conn = client_init(cdir, bootstrap=True)
     if rc != 0:
@@ -112,10 +112,16 @@ after = ci_env["CI_COMMIT_SHA"]
 ref = ci_env["CI_COMMIT_REF_NAME"]
 mr = ci_env["CI_MERGE_REQUEST_ID"] if "CI_MERGE_REQUEST_ID" in ci_env else None
 
+
 if mr:
     target_url = ci_env["CI_MERGE_REQUEST_PROJECT_URL"]
     ref = ci_env["CI_MERGE_REQUEST_TARGET_BRANCH_NAME"]
     before = ref
+
+cache = HOME / f"apk_cache/{ci_env['CI_PROJECT_PATH_SLUG']}.{ref}.{arch}"
+cache.mkdir(exist_ok=True)
+shutil.chown(cache, group="apkfoundry")
+cache.chmod(0o2775)
 
 if stage == "get_sources":
     rc = get_sources()
