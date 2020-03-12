@@ -6,7 +6,7 @@ import logging # basicConfig
 import os      # getuid
 import sys     # exit
 
-from apkfoundry import get_config
+from apkfoundry import rootid
 from apkfoundry.root import listen
 
 logging.basicConfig(
@@ -14,9 +14,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-rootid = get_config("container").getint("rootid")
-if os.getuid() != rootid:
-    _LOGGER.critical(f"Must be run as user {rootid}")
+if os.getuid() != rootid().pw_uid:
+    _LOGGER.critical("Must be run as af-root")
     sys.exit(1)
 
 listen()

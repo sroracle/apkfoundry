@@ -6,6 +6,7 @@ import enum         # Enum, IntFlag, unique
 import functools    # partial
 import logging      # Formatter, getLogger, StreamHandler
 import os           # environ, pathsep
+import pwd          # getpwuid
 import subprocess   # check_call, check_output
 import sys          # stderr, stdout
 import datetime as dt # timezone
@@ -37,7 +38,6 @@ _ConfigParser = functools.partial(
 
 _DEFAULT_SITE_CONFIG = {
     "container": {
-        "rootid": "1001",
         "subid": "100000",
     },
     "setarch": {
@@ -91,6 +91,9 @@ def get_config(section=None):
         return config[section]
 
     return config
+
+def rootid():
+    return pwd.getpwuid("af-root")
 
 def run(*argv, **kwargs):
     argv = [str(arg) for arg in argv]

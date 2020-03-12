@@ -10,13 +10,11 @@ import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
 import sys          # exc_info
 from pathlib import Path
 
-from . import get_config
+from . import rootid
 from .container import Container, cont_bootstrap, cont_refresh
 from .socket import get_creds, recv_fds, send_retcode, SOCK_PATH
 
 _LOGGER = logging.getLogger(__name__)
-_CFG = get_config("container")
-_ROOTID = _CFG.getint("rootid")
 
 class _ParseOrRaise(argparse.ArgumentParser):
     class Error(Exception):
@@ -426,7 +424,7 @@ class RootConn(socketserver.StreamRequestHandler):
             return
 
         owner = opts.cdir.stat().st_uid
-        if self.uid != owner and self.uid != _ROOTID:
+        if self.uid != owner and self.uid != rootid().pw_uid:
             self._err(f"{opts.cdir} belongs to {owner}")
             return
 

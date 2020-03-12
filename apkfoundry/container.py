@@ -12,7 +12,7 @@ import shutil     # chown, copy2, copytree
 import subprocess # call, Popen
 from pathlib import Path
 
-from . import get_config, LIBEXEC, SITE_CONF
+from . import get_config, LIBEXEC, SITE_CONF, rootid
 from .socket import client_refresh
 
 BUILDDIR = "/af/build"
@@ -30,25 +30,23 @@ _KEEP_ENV = (
 
 _APK_STATIC = SITE_CONF / "skel.bootstrap/apk.static"
 _CFG = get_config("container")
-_ROOTID = _CFG.getint("rootid")
 _SUBID = _CFG.getint("subid")
 
 def _idmap(cmd, pid, id):
-    assert _ROOTID != id, "root ID cannot match user ID"
-
     if cmd == "newuidmap":
         holes = {
-            0: _ROOTID,
+            0: rootid().pw_uid,
             id: id,
         }
     else:
         af_gid = grp.getgrnam("apkfoundry").gr_gid
-        rootid = pwd.getpwuid(_ROOTID).pw_gid
         holes = {
-            0: rootid,
+            0: rootid().pw_gid,
             id: id,
             af_gid: af_gid,
         }
+
+    assert holes[0] != id, "root ID cannot match user ID"
 
     args = []
     for mapped, real in holes.items():
@@ -142,7 +140,7 @@ class Container:
 
         cdir_uid = self.cdir.stat().st_uid
         if self._owneruid != cdir_uid:
-            if self._owneruid != _ROOTID:
+            if self._owneruid != rootid().pw_uid:
                 raise PermissionError(f"'{self.cdir}' belongs to '{cdir_uid}'")
 
             self._owneruid = cdir_uid
