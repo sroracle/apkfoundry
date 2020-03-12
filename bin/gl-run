@@ -43,7 +43,7 @@ def resignapk():
     if not privkey:
         return
 
-    apks = (cdir / "af/repos").glob("**/*.apk")
+    apks = list((cdir / "af/repos").glob("**/*.apk"))
     if not apks:
         return
 
