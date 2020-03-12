@@ -71,6 +71,11 @@ def run_task(cont, startdir):
     env["TEMPDIR"] = env["TMPDIR"] = tmp
     env["HOME"] = tmp
 
+    # "deps" is a waste of time since world will be refreshed
+    # on next package
+    env["CLEANUP"] = "srcdir pkgdir"
+    env["ERROR_CLEANUP"] = ""
+
     APKBUILD = cont.cdir / f"af/info/aportsdir/{startdir}/APKBUILD"
     net = False
     with open(APKBUILD) as f:
@@ -93,7 +98,9 @@ def run_task(cont, startdir):
 
     if rc == 0:
         try:
-            shutil.rmtree(tmp_real.parent)
+            # Only remove TEMP files, not src/pkg
+            _LOGGER.info("Removing private /tmp")
+            shutil.rmtree(tmp_real)
         except (FileNotFoundError, PermissionError):
             pass
 
