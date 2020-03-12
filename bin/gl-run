@@ -88,7 +88,7 @@ def build_script():
         cdir,
         arch=arch,
         setarch=SETARCH.get(arch, None),
-        repo="system",
+        repo=bootstrap_repo,
         cache="/var/lib/apkfoundry/apk_cache",
     )
     rc, conn = client_init(cdir, bootstrap=True)
@@ -121,6 +121,8 @@ if stage == "get_sources":
     rc = get_sources()
 
 elif stage == "build_script":
+    bootstrap_repo = aportsdir / ".apkfoundry/bootstrap-repo"
+    bootstrap_repo = bootstrap_repo.read_text().strip()
     rc = build_script()
     keep = cdir / "af/info/keep"
     if rc:
