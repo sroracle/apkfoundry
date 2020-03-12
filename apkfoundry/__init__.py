@@ -93,7 +93,7 @@ def get_config(section=None):
     return config
 
 def rootid():
-    return pwd.getpwuid("af-root")
+    return pwd.getpwnam("af-root")
 
 def run(*argv, **kwargs):
     argv = [str(arg) for arg in argv]
