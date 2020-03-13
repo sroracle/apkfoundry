@@ -26,7 +26,7 @@ The files can be named whatever one chooses; any files matching this
 glob will be read in collation order. Thus sensitive details can be
 split into restricted files away from more mundane options.
 
-::
+.. code-block:: ini
 
     [container]
     ; Base sub-id for containers.
@@ -102,7 +102,9 @@ In order to accommodate settings from both the builder operator and the
 individual projects, handling of the ``/etc/abuild.conf`` file is
 separate from the skeletons. The site configuration is located in
 ``/etc/apkfoundry/abuild.conf``, with the following recommended minimum
-requirements::
+requirements:
+
+.. code-block:: shell
 
     # Include project-local abuild settings
     if [ -e /etc/abuild.conf.local ]; then
@@ -110,7 +112,9 @@ requirements::
     fi
 
 Typically, after including the project-local settings, the site-local
-configuration will set things such as ``$JOBS``::
+configuration will set things such as ``$JOBS``:
+
+.. code-block:: shell
 
     export JOBS=4
     export MAKEFLAGS="$MAKEFLAGS -j$JOBS"
@@ -119,10 +123,10 @@ Project-local configuration
 ---------------------------
 
 For each branch to be built, it should have an ``.apkfoundry`` directory
-in its repository root.
+in its repository root, with the following files:
 
-branch/repos
-^^^^^^^^^^^^
+.apkfoundry/repos
+^^^^^^^^^^^^^^^^^
 
 The purpose of this **required** is to define which architectures the
 special ``arch`` values ``"all"`` and ``"noarch"`` should correspond to
@@ -155,8 +159,8 @@ for that architecture, even if changed APKBUILDs have ``arch="all"``,
 If a repository is not listed in this file, then no builds will occur
 for that repository.
 
-branch/ignore-deps
-^^^^^^^^^^^^^^^^^^
+.apkfoundry/ignore-deps
+^^^^^^^^^^^^^^^^^^^^^^^
 
 This **optional** file is used by the runners to ignore cyclic
 dependencies when calculating the build order. It should be a plain text
