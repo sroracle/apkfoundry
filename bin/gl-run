@@ -8,7 +8,7 @@ import tempfile
 from os.path import relpath
 from pathlib import Path
 
-from apkfoundry import get_config, run, get_output, CI_Env, HOME
+from apkfoundry import get_config, run, get_output, CI_Env, HOME, SITE_CONF
 from apkfoundry import init_logger, msg2, section_start, section_end
 from apkfoundry.build import run_job
 from apkfoundry.container import cont_make, Container
@@ -35,9 +35,37 @@ def sanitize_script(script):
         "sed", "-i",
         "-e", f"s@{cdir}[/]*@/@g",
         "-e", "/AF_PRIVKEY/d",
-        "-e", "/AF_PUBKEY_NAME/d",
+        "-e", "/AF_PRIVKEY_B64/d",
+        "-e", "/AF_PUBKEY/d",
         script,
     )
+
+def get_keys():
+    if "AF_PRIVKEY_B64" in ci_env and "AF_PUBKEY" in ci_env:
+        privkey = ci_env["AF_PRIVKEY_B64"]
+        privkey = base64.b64decode(privkey)
+        pubkey = ci_env["AF_PUBKEY"]
+
+        return privkey, pubkey
+
+    if "AF_PRIVKEY" in ci_env:
+        privkey = ci_env["AF_PRIVKEY"]
+        if "/" in privkey:
+            logging.error("AF_PRIVKEY cannot contain slashes")
+            return None, None
+
+        privkey = Path(SITE_CONF / "keys" / project / privkey)
+        if not privkey.is_file():
+            logging.error("AF_PRIVKEY does not exist on this builder")
+            return None, None
+
+        pubkey = ci_env["AF_PUBKEY"] if "AF_PUBKEY" in ci_env \
+            else privkey.name + ".pub"
+        privkey = privkey.read_bytes()
+
+        return privkey, pubkey
+
+    return None, None
 
 def resignapk():
     if not privkey:
@@ -147,6 +175,7 @@ script = sys.argv[1]
 stage = sys.argv[2]
 
 ci_env = CI_Env()
+project = ci_env["CI_PROJECT_PATH_SLUG"]
 cdir = Path(ci_env["CI_BUILDS_DIR"])
 aportsdir = Path(ci_env["CI_PROJECT_DIR"])
 before = ci_env["CI_COMMIT_BEFORE_SHA"]
@@ -155,12 +184,7 @@ ref = ci_env["CI_COMMIT_REF_NAME"]
 mr = ci_env["CI_MERGE_REQUEST_ID"] if "CI_MERGE_REQUEST_ID" in ci_env else None
 
 arch = ci_env["AF_ARCH"]
-if "AF_PRIVKEY" in ci_env and "AF_PUBKEY_NAME" in ci_env:
-    privkey = ci_env["AF_PRIVKEY"]
-    privkey = base64.b64decode(privkey)
-    pubkey = ci_env["AF_PUBKEY_NAME"]
-else:
-    privkey = None
+privkey, pubkey = get_keys()
 
 if mr:
     target_url = ci_env["CI_MERGE_REQUEST_PROJECT_URL"]

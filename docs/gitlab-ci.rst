@@ -31,9 +31,12 @@ Variables
                    the container it will be ``/``.
 ``GIT_CLONE_PATH`` This must be set to ``$CI_BUILDS_DIR/af/aports``.
 ``AF_ARCH``        The architecture for which this job will build.
-``AF_PRIVKEY``     Base64-encoded form of the packager private key used
+``AF_PRIVKEY``     Name of the private key with which to re-sign packages
+                   outside of the container. These are stored in
+                   ``/etc/apkfoundry/$project/`` on each builder.
+``AF_PRIVKEY_B64`` Base64-encoded form of the packager private key used
                    to re-sign packages outside of the container.
-``AF_PUBKEY_NAME`` Name to use for the package signature (customarily
+``AF_PUBKEY``      Name to use for the package signature (customarily
                    ends in ``.pub``; this must match the filename in
                    ``/etc/apk/keys``)
 ================== =====================================================
