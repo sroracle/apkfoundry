@@ -5,6 +5,7 @@
 import argparse # ArgumentParser, FileType, REMAINDER
 import logging  # basicConfig
 import sys      # exit
+from pathlib import Path
 
 from apkfoundry.container import Container
 from apkfoundry.digraph import generate_graph
@@ -103,6 +104,13 @@ opts.add_argument(
 opts = opts.parse_args()
 
 ignored_deps = []
+if opts.ignore_deps is None:
+    opts.ignore_deps = Path(".apkfoundry/ignore-deps")
+    if opts.ignore_deps.is_file():
+        opts.ignore_deps = opts.ignore_deps.open()
+    else:
+        opts.ignore_deps = None
+
 if opts.ignore_deps:
     for line in opts.ignore_deps.readlines():
         ignored_deps.append(line.strip().split())
