@@ -6,4 +6,4 @@ if [ -e "$CUSTOM_ENV_CI_BUILDS_DIR/af/info/keep" ]; then
 	exit 0
 fi
 
-exec "$bin/af-rmtemp" "$CUSTOM_ENV_CI_BUILDS_DIR"
+exec abuild-rmtemp "$CUSTOM_ENV_CI_BUILDS_DIR"
