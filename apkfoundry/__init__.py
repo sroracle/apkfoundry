@@ -108,9 +108,9 @@ def get_output(*argv, **kwargs):
     return subprocess.check_output(argv, encoding="utf-8", **kwargs)
 
 class abuildLogFormatter(logging.Formatter):
-    def __init__(self, fmt=None, use_color=True, show_time=False, **kwargs):
+    def __init__(self, fmt=None, color=True, time=False, sections=False, **kwargs):
         if not fmt:
-            if show_time:
+            if time:
                 fmt = "%(magenta)s%(asctime)s "
             else:
                 fmt = ""
@@ -118,10 +118,11 @@ class abuildLogFormatter(logging.Formatter):
             fmt += "%(normal)s%(message)s"
 
         super().__init__(fmt, **kwargs)
-        self.use_color = use_color
+        self.color = color
+        self.sections = sections
 
     def format(self, record):
-        if self.use_color:
+        if self.color:
             try:
                 record.levelcolor = Colors[record.levelname]
                 record.strong = Colors.STRONG
@@ -138,6 +139,12 @@ class abuildLogFormatter(logging.Formatter):
             record.normal = ""
             record.magenta = ""
 
+        if self.sections:
+            sectionfmt = "section_%s:%s:%s\r\033[0K"
+        else:
+            # Discard arguments
+            sectionfmt = "%.0s%.0s%.0s"
+
         if record.levelname == "INFO":
             record.prettylevel = ">>> "
         elif record.levelno == 25:
@@ -145,7 +152,7 @@ class abuildLogFormatter(logging.Formatter):
         elif record.levelno in (26, 27):
             record.prettylevel = ""
             msg = record.msg
-            record.msg = f"section_%s:%d:%s\r\033[0K"
+            record.msg = sectionfmt
             if msg.strip():
                 record.msg += "\n" if record.levelno == 27 else ""
                 record.msg += f"{Colors.NORMAL}{Colors.STRONG}>>>"
@@ -155,11 +162,14 @@ class abuildLogFormatter(logging.Formatter):
 
         return super().format(record)
 
-def init_logger(name, output=sys.stderr, level="INFO", colors=False, time=False):
+def init_logger(
+        name,
+        output=sys.stderr, level="INFO",
+        color=False, time=False, sections=False):
     logger = logging.getLogger(name)
     logger.setLevel(level)
     handler = logging.StreamHandler(output)
-    formatter = abuildLogFormatter(use_color=colors, show_time=time)
+    formatter = abuildLogFormatter(color=color, time=time, sections=sections)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
@@ -178,7 +188,7 @@ def section_start(logger, name, *args, **kwargs):
     if not logger or isinstance(logger, str):
         logger = logging.getLogger(logger)
 
-    ts = int(dt.datetime.now().timestamp())
+    ts = str(int(dt.datetime.now().timestamp()))
     _sections.append((ts, name))
 
     logger.log(26, args[0], "start", ts, name, *args[1:], **kwargs)
