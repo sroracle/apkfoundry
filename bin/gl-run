@@ -18,7 +18,7 @@ FAKE_BEFORE='0000000000000000000000000000000000000000'
 SETARCH = get_config("setarch")
 os.environ["USE_COLORS"] = "force"
 
-init_logger(None, colors=True, sections=True)
+init_logger(None, color=True, sections=True)
 
 def changed_pkgs(before, after):
     pkgs = get_output(
