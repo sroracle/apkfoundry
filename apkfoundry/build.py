@@ -34,7 +34,9 @@ def _stats_list(status, l):
         return
 
     _LOGGER.info("%s: %d", status.name.title(), len(l))
-    msg2(_LOGGER, "\n%s\n", _wrap.fill(" ".join(l)))
+    l = _wrap.fill(" ".join(l)).splitlines()
+    for i in l:
+        msg2(_LOGGER, "%s", i)
 
 def _stats_builds(done):
     _LOGGER.info("Total: %d", len(done))
