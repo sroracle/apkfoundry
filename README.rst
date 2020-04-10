@@ -8,7 +8,7 @@ an APK-based package build orchestrator and distribution builder
 :Status:
   Alpha
 :Copyright:
-  © 2019 Max Rees. GPL-2.0 open source licence.
+  © 2019-2020 Max Rees. GPL-2.0 open source licence.
 
 Dependencies
 ------------

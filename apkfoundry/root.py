@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (c) 2019 Max Rees
+# Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
 import argparse     # ArgumentParser
 import errno        # EBADF

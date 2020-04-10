@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2017 Travis Thieman
-# Copyright (c) 2018-2019 Max Rees
+# Copyright (c) 2018-2020 Max Rees
 # Based on py-dag 3.0.1
 # https://github.com/thieman/py-dag
 # See LICENSE.dag for more information.
