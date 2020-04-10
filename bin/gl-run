@@ -185,7 +185,7 @@ def build_script(script, env, privkey, pubkey):
     buildrepo(args)
 
 def after_script(script, env):
-    shutil.copy2(script, env.cdir / "af/after_script")
+    shutil.copy2(script, env.cdir / "af/after-script")
     sanitize_script(env.cdir / "af/after-script")
     rc, conn = client_init(env.cdir)
     if rc != 0:
