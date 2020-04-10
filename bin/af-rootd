@@ -2,11 +2,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-import logging # basicConfig
-import os      # getuid
+import logging # basicConfig, critical, info
+import getpass # getuser
 import sys     # exit
 
-from apkfoundry import rootid
 from apkfoundry.root import listen
 
 logging.basicConfig(
@@ -14,8 +13,9 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-if os.getuid() != rootid().pw_uid:
-    _LOGGER.critical("Must be run as af-root")
+if getpass.getuser() != "af-root":
+    logging.critical("Must be run as af-root")
     sys.exit(1)
 
+logging.info("rootd started")
 listen()
