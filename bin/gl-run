@@ -7,6 +7,7 @@ import logging    # info, error
 import os         # environ
 import shutil     # copy2, rmtree
 import sys        # argv, exit
+import tempfile   # NamedTemporaryFile
 from os.path import relpath
 from pathlib import Path
 
@@ -124,7 +125,7 @@ def get_sources(script, env):
 
     return 0
 
-def build_script(script, env):
+def build_script(script, env, privkey, pubkey):
     os.chdir(env.aportsdir)
 
     shutil.copy2(script, env.cdir / "af/aports/.apkfoundry/build-script")
@@ -168,7 +169,6 @@ def build_script(script, env):
     if rev_range:
         args += ["--rev-range", rev_range]
 
-    privkey, pubkey = get_keys()
     if privkey and pubkey:
         args += ["--key", privkey, "--pubkey", pubkey]
 
@@ -202,7 +202,11 @@ stage = sys.argv[2]
 if stage == "get_sources":
     rc = get_sources(script, env)
 elif stage == "build_script":
-    rc = build_script(script, env)
+    privkey, pubkey = get_keys()
+    with tempfile.NamedTemporaryFile() as f:
+        f.write(privkey)
+        f.flush()
+        rc = build_script(script, env, f.name, pubkey)
 elif stage == "after_script":
     rc = after_script(script, env)
 else:
