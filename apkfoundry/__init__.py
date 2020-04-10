@@ -202,21 +202,3 @@ def section_end(logger, *args, **kwargs):
 
     ts, name = _sections.pop()
     logger.log(27, args[0], "end", ts, name, *args[1:], **kwargs)
-
-class CI_Env:
-    prefix = "CUSTOM_ENV_"
-
-    def __getitem__(self, key):
-        return os.environ[self.prefix + key]
-
-    def __setitem__(self, key, value):
-        os.environ[self.prefix + key] = value
-
-    def __delitem__(self, key):
-        del os.environ[self.prefix + key]
-
-    def __iter__(self):
-        return [i for i in os.environ if i.startswith(self.prefix)]
-
-    def __contains__(self, item):
-        return self.prefix + item in os.environ

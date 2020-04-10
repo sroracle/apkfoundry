@@ -1,9 +1,0 @@
-#!/bin/sh -e
-bin="${0%/*}"
-
-if [ -e "$CUSTOM_ENV_CI_BUILDS_DIR/af/info/keep" ]; then
-	echo 'Container is marked to-be-kept, skipping deletion'
-	exit 0
-fi
-
-exec abuild-rmtemp "$CUSTOM_ENV_CI_BUILDS_DIR"

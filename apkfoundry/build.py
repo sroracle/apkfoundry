@@ -1,16 +1,20 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
+import argparse   # ArgumentParser, FileType
 import enum       # Enum
 import logging    # getLogger
 import re         # compile
-import shutil     # rmtree
+import shutil     # chown, copy2, rmtree
+import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
 
-from . import EStatus, msg2, section_start, section_end
+from . import EStatus, get_output, run
+from . import msg2, section_start, section_end
 from . import container
 from .digraph import generate_graph
+from .socket import client_init
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_STATUSES = (
@@ -92,7 +96,7 @@ def run_task(cont, startdir):
     repo = startdir.split("/")[0]
 
     rc, _ = cont.run(
-        ["/af/build_script", startdir],
+        ["/af/build-script", startdir],
         repo=repo,
         env=env,
         net=net,
@@ -154,7 +158,9 @@ def run_graph(cont, graph, startdirs):
                 done[startdir] = EStatus.FAIL
 
                 if on_failure == FailureAction.RECALCULATE:
-                    section_start(_LOGGER, "recalc-order", "Recalculating build order")
+                    section_start(
+                        _LOGGER, "recalc-order", "Recalculating build order"
+                    )
 
                     depfails = set(graph.all_downstreams(startdir))
                     for rdep in depfails:
@@ -203,3 +209,206 @@ def run_job(conn, cdir, startdirs):
     section_end(_LOGGER)
 
     return run_graph(cont, graph, startdirs)
+
+def changed_pkgs(*rev_range, gitdir=None):
+    gitdir = ["-C", gitdir] if gitdir else []
+
+    pkgs = get_output(
+        "git", *gitdir, "diff-tree",
+        "-r", "--name-only", "--diff-filter", "dxu",
+        *rev_range, "--", "*/*/APKBUILD",
+    ).splitlines()
+    return [i.replace("/APKBUILD", "") for i in pkgs]
+
+def resignapk(cdir, privkey, pubkey):
+    apks = list((cdir / "af/repos").glob("**/*.apk"))
+    if not apks:
+        return
+    apks += list((cdir / "af/repos").glob("**/APKINDEX.tar.gz"))
+
+    section_start(_LOGGER, "resignapk", "Re-signing APKs...")
+    run(
+        "fakeroot", "--",
+        "resignapk", "-i",
+        "-p", pubkey,
+        "-k", privkey,
+        *apks,
+    )
+    section_end(_LOGGER)
+
+def cleanup(rc, cdir, delete):
+    if cdir and (delete == "always" or (delete == "on-success" and rc == 0)):
+        _LOGGER.info("Deleting container...")
+        run("abuild-rmtemp", cdir)
+    return rc
+
+def buildrepo(args):
+    opts = argparse.ArgumentParser(
+        usage="af-buildrepo [options ...] REPODEST STARTDIR [STARTDIR ...]",
+    )
+
+    cont = opts.add_argument_group(
+        title="Container options",
+    )
+    cont.add_argument(
+        "-A", "--arch",
+        help="APK architecture name (default: output of apk --print-arch)",
+    )
+    cont.add_argument(
+        "-c", "--cache",
+        help="external APK cache directory (default: none)",
+    )
+    cont.add_argument(
+        "--directory", metavar="DIR",
+        help="""Use DIR as the container root. If this does not match
+        "/var/tmp/abuild.*", -D will have no effect.""",
+    )
+    cont.add_argument(
+        "-S", "--setarch",
+        help="setarch(8) architecture name (default: none)",
+    )
+    cont.add_argument(
+        "-s", "--srcdest",
+        help="external source file directory (default: none)",
+    )
+
+    checkout = opts.add_argument_group(
+        title="Checkout options",
+    )
+    checkout.add_argument(
+        "-a", "--aportsdir",
+        help="project checkout directory",
+    )
+    checkout.add_argument(
+        "-g", "--git-url",
+        help="git repository URL",
+    )
+    checkout.add_argument(
+        "--branch",
+        help="""git branch for checkout (default: master). Only applicable
+        if -g is given""",
+    )
+
+    opts.add_argument(
+        "-D", "--delete", choices=("always", "on-success", "never"),
+        default="never",
+        help="when to delete the container (default: never)",
+    )
+    opts.add_argument(
+        "-k", "--key",
+        help="re-sign APKs with FILE outside of container",
+    )
+    opts.add_argument(
+        "--pubkey",
+        help="""the filename to use for the KEY (to match /etc/apk/keys;
+        default: KEY.pub)""",
+    )
+    opts.add_argument(
+        "-r", "--rev-range",
+        help="git revision range for changed APKBUILDs",
+    )
+    opts.add_argument(
+        "repodest", metavar="REPODEST",
+        help="package destination directory",
+    )
+    opts.add_argument(
+        "startdirs", metavar="STARTDIR", nargs="*",
+        help="list of STARTDIRs to build",
+    )
+    opts = opts.parse_args(args)
+
+    if not (opts.aportsdir or opts.git_url) or (opts.aportsdir and opts.git_url):
+        _LOGGER.error("You must specify only one of -a APORTSDIR or -g GIT_URL")
+        return cleanup(1, None, opts.delete)
+
+    if opts.branch and not opts.git_url:
+        _LOGGER.error("-b is only applicable if -g is given")
+        return cleanup(1, None, opts.delete)
+
+    if opts.startdirs:
+        section_start(_LOGGER, "manual_pkgs", "The following packages were manually included:")
+        msg2(_LOGGER, opts.startdirs)
+        section_end(_LOGGER)
+
+    pkgs = []
+    if opts.rev_range:
+        section_start(_LOGGER, "changed_pkgs", "Determining changed packages...")
+        pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
+        if pkgs is None:
+            _LOGGER.info("No packages were changed")
+        else:
+            msg2(_LOGGER, pkgs)
+
+        opts.startdirs.extend(pkgs)
+        section_end(_LOGGER)
+
+    if not pkgs and not opts.startdirs:
+        _LOGGER.info("No packages to build!")
+        return cleanup(0, None, opts.delete)
+
+    if opts.directory:
+        if not opts.directory.startswith("/var/tmp/abuild.") \
+                and opts.delete != "never":
+            _LOGGER.warning("Container DIR incompatible with abuild-rmtemp")
+            _LOGGER.warning("Disabling --delete")
+            opts.delete = "never"
+        cdir = opts.directory
+    else:
+        cdir = Path(tempfile.mkdtemp(dir="/var/tmp", prefix="abuild."))
+    shutil.chown(cdir, group="apkfoundry")
+    cdir.chmod(0o2770)
+
+    if opts.git_url:
+        section_start(_LOGGER, "clone", "Cloning git repository...")
+        aportsdir = cdir / "af/aports"
+        aportsdir.mkdir(parents=True, exist_ok=True)
+        run("git", "clone", opts.git_url, aportsdir)
+        if opts.branch:
+            run("git", "-C", aportsdir, "checkout", opts.branch)
+        section_end(_LOGGER)
+
+    section_start(_LOGGER, "bootstrap", "Bootstrapping container...")
+    #bootstrap_repo = cdir / "af/info/aports/.apkfoundry/bootstrap-repo"
+    #bootstrap_repo = bootstrap_repo.read_text().strip()
+    if opts.repodest:
+        Path(opts.repodest).mkdir(parents=True, exist_ok=True)
+    if opts.srcdest:
+        opts.srcdest = Path(opts.srcdest)
+        opts.srcdest.mkdir(parents=True, exist_ok=True)
+        shutil.chown(opts.srcdest, group="apkfoundry")
+        opts.srcdest.chmod(0o775)
+    if opts.cache:
+        opts.cache = Path(opts.cache)
+        opts.cache.mkdir(parents=True, exist_ok=True)
+        shutil.chown(opts.cache, group="apkfoundry")
+        opts.cache.chmod(0o2775)
+    container.cont_make(
+        cdir,
+        "user",
+        arch=opts.arch,
+        setarch=opts.setarch,
+        mounts={
+            "aportsdir": opts.aportsdir,
+            "repodest": opts.repodest,
+            "srcdest": opts.srcdest,
+        },
+        cache=opts.cache,
+    )
+    shutil.copy2(
+        cdir / "af/info/aportsdir/.apkfoundry/build-script",
+        cdir / "af/build-script",
+    )
+    rc, conn = client_init(cdir, bootstrap=True)
+    if rc != 0:
+        _LOGGER.error("Failed to connect to rootd")
+        return cleanup(rc, cdir, opts.delete)
+    section_end(_LOGGER)
+
+    rc = run_job(conn, cdir, opts.startdirs)
+
+    if opts.key:
+        if opts.pubkey is None:
+            opts.pubkey = Path(opts.key).name + ".pub"
+        resignapk(cdir, opts.key, opts.pubkey)
+
+    return cleanup(rc, cdir, opts.delete)

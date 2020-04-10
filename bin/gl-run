@@ -1,36 +1,81 @@
 #!/usr/bin/env python3
-import base64
-import logging
-import os
-import shutil
-import sys
-import tempfile
+import base64     # b64decode
+import logging    # info, error
+import os         # environ
+import shutil     # copy2, rmtree
+import sys        # argv, exit
 from os.path import relpath
 from pathlib import Path
 
-from apkfoundry import get_config, run, get_output, CI_Env, HOME, SITE_CONF
-from apkfoundry import init_logger, msg2, section_start, section_end
-from apkfoundry.build import run_job
-from apkfoundry.container import cont_make, Container
+from apkfoundry import get_config, run, get_output, HOME, SITE_CONF
+from apkfoundry import init_logger
+from apkfoundry.build import buildrepo
+from apkfoundry.container import Container
 from apkfoundry.socket import client_init
 
-FAKE_BEFORE='0000000000000000000000000000000000000000'
+FAKE_BEFORE="0000000000000000000000000000000000000000"
+
 SETARCH = get_config("setarch")
 os.environ["USE_COLORS"] = "force"
 
 init_logger(None, color=True, sections=True)
 
-def changed_pkgs(before, after):
-    pkgs = get_output(
-        "git", "diff-tree", "-r", "--name-only", "--diff-filter", "dxu",
-        f"{before}..{after}", "--", "*/*/APKBUILD",
-    ).splitlines()
-    return [i.replace("/APKBUILD", "") for i in pkgs]
+class CI_Env:
+    prefix = "CUSTOM_ENV_"
+    __slots__ = (
+        "after",
+        "aportsdir",
+        "arch",
+        "before",
+        "cdir",
+        "project",
+        "ref",
+
+        "mr",
+        "target_url",
+
+        "cache",
+    )
+
+    def __init__(self):
+        self.after = self["CI_COMMIT_SHA"]
+        self.aportsdir = Path(self["CI_PROJECT_DIR"])
+        self.arch = self["AF_ARCH"]
+        self.before = self["CI_COMMIT_BEFORE_SHA"]
+        self.cdir = Path(self["CI_BUILDS_DIR"])
+        self.project = self["CI_PROJECT_PATH_SLUG"]
+        self.ref = self["CI_COMMIT_REF_NAME"]
+
+        if "CI_MERGE_REQUEST_ID" in self:
+            self.mr = self["CI_MERGE_REQUEST_ID"]
+            self.target_url = self["CI_MERGE_REQUEST_PROJECT_URL"]
+            self.ref = self["CI_MERGE_REQUEST_TARGET_BRANCH_NAME"]
+        else:
+            self.mr = None
+            self.target_url = None
+
+        self.cache = HOME / "apk_cache" / \
+            f"{self['CI_PROJECT_PATH_SLUG']}.{self.ref}.{self.arch}"
+
+    def __getitem__(self, key):
+        return os.environ[self.prefix + key]
+
+    def __setitem__(self, key, value):
+        os.environ[self.prefix + key] = value
+
+    def __delitem__(self, key):
+        del os.environ[self.prefix + key]
+
+    def __iter__(self):
+        return [i for i in os.environ if i.startswith(self.prefix)]
+
+    def __contains__(self, item):
+        return self.prefix + item in os.environ
 
 def sanitize_script(script):
     run(
         "sed", "-i",
-        "-e", f"s@{cdir}[/]*@/@g",
+        "-e", f"s@{env.cdir}[/]*@/@g",
         "-e", "/AF_PRIVKEY/d",
         "-e", "/AF_PRIVKEY_B64/d",
         "-e", "/AF_PUBKEY/d",
@@ -38,25 +83,25 @@ def sanitize_script(script):
     )
 
 def get_keys():
-    if "AF_PRIVKEY_B64" in ci_env and "AF_PUBKEY" in ci_env:
-        privkey = ci_env["AF_PRIVKEY_B64"].strip()
+    if "AF_PRIVKEY_B64" in env and "AF_PUBKEY" in env:
+        privkey = env["AF_PRIVKEY_B64"].strip()
         privkey = base64.b64decode(privkey)
-        pubkey = ci_env["AF_PUBKEY"].strip()
+        pubkey = env["AF_PUBKEY"].strip()
 
         return privkey, pubkey
 
-    if "AF_PRIVKEY" in ci_env:
-        privkey = ci_env["AF_PRIVKEY"].strip()
+    if "AF_PRIVKEY" in env:
+        privkey = env["AF_PRIVKEY"].strip()
         if "/" in privkey:
             logging.error("AF_PRIVKEY cannot contain slashes")
             return None, None
 
-        privkey = Path(SITE_CONF / "keys" / project / privkey)
+        privkey = Path(SITE_CONF / "keys" / env.project / privkey)
         if not privkey.is_file():
             logging.error("AF_PRIVKEY does not exist on this builder")
             return None, None
 
-        pubkey = ci_env["AF_PUBKEY"].strip() if "AF_PUBKEY" in ci_env \
+        pubkey = env["AF_PUBKEY"].strip() if "AF_PUBKEY" in env \
             else privkey.name + ".pub"
         privkey = privkey.read_bytes()
 
@@ -64,152 +109,101 @@ def get_keys():
 
     return None, None
 
-def resignapk():
-    if not privkey:
-        return
-
-    apks = list((cdir / "af/repos").glob("**/*.apk"))
-    if not apks:
-        return
-
-    section_start(None, "resignapk", "Re-signing APKs...")
-    with tempfile.NamedTemporaryFile() as tmp:
-        tmp.write(privkey)
-        tmp.flush()
-        run(
-            "fakeroot", "--",
-            "resignapk", "-i",
-            "-p", pubkey,
-            "-k", tmp.name,
-            *apks,
-        )
-    section_end(None)
-
-def get_sources():
+def get_sources(script, env):
     run(script)
 
-    if mr:
-        os.chdir(aportsdir)
+    if env.mr:
         run(
-            "git", "fetch",
-            target_url, 
-            f"+refs/heads/{ref}:refs/heads/{ref}",
+            "git", "-C", env.aportsdir, "fetch",
+            env.target_url,
+            f"+refs/heads/{env.ref}:refs/heads/{env.ref}",
         )
 
     return 0
 
-def build_script():
-    os.chdir(aportsdir)
+def build_script(script, env):
+    os.chdir(env.aportsdir)
 
-    shutil.copy2(script, cdir / "af/build_script")
-    sanitize_script(cdir / "af/build_script")
+    shutil.copy2(script, env.cdir / "af/aports/.apkfoundry/build-script")
+    sanitize_script(env.cdir / "af/aports/.apkfoundry/build-script")
 
-    if mr:
-        base = get_output("git", "merge-base", before, after)
-        if not base or base == after:
-            raise ValueError(f"Could not merge {after} into {ref}")
+    if env.mr:
+        env.before = get_output(
+            "git", "-C", env.aportsdir,
+            "merge-base", env.ref, env.after
+        )
+        if not env.before or env.before == env.after:
+            logging.error("Could not merge %s into %s", env.after, env.ref)
+            return 1
 
     manual_pkgs = []
-    if "AF_PACKAGES" in ci_env:
-        manual_pkgs = [i.strip() for i in ci_env["AF_PACKAGES"].split()]
-        if manual_pkgs:
-            section_start(None, "manual_pkgs", "The following packages were manually included:")
-            msg2(None, manual_pkgs)
-            section_end(None)
+    if "AF_PACKAGES" in env and env["AF_PACKAGES"].strip():
+        manual_pkgs = [i.strip() for i in env["AF_PACKAGES"].split()]
 
-    section_start(None, "changed_pkgs", "Determining changed packages...")
-    pkgs = []
-    if before == FAKE_BEFORE:
+    if env.before == FAKE_BEFORE:
         if manual_pkgs:
-            logging.info("Manual job detected, skipping")
+            logging.info("Manual job detected, ignoring revision range")
         else:
-            logging.error("New branch detected, bailing out now")
+            logging.error("New branch detected, ignoring revision range")
+        rev_range = None
     else:
-        pkgs = changed_pkgs(before, after)
-        if not pkgs:
-            logging.error("No packages were changed")
-        msg2(None, pkgs)
-    section_end(None)
+        rev_range = " ".join(env.before, env.after)
 
     if not pkgs and not manual_pkgs:
         return 0
 
-    section_start(None, "bootstrap", "Bootstrapping container...")
-    shutil.rmtree(aportsdir.with_suffix(".tmp"))
-    aportsdir.with_suffix(".tmp").symlink_to(
-        relpath(cdir / "tmp", aportsdir.parent
-    ))
-
-
-    cont_make(
-        cdir,
-        arch=arch,
-        setarch=SETARCH.get(arch, None),
-        repo=bootstrap_repo,
-        cache=cache,
+    shutil.rmtree(env.aportsdir.with_suffix(".tmp"))
+    env.aportsdir.with_suffix(".tmp").symlink_to(
+        relpath(env.cdir / "tmp", env.aportsdir.parent),
     )
-    rc, conn = client_init(cdir, bootstrap=True)
+    (env.aportsdir / ".gl-repos").symlink_to("../repos")
+
+    args = [
+        "--directory", str(env.cdir),
+        "--aportsdir", str(env.aportsdir),
+        "--cache", str(env.cache),
+        "--delete", "on-success", # FIXME make customizable
+    ]
+
+    if rev_range:
+        args += ["--rev-range", rev_range]
+
+    privkey, pubkey = get_keys()
+    if privkey and pubkey:
+        args += ["--key", privkey, "--pubkey", pubkey]
+
+    if env.arch:
+        args += ["--arch", env.arch]
+    setarch = SETARCH.get(arch, None)
+    if setarch:
+        args += ["--setarch", setarch]
+
+    args.append("--")
+    args += manual_pkgs
+
+    buildrepo(args)
+
+def after_script(script, env):
+    shutil.copy2(script, env.cdir / "af/after_script")
+    sanitize_script(env.cdir / "af/after-script")
+    rc, conn = client_init(env.cdir)
     if rc != 0:
         logging.error("Failed to connect to rootd")
         return rc
-    (aportsdir / ".gl-repos").symlink_to("../repos")
-    section_end(None)
 
-    return run_job(conn, cdir, [*pkgs, *manual_pkgs])
+    cont = Container(env.cdir, rootd_conn=conn)
+    return cont.run(["/af/after-script"])[0]
 
-def after_script():
-    shutil.copy2(script, cdir / "af/after_script")
-    sanitize_script(cdir / "af/after_script")
-    rc, conn = client_init(cdir)
-    if rc != 0:
-        logging.error("Failed to connect to rootd")
-        return rc
-
-    cont = Container(cdir, rootd_conn=conn)
-    return cont.run(["/af/after_script"])[0]
-
+env = CI_Env()
 script = sys.argv[1]
 stage = sys.argv[2]
 
-ci_env = CI_Env()
-project = ci_env["CI_PROJECT_PATH_SLUG"]
-cdir = Path(ci_env["CI_BUILDS_DIR"])
-aportsdir = Path(ci_env["CI_PROJECT_DIR"])
-before = ci_env["CI_COMMIT_BEFORE_SHA"]
-after = ci_env["CI_COMMIT_SHA"]
-ref = ci_env["CI_COMMIT_REF_NAME"]
-mr = ci_env["CI_MERGE_REQUEST_ID"] if "CI_MERGE_REQUEST_ID" in ci_env else None
-
-arch = ci_env["AF_ARCH"]
-privkey, pubkey = get_keys()
-
-if mr:
-    target_url = ci_env["CI_MERGE_REQUEST_PROJECT_URL"]
-    ref = ci_env["CI_MERGE_REQUEST_TARGET_BRANCH_NAME"]
-    before = ref
-
-cache = HOME / f"apk_cache/{ci_env['CI_PROJECT_PATH_SLUG']}.{ref}.{arch}"
-cache.mkdir(exist_ok=True)
-shutil.chown(cache, group="apkfoundry")
-cache.chmod(0o2775)
-
 if stage == "get_sources":
-    rc = get_sources()
-
+    rc = get_sources(script, env)
 elif stage == "build_script":
-    bootstrap_repo = aportsdir / ".apkfoundry/bootstrap-repo"
-    bootstrap_repo = bootstrap_repo.read_text().strip()
-    rc = build_script()
-    keep = cdir / "af/info/keep"
-    if rc:
-        keep.touch(exist_ok=True)
-    elif keep.is_file():
-        keep.unlink()
-
+    rc = build_script(script, env)
 elif stage == "after_script":
-    resignapk()
-    rc = after_script()
-
+    rc = after_script(script, env)
 else:
     run(script)
     rc = 0

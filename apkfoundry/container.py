@@ -320,8 +320,20 @@ def cont_make(
             [_APK_STATIC, "--print-arch"],
             encoding="utf-8",
         )
-    (cdir / "etc/apk").mkdir(parents=True, exist_ok=True)
+    (cdir / "etc/apk/keys").mkdir(parents=True, exist_ok=True)
     (cdir / "etc/apk/arch").write_text(arch.strip() + "\n")
+
+    keydir = cdir / "af/key"
+    env = os.environ.copy()
+    env["ABUILD_USERDIR"] = str(keydir)
+    subprocess.check_call(["abuild-keygen", "-anq"], env=env)
+
+    privkey = (keydir / "abuild.conf").read_text().strip()
+    privkey = privkey.replace("PACKAGER_PRIVKEY=\"", "", 1).rstrip("\"")
+    pubkey = privkey + ".pub"
+    shutil.copy2(pubkey, cdir / "etc/apk/keys")
+    privkey = Path(privkey).relative_to(cdir)
+    (keydir / "abuild.conf").write_text(f"PACKAGER_PRIVKEY=\"/{privkey}\"\n")
 
     for i in ("etc", "var"):
         for dirpath, _, filenames in os.walk(cdir / i):
@@ -367,11 +379,6 @@ def cont_make(
 
     (cdir / "af/libexec").mkdir()
 
-    af_keydir = cdir / "af/key"
-    af_keydir.mkdir()
-    af_keydir.chmod(0o2770)
-    shutil.chown(af_keydir, group="apkfoundry")
-
     if cache:
         (cdir / "af/info/cache").symlink_to(cache)
 
@@ -415,24 +422,6 @@ def cont_bootstrap(cdir, **kwargs):
 
     if rc != 0:
         return rc
-
-    keydir = cdir / "af/key"
-    args = ["abuild-keygen", "-anq"]
-    env = os.environ.copy()
-    env["ABUILD_USERDIR"] = str(keydir)
-    rc = subprocess.call(args, env=env, **kwargs)
-
-    if rc != 0:
-        return rc
-
-    privkey = (keydir / "abuild.conf").read_text().strip()
-    privkey = privkey.replace("PACKAGER_PRIVKEY=\"", "", 1).rstrip("\"")
-    shutil.chown(privkey, group="apkfoundry")
-    Path(privkey).chmod(0o640)
-    pubkey = privkey + ".pub"
-    shutil.copy2(pubkey, cdir / "etc/apk/keys")
-    privkey = Path(privkey).relative_to(cdir)
-    (keydir / "abuild.conf").write_text(f"PACKAGER_PRIVKEY=\"/{privkey}\"\n")
 
     return rc
 
