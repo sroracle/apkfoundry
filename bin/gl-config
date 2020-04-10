@@ -1,4 +1,7 @@
 #!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2020 Max Rees
+# See LICENSE for more information.
 umask 007
 builds_dir="$(mktemp -dp /var/tmp "abuild.XXXXXXXXXX")"
 chgrp apkfoundry "$builds_dir"

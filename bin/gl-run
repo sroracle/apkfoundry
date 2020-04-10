@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2020 Max Rees
+# See LICENSE for more information.
 import base64     # b64decode
 import logging    # info, error
 import os         # environ
