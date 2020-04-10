@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019 Max Rees
 # See LICENSE for more information.
-import argparse # ArgumentParser, FileType, REMAINDER
+import argparse # ArgumentParser, FileType
 import logging  # basicConfig
 import sys      # exit
 from pathlib import Path
@@ -48,58 +48,57 @@ logging.basicConfig(
 )
 
 opts = argparse.ArgumentParser(
-    usage="af-depgraph [options...] [STARTDIR...]",
+    usage="af-depgraph [options ...] [STARTDIR ...]",
 )
 opts.add_argument(
     "-q", "--quiet", action="store_true",
-    help="Just check for cycles and exit",
+    help="just check for cycles and exit",
 )
 opts.add_argument(
     "-c", "--chroot",
-    help="Chroot to CHROOT first",
+    help="chroot to CHROOT first",
 )
 opts.add_argument(
     "-g", "--graphviz", action="store_true",
-    help="Print DOT output for Graphviz",
+    help="print DOT output for Graphviz",
 )
 opts.add_argument(
     "-i", "--ignore-deps", metavar="FILE",
     type=argparse.FileType("r", encoding="utf-8"),
-    help="Read ignored dependencies from FILE",
+    help="read ignored dependencies from FILE",
 )
 opts.add_argument(
     "-s", "--skip-check", action="store_true",
-    help="Do not consider $checkdepends",
+    help="do not consider $checkdepends",
 )
 opts.add_argument(
     "-d", "--deps", action="store_true",
-    help="Print the dependencies of each STARTDIR",
+    help="print the dependencies of each STARTDIR",
 )
 opts.add_argument(
     "-r", "--rdeps", action="store_true",
-    help="Print the reverse dependencies of each STARTDIR",
+    help="print the reverse dependencies of each STARTDIR",
 )
 opts.add_argument(
     "-R", "--all-rdeps", action="store_true",
-    help="Print all packages which ultimately depend on each STARTDIR",
+    help="print all packages which ultimately depend on each STARTDIR",
 )
 opts.add_argument(
     "-o", "--build-order", action="store_true",
-    help="""
-Consider STARTDIRs as a list of packages to build
-and output the topological sort build order""",
+    help="""consider STARTDIRs as a list of packages to build and output
+    the topological sort build order""",
 )
 opts.add_argument(
     "--no-deps", action="store_true",
-    help="Print packages with no dependencies",
+    help="print packages with no dependencies",
 )
 opts.add_argument(
     "--no-rdeps", action="store_true",
-    help="Print packages with no reverse dependencies",
+    help="print packages with no reverse dependencies",
 )
 opts.add_argument(
-    "startdirs", metavar="STARTDIR", nargs=argparse.REMAINDER,
-    help="Prune graph to examine only these STARTDIRs",
+    "startdirs", metavar="STARTDIR", nargs="*",
+    help="prune graph to examine only these STARTDIRs",
 )
 opts = opts.parse_args()
 

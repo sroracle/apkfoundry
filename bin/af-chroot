@@ -31,39 +31,39 @@ logging.basicConfig(
 )
 
 opts = argparse.ArgumentParser(
-    usage="af-chroot [options...] DIR REPO COMMAND...",
+    usage="af-chroot [options ...] DIR REPO COMMAND ...",
 )
 opts.add_argument(
     "-n", "--networking", action="store_true",
-    help="Enable network access",
+    help="enable network access",
 )
 opts.add_argument(
     "--no-rootd", dest="rootd", action="store_false",
-    help="Do not attempt to connect to rootd",
+    help="do not attempt to connect to rootd",
 )
 opts.add_argument(
     "--rw-root", dest="ro_root", action="store_false",
-    help="Mount container root as read/write",
+    help="mount container root as read/write",
 )
 opts.add_argument(
     "--rw-aports", dest="ro_aports", action="store_false",
-    help="Mount APORTSDIR as read/write",
+    help="mount APORTSDIR as read/write",
 )
 opts.add_argument(
     "--new-session", dest="setsid", action="store_true",
-    help="Start a new session for the container",
+    help="start a new session for the container",
 )
 opts.add_argument(
     "cdir", metavar="DIR",
-    help="Container directory",
+    help="container directory",
 )
 opts.add_argument(
     "repo", metavar="REPO",
-    help="Repository for this container session",
+    help="repository for this container session",
 )
 opts.add_argument(
     "argv", metavar="COMMAND", nargs=argparse.REMAINDER,
-    help="Command to execute",
+    help="command to execute",
 )
 opts = opts.parse_args()
 opts.cdir = Path(opts.cdir).resolve(strict=False)
