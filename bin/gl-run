@@ -5,10 +5,9 @@
 import base64     # b64decode
 import logging    # info, error
 import os         # environ
-import shutil     # copy2, rmtree
+import shutil     # copy2
 import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
-from os.path import relpath
 from pathlib import Path
 
 from apkfoundry import get_config, run, get_output, HOME, SITE_CONF
@@ -153,10 +152,6 @@ def build_script(script, env, privkey, pubkey):
     else:
         rev_range = " ".join(env.before, env.after)
 
-    shutil.rmtree(env.aportsdir.with_suffix(".tmp"))
-    env.aportsdir.with_suffix(".tmp").symlink_to(
-        relpath(env.cdir / "tmp", env.aportsdir.parent),
-    )
     (env.aportsdir / ".gl-repos").symlink_to("../repos")
 
     args = [
