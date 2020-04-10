@@ -325,34 +325,13 @@ def buildrepo(args):
         _LOGGER.error("-b is only applicable if -g is given")
         return cleanup(1, None, opts.delete)
 
-    if opts.startdirs:
-        section_start(_LOGGER, "manual_pkgs", "The following packages were manually included:")
-        msg2(_LOGGER, opts.startdirs)
-        section_end(_LOGGER)
-
-    pkgs = []
-    if opts.rev_range:
-        section_start(_LOGGER, "changed_pkgs", "Determining changed packages...")
-        pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
-        if pkgs is None:
-            _LOGGER.info("No packages were changed")
-        else:
-            msg2(_LOGGER, pkgs)
-
-        opts.startdirs.extend(pkgs)
-        section_end(_LOGGER)
-
-    if not pkgs and not opts.startdirs:
-        _LOGGER.info("No packages to build!")
-        return cleanup(0, None, opts.delete)
-
     if opts.directory:
         if not opts.directory.startswith("/var/tmp/abuild.") \
                 and opts.delete != "never":
             _LOGGER.warning("Container DIR incompatible with abuild-rmtemp")
             _LOGGER.warning("Disabling --delete")
             opts.delete = "never"
-        cdir = opts.directory
+        cdir = Path(opts.directory)
     else:
         cdir = Path(tempfile.mkdtemp(dir="/var/tmp", prefix="abuild."))
     shutil.chown(cdir, group="apkfoundry")
@@ -360,12 +339,32 @@ def buildrepo(args):
 
     if opts.git_url:
         section_start(_LOGGER, "clone", "Cloning git repository...")
-        aportsdir = cdir / "af/aports"
-        aportsdir.mkdir(parents=True, exist_ok=True)
-        run("git", "clone", opts.git_url, aportsdir)
+        opts.aportsdir = cdir / "af/aports"
+        opts.aportsdir.mkdir(parents=True, exist_ok=True)
+        run("git", "clone", opts.git_url, opts.aportsdir)
         if opts.branch:
-            run("git", "-C", aportsdir, "checkout", opts.branch)
+            run("git", "-C", opts.aportsdir, "checkout", opts.branch)
         section_end(_LOGGER)
+
+    if opts.startdirs:
+        section_start(_LOGGER, "manual_pkgs", "The following packages were manually included:")
+        msg2(_LOGGER, opts.startdirs)
+        section_end(_LOGGER)
+
+    if opts.rev_range:
+        section_start(_LOGGER, "changed_pkgs", "Determining changed packages...")
+        pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
+        if pkgs is None:
+            _LOGGER.info("No packages were changed")
+        else:
+            msg2(_LOGGER, pkgs)
+            opts.startdirs.extend(pkgs)
+
+        section_end(_LOGGER)
+
+    if not opts.startdirs:
+        _LOGGER.info("No packages to build!")
+        return cleanup(0, None, opts.delete)
 
     section_start(_LOGGER, "bootstrap", "Bootstrapping container...")
     #bootstrap_repo = cdir / "af/info/aports/.apkfoundry/bootstrap-repo"
