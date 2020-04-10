@@ -185,7 +185,7 @@ def run_graph(cont, graph, startdirs):
 def run_job(conn, cdir, startdirs):
     cont = container.Container(cdir, rootd_conn=conn)
 
-    ignored_deps = cdir / "af/aports/.apkfoundry/ignore-deps"
+    ignored_deps = cdir / "af/info/aportsdir/.apkfoundry/ignore-deps"
     if ignored_deps.is_file():
         ignored_deps = ignored_deps.read_text().strip().splitlines()
         ignored_deps = [i.split() for i in ignored_deps]
