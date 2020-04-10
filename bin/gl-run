@@ -203,7 +203,11 @@ elif stage == "build_script":
         f.flush()
         rc = build_script(script, env, f.name, pubkey)
 elif stage == "after_script":
-    rc = after_script(script, env)
+    if (env.cdir / "af/info").is_dir():
+        rc = after_script(script, env)
+    else:
+        logging.error("Container was not created, skipping after_script")
+        rc = 1
 else:
     run(script)
     rc = 0
