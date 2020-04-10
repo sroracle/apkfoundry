@@ -152,9 +152,6 @@ def build_script(script, env):
     else:
         rev_range = " ".join(env.before, env.after)
 
-    if not pkgs and not manual_pkgs:
-        return 0
-
     shutil.rmtree(env.aportsdir.with_suffix(".tmp"))
     env.aportsdir.with_suffix(".tmp").symlink_to(
         relpath(env.cdir / "tmp", env.aportsdir.parent),
@@ -162,9 +159,9 @@ def build_script(script, env):
     (env.aportsdir / ".gl-repos").symlink_to("../repos")
 
     args = [
-        "--directory", str(env.cdir),
-        "--aportsdir", str(env.aportsdir),
-        "--cache", str(env.cache),
+        "--directory", env.cdir,
+        "--aportsdir", env.aportsdir,
+        "--cache", env.cache,
         "--delete", "on-success", # FIXME make customizable
     ]
 
@@ -177,13 +174,14 @@ def build_script(script, env):
 
     if env.arch:
         args += ["--arch", env.arch]
-    setarch = SETARCH.get(arch, None)
+    setarch = SETARCH.get(env.arch, None)
     if setarch:
         args += ["--setarch", setarch]
 
     args.append("--")
     args += manual_pkgs
 
+    args = [str(i) for i in args]
     buildrepo(args)
 
 def after_script(script, env):
