@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: GPL-2.0-only
+ * Copyright (c) 2019-2020 Max Rees
+ * See LICENSE for more information.
+ */
 char const *PROG = "af-req-root";
 char const *USAGE = "af-req-root COMMAND [ARGS ...]";
 #define BUF_SIZE 4096
