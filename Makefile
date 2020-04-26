@@ -11,7 +11,7 @@ all: libexec/af-req-root
 	$(PYTHON) setup.py build
 
 libexec/af-req-root: af-req-root.c
-	$(CC) -static-pie -o $@ $< -lskarnet
+	$(CC) $(CFLAGS) -static-pie -o $@ $< -lskarnet
 
 .PHONY: install
 install: all
