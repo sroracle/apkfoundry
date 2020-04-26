@@ -6,6 +6,7 @@ import enum       # Enum
 import logging    # getLogger
 import re         # compile
 import shutil     # chown, copy2, rmtree
+import stat       # S_IMODE
 import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
@@ -242,6 +243,32 @@ def cleanup(rc, cdir, delete):
         run("abuild-rmtemp", cdir)
     return rc
 
+def _ensure_dir(name):
+    ok = True
+
+    if not name.is_dir():
+        name.mkdir(parents=True)
+        shutil.chown(name, group=group)
+        name.chmod(perm)
+        return ok
+
+    if name.group() not in ("apkfoundry", "abuild"):
+        ok = False
+        _LOGGER.critical(
+            "%s doesn't belong to group apkfoundry or abuild",
+            name,
+        )
+
+    if stat.S_IMODE(name.stat().st_mode) != 0o2775:
+        print(name.stat().st_mode)
+        ok = False
+        _LOGGER.critical(
+            "%s doesn't have 2775 permissions",
+            name,
+        )
+
+    return ok
+
 def buildrepo(args):
     opts = argparse.ArgumentParser(
         usage="af-buildrepo [options ...] REPODEST STARTDIR [STARTDIR ...]",
@@ -367,20 +394,16 @@ def buildrepo(args):
         return cleanup(0, None, opts.delete)
 
     section_start(_LOGGER, "bootstrap", "Bootstrapping container...")
-    #bootstrap_repo = cdir / "af/info/aports/.apkfoundry/bootstrap-repo"
-    #bootstrap_repo = bootstrap_repo.read_text().strip()
     if opts.repodest:
         Path(opts.repodest).mkdir(parents=True, exist_ok=True)
     if opts.srcdest:
         opts.srcdest = Path(opts.srcdest)
-        opts.srcdest.mkdir(parents=True, exist_ok=True)
-        shutil.chown(opts.srcdest, group="apkfoundry")
-        opts.srcdest.chmod(0o775)
+        if not _ensure_dir(opts.srcdest):
+            return cleanup(1, None, opts.delete)
     if opts.cache:
         opts.cache = Path(opts.cache)
-        opts.cache.mkdir(parents=True, exist_ok=True)
-        shutil.chown(opts.cache, group="apkfoundry")
-        opts.cache.chmod(0o2775)
+        if not _ensure_dir(opts.cache):
+            return cleanup(1, None, opts.delete)
     container.cont_make(
         cdir,
         "user",
