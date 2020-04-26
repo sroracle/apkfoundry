@@ -3,7 +3,7 @@
 # Copyright (c) 2018-2020 Max Rees
 # Based on py-dag 3.0.1
 # https://github.com/thieman/py-dag
-# See LICENSE.dag for more information.
+# See LICENSE.MIT for more information.
 import collections # deque, OrderedDict
 import logging     # getLogger
 import subprocess  # PIPE, run
