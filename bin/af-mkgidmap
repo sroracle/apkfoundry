@@ -1,0 +1,22 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2020 Max Rees
+# See LICENSE for more information.
+
+base="${1:-100000}"
+
+group="$(id -gn)"
+gid="$(id -g)"
+gid_af="$(getent group apkfoundry | cut -d : -f 3)"
+gid_root="$(getent group af-root | cut -d : -f 3)"
+
+cat <<-EOF
+af-root:$gid_root:1
+af-root:$gid_af:1
+af-root:$gid:1
+af-root:$base:65535
+$group:$gid:1
+$group:$gid_af:1
+$group:$gid_root:1
+$group:$base:65535
+EOF
