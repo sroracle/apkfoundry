@@ -357,15 +357,18 @@ class RootConn(socketserver.StreamRequestHandler):
                 continue
 
             if cmd not in _parse:
-                self._err("Command not allowed: " + cmd)
+                self._err("Command not allowed: %s", cmd)
                 continue
 
-            _LOGGER.info("[%d:%d] Received command: %r", self.uid, self.pid, argv)
+            _LOGGER.info(
+                "[%d:%d] Received command: %s",
+                self.uid, self.pid, " ".join(argv),
+            )
 
             try:
                 _parse[cmd][1](argv[1:])
             except _ParseOrRaise.Error as e:
-                self._err(str(e))
+                self._err("%s", e)
                 continue
             argv[0] = _parse[cmd][0]
 
@@ -410,22 +413,22 @@ class RootConn(socketserver.StreamRequestHandler):
         try:
             opts = getopts.parse_args(argv)
         except _ParseOrRaise.Error as e:
-            self._err(e)
+            self._err("%s", e)
             return
 
         opts.cdir = Path(opts.cdir)
 
         if not opts.cdir.is_absolute():
-            self._err(f"Relative path: {opts.cdir}")
+            self._err("Relative path: %s", opts.cdir)
             return
 
         if not opts.cdir.is_dir():
-            self._err(f"Nonexistent container: {opts.cdir}")
+            self._err("Nonexistent container: %s", opts.cdir)
             return
 
         owner = opts.cdir.stat().st_uid
         if self.uid != owner and self.uid != rootid().pw_uid:
-            self._err(f"{opts.cdir} belongs to {owner}")
+            self._err("%s belongs to %s", opts.cdir, owner)
             return
 
         self.cdir = opts.cdir
@@ -440,7 +443,9 @@ class RootConn(socketserver.StreamRequestHandler):
 
         send_retcode(self.request, rc)
 
-    def _err(self, msg):
+    def _err(self, fmt, *args):
+        msg = fmt % args
+
         try:
             os.write(self.fds[2], msg.encode("utf-8") + b"\n")
         except OSError:
@@ -451,8 +456,7 @@ class RootConn(socketserver.StreamRequestHandler):
         except ConnectionError:
             pass
 
-        msg = f"[{self.uid}:{self.pid}] {msg}"
-        _LOGGER.error(msg)
+        _LOGGER.error("[%d:%d] " + fmt, self.uid, self.pid, *args)
 
 class RootServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     def __init__(self, sel):
