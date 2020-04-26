@@ -1,7 +1,8 @@
 # vi: noet
 DESTDIR = dest
-PREFIX = /usr
+PREFIX = usr
 SYSCONFDIR = etc
+LIBEXECDIR = $(PREFIX)/libexec
 
 PYTHON = python3
 
@@ -16,7 +17,10 @@ libexec/af-req-root: af-req-root.c
 install: all
 	$(PYTHON) setup.py install \
 		--root="$(DESTDIR)" \
-		--prefix="$(PREFIX)"
+		--prefix="/$(PREFIX)"
+	ln -sr \
+		"$(DESTDIR)/$(LIBEXECDIR)/apkfoundry" \
+		"$$(find "$(DESTDIR)" -path '*/site-packages/apkfoundry' -type d)/libexec"
 	@echo
 	@echo '*****************************************'
 	@echo 'The following files should be installed'
