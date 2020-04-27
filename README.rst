@@ -14,7 +14,7 @@ Dependencies
 ------------
 
 * Python 3.6+
-* GitLab runner
+* GitLab runner (optional - supported integration)
 * `apk-tools <https://gitlab.alpinelinux.org/alpine/apk-tools>`_
   (``apk.static`` only)
 * `bubblewrap <https://github.com/projectatomic/bubblewrap>`_
