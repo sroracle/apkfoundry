@@ -12,14 +12,16 @@ import sys          # stderr, stdout
 import datetime as dt # timezone
 from pathlib import Path
 
-SITE_CONF = Path("/etc/apkfoundry")
-SITE_PACKAGE = Path(__file__).parent
-LIBEXEC = (SITE_PACKAGE / "libexec").resolve()
+SYSCONFDIR = Path("/etc/apkfoundry")
+LIBEXECDIR = Path(__file__).parent.parent / "libexec"
+if not LIBEXECDIR.is_dir():
+    LIBEXECDIR = Path("/usr/libexec/apkfoundry")
+LOCALSTATEDIR = Path("/var/lib/apkfoundry")
+
 if "PATH" in os.environ:
-    os.environ["PATH"] = str(LIBEXEC) + os.pathsep + os.environ["PATH"]
+    os.environ["PATH"] = str(LIBEXECDIR) + os.pathsep + os.environ["PATH"]
 else:
-    os.environ["PATH"] = str(LIBEXEC)
-HOME = Path("/var/lib/apkfoundry")
+    os.environ["PATH"] = str(LIBEXECDIR)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,7 +82,7 @@ class EStatus(enum.IntFlag):
         return self.name
 
 def get_config(section=None):
-    files = sorted(SITE_CONF.glob("*.ini"))
+    files = sorted(SYSCONFDIR.glob("*.ini"))
 
     config = _ConfigParser()
     config.BOOLEAN_STATES = {"true": True, "false": False}

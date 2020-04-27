@@ -12,7 +12,7 @@ import shutil     # chown, copy2, copytree
 import subprocess # call, Popen
 from pathlib import Path
 
-from . import get_config, LIBEXEC, SITE_CONF, rootid
+from . import get_config, LIBEXECDIR, SYSCONFDIR, rootid
 from .socket import client_refresh
 
 BUILDDIR = "/af/build"
@@ -28,7 +28,7 @@ _KEEP_ENV = (
     "TERM",
 )
 
-_APK_STATIC = SITE_CONF / "skel.bootstrap/apk.static"
+_APK_STATIC = SYSCONFDIR / "skel.bootstrap/apk.static"
 _CFG = get_config("container")
 _SUBID = _CFG.getint("subid")
 
@@ -202,7 +202,7 @@ class Container:
         })
 
         args = [
-            SITE_CONF / "bwrap.nosuid",
+            SYSCONFDIR / "bwrap.nosuid",
             "--unshare-user",
             "--userns-block-fd", str(pipe_r),
             "--info-fd", str(info_w),
@@ -221,7 +221,7 @@ class Container:
             "--bind", mounts["repodest"], MOUNTS["repodest"],
             "--bind", mounts["srcdest"], MOUNTS["srcdest"],
             "--bind", self.cdir / BUILDDIR.lstrip("/"), BUILDDIR,
-            "--ro-bind", str(LIBEXEC), "/af/libexec",
+            "--ro-bind", str(LIBEXECDIR), "/af/libexec",
             "--chdir", MOUNTS["aportsdir"],
         ]
 
@@ -384,7 +384,7 @@ def cont_make(
 
 def cont_bootstrap(cdir, **kwargs):
     cont = Container(cdir)
-    bootstrap_files = _force_copytree(SITE_CONF / "skel.bootstrap", cdir)
+    bootstrap_files = _force_copytree(SYSCONFDIR / "skel.bootstrap", cdir)
 
     (cdir / "dev").mkdir(exist_ok=True)
     (cdir / "tmp").mkdir(exist_ok=True)
@@ -437,7 +437,7 @@ def cont_refresh(cdir):
     arch = (cdir / "etc/apk/arch").read_text().strip()
 
     for skel in (
-            SITE_CONF / "skel",
+            SYSCONFDIR / "skel",
             conf_d / "skel",
             conf_d / f"skel.{repo}",
             conf_d / f"skel..{arch}",
@@ -450,6 +450,6 @@ def cont_refresh(cdir):
 
         _force_copytree(skel, cdir)
 
-    abuild_conf = SITE_CONF / "abuild.conf"
+    abuild_conf = SYSCONFDIR / "abuild.conf"
     if abuild_conf.is_file():
         shutil.copy2(abuild_conf, cdir / "etc/abuild.conf")

@@ -1,8 +1,12 @@
 # vi: noet
-DESTDIR = dest
+DESTDIR = target
 PREFIX = usr
-SYSCONFDIR = etc
-LIBEXECDIR = $(PREFIX)/libexec
+SYSCONFDIR = etc/apkfoundry
+LIBEXECDIR = $(PREFIX)/libexec/apkfoundry
+DOCDIR = $(PREFIX)/share/doc/apkfoundry
+LOCALSTATEDIR = var/lib/apkfoundry
+
+export SYSCONFDIR LIBEXECDIR DOCDIR
 
 LIBS = -lskarnet
 PYTHON = python3
@@ -15,17 +19,19 @@ libexec/af-req-root: af-req-root.c
 	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $< $(LIBS)
 
 .PHONY: install
-install: all
+install: all paths
 	$(PYTHON) setup.py install \
 		--root="$(DESTDIR)" \
 		--prefix="/$(PREFIX)"
-	ln -sr \
-		"$(DESTDIR)/$(LIBEXECDIR)/apkfoundry" \
-		"$$(find "$(DESTDIR)" -path '*/site-packages/apkfoundry' -type d)/libexec"
+	chmod 750 "$(DESTDIR)/$(SYSCONFDIR)"
+	-chgrp apkfoundry "$(DESTDIR)/$(SYSCONFDIR)"
+	mkdir -p "$(DESTDIR)/$(LOCALSTATEDIR)"
+	chmod 2770 "$(DESTDIR)/$(LOCALSTATEDIR)"
+	-chown af-root:apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)"
 	@echo
 	@echo '*****************************************'
 	@echo 'The following files should be installed'
-	@echo 'to "$(DESTDIR)/$(SYSCONFDIR)/apkfoundry":'
+	@echo 'to "$(DESTDIR)/$(SYSCONFDIR)":'
 	@echo '	bwrap.nosuid'
 	@echo '	skel/etc/group'
 	@echo '	skel/etc/hosts'
@@ -39,11 +45,19 @@ install: all
 	@echo '*****************************************'
 	@echo
 
-.PHONY: clean
-clean:
-	rm -rf apkfoundry.egg-info build dest dist etc
-	rm -f libexec/af-req-root
+.PHONY: paths
+paths: apkfoundry/__init__.py
+	sed -i \
+		-e '/SYSCONFDIR = Path("/s@("[^"]*")@("/$(SYSCONFDIR)")@' \
+		-e '/LIBEXECDIR = Path("/s@("[^"]*")@("/$(LIBEXECDIR)")@' \
+		-e '/LOCALSTATEDIR = Path("/s@("[^"]*")@("/$(LOCALSTATEDIR)")@' \
+		apkfoundry/__init__.py
 
 .PHONY: dist
 dist: clean
 	$(PYTHON) setup.py sdist
+
+.PHONY: clean
+clean:
+	rm -rf apkfoundry.egg-info build dist etc target
+	rm -f libexec/af-req-root

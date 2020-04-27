@@ -6,7 +6,7 @@ import socket       # socket, various constants
 import struct       # calcsize, pack, Struct, unpack
 import sys          # std*
 
-from . import HOME
+from . import LOCALSTATEDIR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ _PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(_PASSFD_FMT))
 _RC_FMT = "i"
 _BUF_SIZE = 4096
 
-SOCK_PATH = HOME / "root.sock"
+SOCK_PATH = LOCALSTATEDIR / "root.sock"
 
 def send_fds(conn, msg, fds):
     assert len(fds) == _NUM_FDS

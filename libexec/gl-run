@@ -10,7 +10,7 @@ import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-from apkfoundry import get_config, run, get_output, HOME, SITE_CONF
+from apkfoundry import get_config, run, get_output, LOCALSTATEDIR, SYSCONFDIR
 from apkfoundry import init_logger
 from apkfoundry.build import buildrepo
 from apkfoundry.container import Container
@@ -57,7 +57,7 @@ class CI_Env:
             self.mr = None
             self.target_url = None
 
-        self.cache = HOME / "apk_cache" / \
+        self.cache = LOCALSTATEDIR / "apk-cache" / \
             f"{self['CI_PROJECT_PATH_SLUG']}.{self.ref}.{self.arch}"
 
     def __getitem__(self, key):
@@ -99,7 +99,7 @@ def get_keys():
             logging.error("AF_PRIVKEY cannot contain slashes")
             return None, None
 
-        privkey = Path(SITE_CONF / "keys" / env.project / privkey)
+        privkey = Path(SYSCONFDIR / "keys" / env.project / privkey)
         if not privkey.is_file():
             logging.error("AF_PRIVKEY does not exist on this builder")
             return None, None
