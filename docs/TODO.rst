@@ -3,7 +3,7 @@
   * bootstrapping without the widest coverage of repos leads to "package
     not found" errors later when switching repositories - related to
     updating / upgrading
-  * checkapk needs to distinguish ``$APK and ``$APK_FETCH``, or
+  * checkapk needs to distinguish ``$APK`` and ``$APK_FETCH``, or
     otherwise rootd needs to accept what it'll send
 
 * Documentation
