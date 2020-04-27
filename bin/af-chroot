@@ -10,21 +10,6 @@ from pathlib import Path
 from apkfoundry.container import Container
 from apkfoundry.socket import client_init
 
-def _container_run(opts, rootd_conn=None):
-    cont = Container(
-        opts.cdir,
-        rootd_conn=rootd_conn,
-    )
-
-    return cont.run(
-        opts.argv,
-        net=opts.networking,
-        repo=opts.repo,
-        ro_aports=opts.ro_aports,
-        ro_root=opts.ro_root,
-        setsid=opts.setsid,
-    )
-
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s %(levelname)s %(message)s",
@@ -75,5 +60,18 @@ if opts.rootd:
 else:
     conn = None
 
-rc, _ = _container_run(opts, conn)
+cont = Container(
+    opts.cdir,
+    rootd_conn=conn,
+)
+
+rc, _ = cont.run(
+    opts.argv,
+    net=opts.networking,
+    repo=opts.repo,
+    ro_aports=opts.ro_aports,
+    ro_root=opts.ro_root,
+    setsid=opts.setsid,
+)
+
 sys.exit(rc)

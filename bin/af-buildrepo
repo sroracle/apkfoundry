@@ -5,7 +5,7 @@
 import os   # environ, isatty
 import sys  # argv, exit
 
-from apkfoundry import init_logger, run
+from apkfoundry import init_logger
 from apkfoundry.build import buildrepo
 
 if os.isatty(sys.stdout.fileno()):

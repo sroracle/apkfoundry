@@ -7,7 +7,7 @@ import logging  # basicConfig
 import sys      # exit
 from pathlib import Path
 
-from apkfoundry.container import Container, cont_make
+from apkfoundry.container import cont_make
 from apkfoundry.socket import client_init
 
 logging.basicConfig(

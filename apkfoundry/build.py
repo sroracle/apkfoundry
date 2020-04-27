@@ -248,8 +248,8 @@ def _ensure_dir(name):
 
     if not name.is_dir():
         name.mkdir(parents=True)
-        shutil.chown(name, group=group)
-        name.chmod(perm)
+        shutil.chown(name, group="apkfoundry")
+        name.chmod(0o2775)
         return ok
 
     if name.group() not in ("apkfoundry", "abuild"):

@@ -16,7 +16,7 @@ from apkfoundry.build import buildrepo
 from apkfoundry.container import Container
 from apkfoundry.socket import client_init
 
-FAKE_BEFORE="0000000000000000000000000000000000000000"
+FAKE_BEFORE = "0000000000000000000000000000000000000000"
 
 SETARCH = get_config("setarch")
 os.environ["USE_COLORS"] = "force"
@@ -150,7 +150,7 @@ def build_script(script, env, privkey, pubkey):
             logging.error("New branch detected, ignoring revision range")
         rev_range = None
     else:
-        rev_range = " ".join(env.before, env.after)
+        rev_range = " ".join((env.before, env.after))
 
     (env.aportsdir / ".gl-repos").symlink_to("../repos")
 
@@ -177,7 +177,7 @@ def build_script(script, env, privkey, pubkey):
     args += manual_pkgs
 
     args = [str(i) for i in args]
-    buildrepo(args)
+    return buildrepo(args)
 
 def after_script(script, env):
     shutil.copy2(script, env.cdir / "af/after-script")
