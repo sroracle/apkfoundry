@@ -4,6 +4,7 @@ PREFIX = usr
 SYSCONFDIR = etc
 LIBEXECDIR = $(PREFIX)/libexec
 
+LIBS = -lskarnet
 PYTHON = python3
 
 .PHONY: all
@@ -11,7 +12,7 @@ all: libexec/af-req-root
 	$(PYTHON) setup.py build
 
 libexec/af-req-root: af-req-root.c
-	$(CC) $(CFLAGS) -static-pie -o $@ $< -lskarnet
+	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $< $(LIBS)
 
 .PHONY: install
 install: all
