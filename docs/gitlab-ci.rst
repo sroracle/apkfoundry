@@ -56,15 +56,8 @@ Example .gitlab-ci.yml
       variables:
         GIT_CLONE_PATH: $CI_BUILDS_DIR/af/aports
 
-      before_scirpt:
-        # configure: error: GNAT is required to build ada
-        - case "$1" in
-          system/gcc) $SUDO_APK add -t .makedepends-gcc-self gcc-gnat;;
-          esac
-
       script:
-        - cd "$1"
-        - abuild -r
+        - .apkfoundry/build-script
 
       artifacts:
         paths:
@@ -108,3 +101,24 @@ Example .gitlab-ci.yml
         - merge_requests
       artifacts:
         when: always
+
+Example .apkfoundry/build-script
+--------------------------------
+
+.. code-block:: shell
+
+    #!/bin/sh -e
+    . /usr/share/abuild/functions.sh
+    cd "$APORTSDIR/$1"
+
+    echo "${STRONG}>>> Adding extra dependencies${NORMAL}"
+    # configure: error: GNAT is required to build ada
+    case "$1" in
+    system/gcc) $SUDO_APK add -t .makedepends-gcc-self gcc-gnat;;
+    esac
+
+    echo "${STRONG}>>> abuild -r${NORMAL}"
+    abuild -r
+
+    echo "${STRONG}>>> checkapk${NORMAL}"
+    APK="$APK_FETCH" checkapk
