@@ -10,6 +10,16 @@ export SYSCONFDIR LIBEXECDIR DOCDIR
 
 LIBS = -lskarnet
 PYTHON = python3
+PYLINT = pylint
+
+LINT_TARGETS = \
+	apkfoundry \
+	bin/af-buildrepo \
+	bin/af-chroot \
+	bin/af-depgraph \
+	bin/af-mkchroot \
+	bin/af-rootd \
+	libexec/gl-run
 
 .PHONY: all
 all: libexec/af-req-root
@@ -56,6 +66,10 @@ paths: apkfoundry/__init__.py
 .PHONY: dist
 dist: clean
 	$(PYTHON) setup.py sdist
+
+.PHONY: lint
+lint: $(LINT_TARGETS)
+	-$(PYLINT) $?
 
 .PHONY: clean
 clean:
