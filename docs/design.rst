@@ -35,6 +35,20 @@ container environment is setup with ``SUDO_APK``, ``ADDUSER``,
 ``ADDGROUP``, ``ABUILD_FETCH``, and ``APK_FETCH`` to use
 ``af-req-root``.
 
+In this model, the elevated privileges needed are:
+
+* Launch ``af-rootd`` as the ``af-root`` user, distinct
+  from the build user.
+* Execute ``clone(2)`` with the ``CLONE_NEWUSER`` flag (this is an
+  unprivileged action in the mainline kernel, but some distributions
+  require the non-standard ``kernel.unprivileged_userns_clone`` sysctl
+  to be enabled)
+* Use the ``newuidmap`` and ``newgidmap`` setuid binaries (as provided
+  by ``shadow-uidmap`` package) in order to setup a full mapping of user
+  and group IDs inside the namespace, i.e. mapping the build user's
+  IDs to themselves, the ``af-root`` user's IDs to zero, and all other
+  IDs in the range [1, 65534] to unused IDs.
+
 The job lifecycle
 -----------------
 
