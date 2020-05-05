@@ -431,7 +431,7 @@ class RootConn(socketserver.StreamRequestHandler):
             self._err("%s belongs to %s", opts.cdir, owner)
             return
 
-        self.cdir = opts.cdir
+        self.cdir = opts.cdir # pylint: disable=attribute-defined-outside-init
         rc = 0
 
         if opts.bootstrap:

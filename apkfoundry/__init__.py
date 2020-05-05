@@ -105,16 +105,10 @@ def check_call(args, **kwargs):
     return subprocess.check_call(args, **kwargs)
 
 class abuildLogFormatter(logging.Formatter):
-    def __init__(self, fmt=None, color=True, time=False, sections=False, **kwargs):
-        if not fmt:
-            if time:
-                fmt = "%(magenta)s%(asctime)s "
-            else:
-                fmt = ""
-            fmt += "%(levelcolor)s%(prettylevel)s"
-            fmt += "%(normal)s%(message)s"
-
+    def __init__(self, color=True, sections=False, **kwargs):
+        fmt = "%(levelcolor)s%(prettylevel)s%(normal)s%(message)s"
         super().__init__(fmt, **kwargs)
+
         self.color = color
         self.sections = sections
 
@@ -159,14 +153,11 @@ class abuildLogFormatter(logging.Formatter):
 
         return super().format(record)
 
-def init_logger(
-        name,
-        output=sys.stderr, level="INFO",
-        color=False, time=False, sections=False):
+def init_logger(name, level="INFO", color=False, sections=False):
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    handler = logging.StreamHandler(output)
-    formatter = abuildLogFormatter(color=color, time=time, sections=sections)
+    handler = logging.StreamHandler()
+    formatter = abuildLogFormatter(color=color, sections=sections)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger

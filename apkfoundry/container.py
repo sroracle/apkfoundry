@@ -32,21 +32,21 @@ _APK_STATIC = SYSCONFDIR / "skel.bootstrap/apk.static"
 _CFG = site_conf("container")
 _SUBID = _CFG.getint("subid")
 
-def _idmap(cmd, pid, id):
+def _idmap(cmd, pid, ent_id):
     if cmd == "newuidmap":
         holes = {
             0: rootid().pw_uid,
-            id: id,
+            ent_id: ent_id,
         }
     else:
         af_gid = grp.getgrnam("apkfoundry").gr_gid
         holes = {
             0: rootid().pw_gid,
-            id: id,
+            ent_id: ent_id,
             af_gid: af_gid,
         }
 
-    assert holes[0] != id, "root ID cannot match user ID"
+    assert holes[0] != ent_id, "root ID cannot match user ID"
 
     args = []
     for mapped, real in holes.items():
@@ -412,12 +412,10 @@ def cont_bootstrap(cdir, **kwargs):
         if filename.with_suffix(".apk-new").exists():
             shutil.move(filename.with_suffix(".apk-new"), filename)
         elif subprocess.call(
-                    [
-                        _APK_STATIC, "--root", cdir, "info",
-                        "--who-owns", filename.relative_to(cdir)
-                    ],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                ) != 0:
+                [_APK_STATIC, "--root", cdir, "info",
+                 "--who-owns", filename.relative_to(cdir)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            ) != 0:
             filename.unlink()
 
     if rc != 0:

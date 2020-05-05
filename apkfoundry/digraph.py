@@ -4,7 +4,7 @@
 # Based on py-dag 3.0.1
 # https://github.com/thieman/py-dag
 # See LICENSE.MIT for more information.
-import collections # deque, OrderedDict
+import collections # defaultdict, deque, OrderedDict
 import logging     # getLogger
 import subprocess  # PIPE, run
 
@@ -240,12 +240,11 @@ def generate_graph(ignored_deps, skip_check=False, cont=None):
         return None
 
     origins = {}
-    deps = {}
+    deps = collections.defaultdict(list)
     for line in proc.stdout.split("\n"):
         line = line.strip().split(maxsplit=2)
         if not line:
             continue
-
         assert len(line) == 3
 
         if line[0] == "o":
@@ -256,8 +255,6 @@ def generate_graph(ignored_deps, skip_check=False, cont=None):
         elif line[0] == "d":
             startdir = line[1]
             name = line[2]
-            if startdir not in deps:
-                deps[startdir] = []
             deps[startdir].append(name)
         else:
             _LOGGER.error("invalid af-deps output: %r", line)
