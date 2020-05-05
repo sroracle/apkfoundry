@@ -104,12 +104,6 @@ def run(*argv, **kwargs):
     sys.stderr.flush()
     return subprocess.check_call(argv, encoding="utf-8", **kwargs)
 
-def get_output(*argv, **kwargs):
-    argv = [str(arg) for arg in argv]
-    sys.stdout.flush()
-    sys.stderr.flush()
-    return subprocess.check_output(argv, encoding="utf-8", **kwargs)
-
 class abuildLogFormatter(logging.Formatter):
     def __init__(self, fmt=None, color=True, time=False, sections=False, **kwargs):
         if not fmt:

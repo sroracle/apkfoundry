@@ -6,11 +6,12 @@ import base64     # b64decode
 import logging    # info, error
 import os         # environ
 import shutil     # copy2
+import subprocess # check_output
 import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-from apkfoundry import site_conf, run, get_output, LOCALSTATEDIR, SYSCONFDIR
+from apkfoundry import site_conf, run, LOCALSTATEDIR, SYSCONFDIR
 from apkfoundry import init_logger
 from apkfoundry.build import buildrepo
 from apkfoundry.container import Container
@@ -131,9 +132,10 @@ def build_script(script, env, privkey, pubkey):
     sanitize_script(env.cdir / "af/aports/.apkfoundry/build-script")
 
     if env.mr:
-        env.before = get_output(
-            "git", "-C", env.aportsdir,
-            "merge-base", env.ref, env.after
+        env.before = subprocess.check_output(
+            ("git", "-C", str(env.aportsdir),
+             "merge-base", env.ref, env.after),
+            encoding="utf-8",
         )
         if not env.before or env.before == env.after:
             logging.error("Could not merge %s into %s", env.after, env.ref)

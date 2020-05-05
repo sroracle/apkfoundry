@@ -7,11 +7,12 @@ import logging    # getLogger
 import re         # compile
 import shutil     # chown, copy2, rmtree
 import stat       # S_IMODE
+import subprocess # check_output
 import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
 
-from . import EStatus, get_output, run
+from . import EStatus, run
 from . import msg2, section_start, section_end
 from . import container
 from .digraph import generate_graph
@@ -212,12 +213,13 @@ def run_job(conn, cdir, startdirs):
     return run_graph(cont, graph, startdirs)
 
 def changed_pkgs(*rev_range, gitdir=None):
-    gitdir = ["-C", gitdir] if gitdir else []
+    gitdir = ["-C", str(gitdir)] if gitdir else []
 
-    pkgs = get_output(
-        "git", *gitdir, "diff-tree",
-        "-r", "--name-only", "--diff-filter", "dxu",
-        *rev_range, "--", "*/*/APKBUILD",
+    pkgs = subprocess.check_output(
+        ("git", *gitdir, "diff-tree",
+         "-r", "--name-only", "--diff-filter", "dxu",
+         *rev_range, "--", "*/*/APKBUILD"),
+        encoding="utf-8"
     ).splitlines()
     return [i.replace("/APKBUILD", "") for i in pkgs]
 
