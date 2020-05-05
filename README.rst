@@ -17,8 +17,8 @@ Dependencies
 * GitLab runner (optional - supported integration)
 * `apk-tools <https://gitlab.alpinelinux.org/alpine/apk-tools>`_
   (``apk.static`` only)
-* `bubblewrap <https://github.com/projectatomic/bubblewrap>`_
-  (installed as non-setuid)
+* `bubblewrap <https://github.com/containers/bubblewrap>`_ (installed as
+  non-setuid)
 * Linux kernel with unprivileged user namespace support
 * `shadow-uidmap <https://github.com/shadow-maint/shadow>`_
 * `skalibs <https://skarnet.org/software/skalibs>`_ (build-time only
