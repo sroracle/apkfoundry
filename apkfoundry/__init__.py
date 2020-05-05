@@ -25,18 +25,20 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
-_ConfigParser = functools.partial(
-    configparser.ConfigParser,
-    interpolation=None,
-    comment_prefixes=(";",),
-    delimiters=("=",),
-    inline_comment_prefixes=None,
-    empty_lines_in_values=True,
-    converters={
-        "list": lambda s: s.strip().splitlines(),
-        "path": Path,
-    },
-)
+def _ConfigParser():
+    parser = configparser.ConfigParser(
+        interpolation=None,
+        comment_prefixes=(";",),
+        delimiters=("=",),
+        inline_comment_prefixes=None,
+        empty_lines_in_values=True,
+        converters={
+            "list": lambda s: s.strip().splitlines(),
+            "path": Path,
+        },
+    )
+    parser.BOOLEAN_STATES = {"true": True, "false": False}
+    return parser
 
 _DEFAULT_SITE_CONFIG = {
     "container": {
@@ -81,11 +83,10 @@ class EStatus(enum.IntFlag):
     def __str__(self):
         return self.name
 
-def get_config(section=None):
+def site_conf(section=None):
     files = sorted(SYSCONFDIR.glob("*.ini"))
 
     config = _ConfigParser()
-    config.BOOLEAN_STATES = {"true": True, "false": False}
     config.read_dict(_DEFAULT_SITE_CONFIG)
     config.read(files)
 

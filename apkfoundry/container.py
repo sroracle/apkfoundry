@@ -12,7 +12,7 @@ import shutil     # chown, copy2, copytree
 import subprocess # call, Popen
 from pathlib import Path
 
-from . import get_config, LIBEXECDIR, SYSCONFDIR, rootid
+from . import site_conf, LIBEXECDIR, SYSCONFDIR, rootid
 from .socket import client_refresh
 
 BUILDDIR = "/af/build"
@@ -29,7 +29,7 @@ _KEEP_ENV = (
 )
 
 _APK_STATIC = SYSCONFDIR / "skel.bootstrap/apk.static"
-_CFG = get_config("container")
+_CFG = site_conf("container")
 _SUBID = _CFG.getint("subid")
 
 def _idmap(cmd, pid, id):

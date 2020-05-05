@@ -10,7 +10,7 @@ import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-from apkfoundry import get_config, run, get_output, LOCALSTATEDIR, SYSCONFDIR
+from apkfoundry import site_conf, run, get_output, LOCALSTATEDIR, SYSCONFDIR
 from apkfoundry import init_logger
 from apkfoundry.build import buildrepo
 from apkfoundry.container import Container
@@ -18,7 +18,7 @@ from apkfoundry.socket import client_init
 
 FAKE_BEFORE = "0000000000000000000000000000000000000000"
 
-SETARCH = get_config("setarch")
+SETARCH = site_conf("setarch")
 os.environ["USE_COLORS"] = "force"
 
 init_logger(None, color=True, sections=True)
