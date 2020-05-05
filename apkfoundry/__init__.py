@@ -7,7 +7,7 @@ import functools    # partial
 import logging      # Formatter, getLogger, StreamHandler
 import os           # environ, pathsep
 import pwd          # getpwuid
-import subprocess   # check_call, check_output
+import subprocess   # check_call
 import sys          # stderr, stdout
 import datetime as dt # timezone
 from pathlib import Path
@@ -98,11 +98,11 @@ def site_conf(section=None):
 def rootid():
     return pwd.getpwnam("af-root")
 
-def run(*argv, **kwargs):
-    argv = [str(arg) for arg in argv]
+def check_call(args, **kwargs):
+    args = [str(arg) for arg in args]
     sys.stdout.flush()
     sys.stderr.flush()
-    return subprocess.check_call(argv, encoding="utf-8", **kwargs)
+    return subprocess.check_call(args, **kwargs)
 
 class abuildLogFormatter(logging.Formatter):
     def __init__(self, fmt=None, color=True, time=False, sections=False, **kwargs):

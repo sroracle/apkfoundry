@@ -11,7 +11,7 @@ import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-from apkfoundry import site_conf, run, LOCALSTATEDIR, SYSCONFDIR
+from apkfoundry import site_conf, check_call, LOCALSTATEDIR, SYSCONFDIR
 from apkfoundry import init_logger
 from apkfoundry.build import buildrepo
 from apkfoundry.container import Container
@@ -77,14 +77,14 @@ class CI_Env:
         return self.prefix + item in os.environ
 
 def sanitize_script(script):
-    run(
+    check_call((
         "sed", "-i",
         "-e", f"s@{env.cdir}[/]*@/@g",
         "-e", "/AF_PRIVKEY/d",
         "-e", "/AF_PRIVKEY_B64/d",
         "-e", "/AF_PUBKEY/d",
         script,
-    )
+    ))
 
 def get_keys():
     if "AF_PRIVKEY_B64" in env and "AF_PUBKEY" in env:
@@ -114,14 +114,14 @@ def get_keys():
     return None, None
 
 def get_sources(script, env):
-    run(script)
+    check_call((script,))
 
     if env.mr:
-        run(
+        check_call((
             "git", "-C", env.aportsdir, "fetch",
             env.target_url,
             f"+refs/heads/{env.ref}:refs/heads/{env.ref}",
-        )
+        ))
 
     return 0
 
@@ -211,7 +211,7 @@ elif stage == "after_script":
         logging.error("Container was not created, skipping after_script")
         rc = 1
 else:
-    run(script)
+    check_call((script,))
     rc = 0
 
 sys.exit(rc)

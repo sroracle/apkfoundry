@@ -12,7 +12,7 @@ import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
 
-from . import EStatus, run
+from . import EStatus, check_call
 from . import msg2, section_start, section_end
 from . import container
 from .digraph import generate_graph
@@ -230,19 +230,19 @@ def resignapk(cdir, privkey, pubkey):
     apks += list((cdir / "af/repos").glob("**/APKINDEX.tar.gz"))
 
     section_start(_LOGGER, "resignapk", "Re-signing APKs...")
-    run(
+    check_call((
         "fakeroot", "--",
         "resignapk", "-i",
         "-p", pubkey,
         "-k", privkey,
         *apks,
-    )
+    ))
     section_end(_LOGGER)
 
 def cleanup(rc, cdir, delete):
     if cdir and (delete == "always" or (delete == "on-success" and rc == 0)):
         _LOGGER.info("Deleting container...")
-        run("abuild-rmtemp", cdir)
+        check_call(("abuild-rmtemp", cdir))
     return rc
 
 def _ensure_dir(name):
@@ -370,9 +370,9 @@ def buildrepo(args):
         section_start(_LOGGER, "clone", "Cloning git repository...")
         opts.aportsdir = cdir / "af/aports"
         opts.aportsdir.mkdir(parents=True, exist_ok=True)
-        run("git", "clone", opts.git_url, opts.aportsdir)
+        check_call(("git", "clone", opts.git_url, opts.aportsdir))
         if opts.branch:
-            run("git", "-C", opts.aportsdir, "checkout", opts.branch)
+            check_call(("git", "-C", opts.aportsdir, "checkout", opts.branch))
         section_end(_LOGGER)
 
     if opts.startdirs:
