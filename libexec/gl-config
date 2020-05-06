@@ -6,7 +6,7 @@ umask 007
 builds_dir="$(mktemp -dp /var/tmp "abuild.XXXXXXXXXX")"
 chgrp apkfoundry "$builds_dir"
 
-exec cat <<-EOF
+exec cat <<EOF
 {
 	"builds_dir": "$builds_dir",
 	"builds_dir_is_shared": false,

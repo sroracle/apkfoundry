@@ -241,9 +241,13 @@ def resignapk(cdir, privkey, pubkey):
     section_end(_LOGGER)
 
 def cleanup(rc, cdir, delete):
-    if cdir and (delete == "always" or (delete == "on-success" and rc == 0)):
-        _LOGGER.info("Deleting container...")
-        check_call(("abuild-rmtemp", cdir))
+    if cdir:
+        (cdir / "af/info/rc").write_text(str(rc))
+
+        if (delete == "always" or (delete == "on-success" and rc == 0)):
+            _LOGGER.info("Deleting container...")
+            check_call(("abuild-rmtemp", cdir))
+
     return rc
 
 def _ensure_dir(name):

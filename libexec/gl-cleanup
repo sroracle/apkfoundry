@@ -1,0 +1,20 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2020 Max Rees
+# See LICENSE for more information.
+
+cleanup() {
+	abuild-rmtemp "$CUSTOM_ENV_CI_BUILDS_DIR"
+}
+
+case "$1" in
+always)
+	cleanup
+	;;
+on-success)
+	rc="$(cat "$CUSTOM_ENV_CI_BUILDS_DIR/af/info/rc" 2>/dev/null || :)"
+	if [ "$rc" = "0" ]; then
+		cleanup
+	fi
+	;;
+esac

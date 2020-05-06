@@ -167,7 +167,7 @@ def build_script(script, env, privkey, pubkey):
         "--aportsdir", env.aportsdir,
         "--branch", env.ref,
         "--cache", env.cache,
-        "--delete", "on-success", # FIXME make customizable
+        "--delete", "never",
     ]
 
     if rev_range:
