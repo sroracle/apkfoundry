@@ -48,6 +48,9 @@ In this model, the elevated privileges needed are:
   and group IDs inside the namespace, i.e. mapping the build user's
   IDs to themselves, the ``af-root`` user's IDs to zero, and all other
   IDs in the range [1, 65534] to unused IDs.
+* Destroy the container using ``abuild-rmtemp``. This is considered a
+  temporary measure until a more sophisticated approach of destroying
+  the container from within is developed.
 
 The job lifecycle
 -----------------
