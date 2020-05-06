@@ -42,6 +42,34 @@ Variables
                    ``/etc/apk/keys``)
 ================== =====================================================
 
+Example config.toml
+-------------------
+
+.. code-block:: toml
+
+    [[runners]]
+      name = "RUNNER-NAME"
+      url = "https://GITLAB.EXAMPLE.COM"
+      token = "YOUR-TOKEN-HERE"
+      executor = "custom"
+      # These are required but not used
+      builds_dir = "/var/lib/apkfoundry/build"
+      cache_dir = "/var/lib/apkfoundry/cache"
+      shell = "sh"
+      # Build log size in KiB, e.g. 25 MiB is:
+      output_limit = 25600
+      [runners.custom_build_dir]
+        enabled = true
+      [runners.custom]
+        config_exec = "/usr/src/apkfoundry/libexec/gl-config"
+        run_exec = "/usr/src/apkfoundry/libexec/gl-run"
+        cleanup_exec = "/usr/src/apkfoundry/libexec/gl-cleanup"
+        # Always destroy container
+        #cleanup_args = [ "always" ]
+        # Destroy container on successful build only
+        #cleanup_args = [ "on-success" ]
+        # Otherwise, never destroy container
+
 Example .gitlab-ci.yml
 ----------------------
 
