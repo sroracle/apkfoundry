@@ -149,4 +149,4 @@ Example build-script
     abuild -r
 
     echo "${STRONG}>>> checkapk${NORMAL}"
-    APK="$APK_FETCH" checkapk
+    checkapk

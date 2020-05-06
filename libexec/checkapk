@@ -1,0 +1,306 @@
+#!/bin/sh -e
+
+# checkapk - find ABI breakages in package upgrades
+# Copyright (c) 2012 Natanael Copa <natanael.copa@gmail.com>
+#
+# Distributed under GPL-2
+#
+
+program_version=3.4.1-20-gdf3c2de
+datadir=/usr/share/abuild
+
+if ! [ -f "$datadir/functions.sh" ]; then
+	echo "$datadir/functions.sh: not found" >&2
+	exit 1
+fi
+. "$datadir/functions.sh"
+
+case "$(tar --version)" in
+*GNU*) tar_flavor=GNU;;
+*libarchive*) tar_flavor=libarchive;;
+*busybox*) tar_flavor=busybox;;
+*) die 'unknown tar flavor';;
+esac
+: ${APK:="/sbin/apk"}
+: ${APK_FETCH:="$APK"}
+if command -v abipkgdiff >/dev/null 2>&1; then
+	abigail=1
+fi
+
+subpackage_types_has() {
+	local i
+	for i in $subpackages; do
+		local _name="${i%%:*}"
+		[ "$1" = "${_name##*-}" ] && return 0
+	done
+	return 1
+}
+
+list_has() {
+	local needle="$1"
+	local i
+	shift
+	for i in $@; do
+		[ "$needle" = "$i" ] && return 0
+		[ "$needle" = "!$i" ] && return 1
+	done
+	return 1
+}
+
+usage() {
+	cat >&2 <<-__EOF__
+		$program $program_version - find ABI breakages in package upgrades
+		Usage: $program
+
+		Run in the directory of a built package.
+
+	__EOF__
+}
+
+fetch_old() {
+	if ! $APK_FETCH fetch --stdout --repositories-file "$tmpdir/repositories" "$1" > old.apk; then
+		warning "could not download $1 (network error or new package)"
+		return 1
+	else
+		[ -e old.apk ] || die "can't find old apk old.apk"
+		return 0
+	fi
+}
+
+fetch_new() {
+	local i
+	for i in "$PKGDEST/$1" "$REPODEST/$repo/$CARCH/$1" "$startdir/$1"; do
+		i="$i-$pkgver-r$pkgrel.apk"
+		if [ -f "$i" ]; then
+			echo "$i"
+			return 0
+		fi
+	done
+	[ -f "$i" ] || die "can't find new apk $1"
+}
+
+pkginfo() {
+	local apk="$1"
+	local filename="$2"
+
+	tar -zxf "$apk" .PKGINFO
+	mv .PKGINFO .PKGINFO.orig
+	grep -E \
+		'^(depend|provides|provider|replaces|triggers|install_if)' \
+		.PKGINFO.orig | sort > "$filename"
+	touch -r .PKGINFO.orig "$filename"
+	rm .PKGINFO.orig
+}
+
+filelist() {
+	local apk="$1"
+	local filename="$2"
+	local tar_fmt
+
+	case "$tar_flavor" in
+	GNU)
+		# -rw-r--r-- root/root       737 2019-06-14 20:45 .PKGINFO
+		# lrwxrwxrwx root/root         0 2019-09-13 06:01 usr/lib/libixion-0.15.so.0 -> libixion-0.15.so.0.0.0
+		# hrwxr-xr-x root/root         0 2019-04-22 10:26 usr/bin/python3.6 link to usr/bin/python3.6m
+		tar_fmt='{ printf "%s %s ", $1, $2 }
+			/^l/ { printf "%s -> ", $(NF-2) }
+			/^h/ { printf "%s -> ", $(NF-3) }
+			{ print $NF }';;
+	busybox)
+		# -rw-r--r-- root/root       737 2019-06-14 20:45:29 .PKGINFO
+		# lrwxrwxrwx root/root         0 2019-09-13 06:01:49 usr/lib/libixion-0.15.so.0 -> libixion-0.15.so.0.0.0
+		# -rwxr-xr-x root/root         0 2019-04-22 10:26:45 usr/bin/python3.6 -> usr/bin/python3.6m
+		tar_fmt='{ printf "%s %s ", $1, $2 }
+			/ -> / { printf "%s -> ", $(NF-2) }
+			{ print $NF }';;
+	libarchive)
+		# -rw-r--r--  0 root   root      737 Jun 14 15:45 .PKGINFO
+		# lrwxrwxrwx  0 root   root        0 Sep 13 01:01 usr/lib/libixion-0.15.so.0 -> libixion-0.15.so.0.0.0
+		# hrwxr-xr-x  0 root   root        0 Oct  1 22:40 usr/bin/python3.6m link to usr/bin/python3.6
+		tar_fmt='{ printf "%s %s/%s ", $1, $3, $4 }
+			/^l/ { printf "%s -> ", $(NF-2) }
+			/^h/ { printf "%s -> ", $(NF-3) }
+			{ print $NF }';;
+	esac
+
+	tar -ztvf "$apk" | grep -ve ' \.SIGN\.' \
+		| awk "$tar_fmt" \
+		| sort -k 3,3 > "$filename"
+}
+
+abigail_pre() {
+	[ -n "$abigail" ] || return 0
+
+	# This assumes one of each, which should generally be the case.
+	for i in $subpackages; do
+		case "$i" in
+		*-dbg) dbg2="$i";;
+		*-dev) dev2="$i";;
+		esac
+	done
+
+	if [ -n "$dbg2" ]; then
+		if fetch_old "$dbg2"; then
+			dbg1="$dbg2.old.apk"
+			mv old.apk "$dbg1"
+		fi
+		dbg2="$(fetch_new "$dbg2")"
+	fi
+
+	if [ -n "$dev2" ]; then
+		if fetch_old "$dev2"; then
+			dev1="$dev2.old.apk"
+			mv old.apk "$dev1"
+		fi
+		dev2="$(fetch_new "$dev2")"
+	fi
+}
+
+abigail() {
+	[ -n "$abigail" ] || return 0
+	[ -n "$oldapk" ] || return 0
+	case "$newapk" in
+	"$dbg2"|"$dev2") return 0;;
+	esac
+
+	set +e
+	abipkgdiff \
+		${dbg1:+--debug-info-pkg1 "$dbg1"} \
+		${dbg2:+--debug-info-pkg2 "$dbg2"} \
+		${dev1:+--devel-pkg1 "$dev1"} \
+		${dev2:+--devel-pkg2 "$dev2"} \
+		--leaf-changes-only \
+		--impacted-interfaces \
+		--show-bytes \
+		"$oldapk" "$newapk"
+	rc=$?
+	set -e
+
+	if [ "$((rc & 4))" -eq 4 ]; then
+		warning "Abigail detected a possibly incompatible change."
+	elif [ "$((rc & 8))" -eq 8 ]; then
+		error "Abigail detected an incompatible change."
+	fi
+}
+
+check_soname() {
+	local soname sover_old basename soname_new sover_new
+	local rdeps real_rdeps i self j
+
+	soname="$1"
+	sover_old="${soname#*=}"
+	soname="${soname%=*}"
+	basename="${soname%%.so*}.so"
+	soname_new="$(grep -F "provides = $basename" \
+		"pkginfo-$_pkgname-new" | cut -d ' ' -f 3)"
+	sover_new="${soname_new#*=}"
+	soname_new="${soname_new%=*}"
+
+	if [ -z "$soname_new" ]; then
+		error "SONAME moved or deleted: $soname"
+	elif [ "$soname" != "$soname_new" ]; then
+		error "SONAME changed: $soname=$sover_old"
+		error2 "-> $soname_new=$sover_new"
+	elif [ "$sover_old" != "$sover_new" ]; then
+		warning "SOVER changed: $soname=$sover_old"
+		warning2 "-> $soname_new=$sover_new"
+	fi
+
+	rdeps="$($APK search --repositories-file "$tmpdir/repositories" \
+		--rdepends --quiet --exact --origin "$soname" \
+		| sort -u | grep -Fvx "$pkgname")"
+
+	if [ -n "$rdeps" ]; then
+		msg "Dependent origins on $soname:"
+		# (msg2)                                 >>>
+		printf '%s\n' "$rdeps" | sed '/^$/d; s/^/    /' >&2
+	else
+		msg "No dependents on $soname."
+	fi
+}
+
+if [ $# -gt 0 ]; then
+	usage
+	exit 2
+fi
+
+if ! [ -f "$ABUILD_CONF" ] && ! [ -f "$ABUILD_USERCONF" ]; then
+	die "no abuild.conf found"
+fi
+
+if ! [ -f APKBUILD ]; then
+	die 'must be run in the directory of a built package'
+fi
+
+if ! [ -n "$CARCH" ]; then
+	die "failed to detect CARCH"
+fi
+
+. ./APKBUILD
+if [ -n "$DEFAULT_DBG" ] \
+		&& ! subpackage_types_has "dbg" \
+		&& ! list_has "!dbg" $options \
+		&& [ "$arch" != "noarch" ]; then
+	subpackages="$pkgname-dbg $subpackages"
+fi
+
+startdir="$PWD"
+repodir="${startdir%/*}"
+repo="${repodir##*/}"
+tmpdir=$(mktemp -d -t checkpkg-script.XXXXXX)
+trap "rm -rf '$tmpdir'" INT EXIT
+cd "$tmpdir" || die "failed to create temp dir"
+
+# generate a temp repositories file with only the http(s) repos
+grep -E "^https?:" /etc/apk/repositories > "$tmpdir/repositories"
+
+abigail_pre
+
+for i in $pkgname $subpackages; do
+	_pkgname=${i%%:*}
+
+	newapk="$(fetch_new "$_pkgname")"
+
+	case "$newapk" in
+	"$dbg2")
+		oldapk="$dbg1"
+		;;
+	"$dev2")
+		oldapk="$dev1"
+		;;
+	*)
+		oldapk=old.apk
+		if ! fetch_old "$_pkgname"; then
+			oldapk=
+		fi
+		;;
+	esac
+
+	if [ -n "$oldapk" ]; then
+		pkginfo "$oldapk" "pkginfo-$_pkgname-old"
+		filelist "$oldapk" "filelist-$_pkgname-old"
+		touch -r "pkginfo-$_pkgname-old" "filelist-$_pkgname-old"
+	else
+		touch "filelist-$_pkgname-old"
+		touch "pkginfo-$_pkgname-old"
+	fi
+
+	pkginfo "$newapk" "pkginfo-$_pkgname-new"
+	filelist "$newapk" "filelist-$_pkgname-new"
+	touch -r "pkginfo-$_pkgname-new" "filelist-$_pkgname-new"
+
+	diff -u "filelist-$_pkgname-old" "filelist-$_pkgname-new" || true
+	diff -u "pkginfo-$_pkgname-old" "pkginfo-$_pkgname-new" | tee pkginfo-diff
+
+	soname=
+	for soname in $(awk '/^-provides = so:/ { print $3 }' pkginfo-diff); do
+		check_soname "$soname"
+	done
+	[ -n "$soname" ] || msg "No soname differences for $_pkgname."
+
+	if grep -q '^provides = so:' "pkginfo-$_pkgname-new"; then
+		abigail
+	fi
+
+	rm -f old.apk
+done
