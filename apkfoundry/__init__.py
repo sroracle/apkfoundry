@@ -49,8 +49,12 @@ _DEFAULT_SITE_CONFIG = {
 }
 
 _DEFAULT_LOCAL_CONFIG = {
-    "DEFAULT": {
-        "key": "",
+    "master": {
+        # Required
+        "repos": "",
+        "bootstrap_repo": "",
+        # Optional
+        "ignore_deps": "",
         "on_failure": "stop",
     },
 }
@@ -95,6 +99,23 @@ def site_conf(section=None):
 
     return config
 
+def local_conf(gitdir=None, section=None):
+    if gitdir is None:
+        gitdir = Path.cwd()
+    files = sorted((Path(gitdir) / ".apkfoundry").glob("*.ini"))
+
+    config = _ConfigParser()
+    config.default_section = "master"
+    config.read_dict(_DEFAULT_LOCAL_CONFIG)
+    config.read(files)
+
+    if section:
+        if section not in config:
+            config.add_section(section)
+        return config[section]
+
+    return config
+
 def rootid():
     return pwd.getpwnam("af-root")
 
@@ -103,6 +124,28 @@ def check_call(args, **kwargs):
     sys.stdout.flush()
     sys.stderr.flush()
     return subprocess.check_call(args, **kwargs)
+
+def get_branch(gitdir=None):
+    args = ["git"]
+    if gitdir:
+        args += ["-C", str(gitdir)]
+    args += ["branch", "--show-current"]
+    return subprocess.check_output(args, encoding="utf-8").strip()
+
+def get_branchdir(gitdir=None, branch=None):
+    if not branch:
+        branch = get_branch(gitdir)
+    if not gitdir:
+        gitdir = Path.cwd()
+    branch = branch.replace("/", ":")
+    for i in (branch, "master"):
+        path = gitdir / ".apkfoundry" / i
+        if path.exists():
+            return path
+
+    raise FileNotFoundError(
+        "could not find .apkfoundry/{branch} or .apkfoundry/master"
+    )
 
 class abuildLogFormatter(logging.Formatter):
     def __init__(self, color=True, sections=False, **kwargs):

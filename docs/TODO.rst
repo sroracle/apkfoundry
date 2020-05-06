@@ -20,7 +20,6 @@
   * Project configuration
 
     * Repository ordering and architecture coverage
-    * Failure handling strategies
     * Logging strategies - copy log for each package to separate file,
       or exclusively log to separate file, or only one log
     * Updating / upgrading
@@ -34,5 +33,5 @@
 * Long-term implementation wishlist
 
   * GitLab >= 12.6: external custom ``.gitlab-ci.yml`` path (other
-    project) - restore separate ``.apkfoundry`` as an option
+    project)
   * Restore webhook server for running pipelines against other repos?

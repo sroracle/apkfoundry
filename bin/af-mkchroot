@@ -7,6 +7,7 @@ import logging  # basicConfig
 import sys      # exit
 from pathlib import Path
 
+from apkfoundry import get_branch, local_conf
 from apkfoundry.container import cont_make
 from apkfoundry.socket import client_init
 
@@ -16,15 +17,11 @@ logging.basicConfig(
 )
 
 opts = argparse.ArgumentParser(
-    usage="af-mkchroot [options ...] DIR BRANCH",
+    usage="af-mkchroot [options ...] DIR APORTSDIR",
 )
 opts.add_argument(
     "-A", "--arch",
     help="APK architecture name (default: output of apk --print-arch)",
-)
-opts.add_argument(
-    "-a", "--aportsdir",
-    help="project checkout directory (default: container root /af/aports)",
 )
 opts.add_argument(
     "-c", "--cache",
@@ -32,7 +29,7 @@ opts.add_argument(
 )
 opts.add_argument(
     "-r", "--repodest",
-    help="package destination directory (default: container root /af/packages)",
+    help="package destination directory (default: container root /af/repos)",
 )
 opts.add_argument(
     "-S", "--setarch",
@@ -47,17 +44,20 @@ opts.add_argument(
     help="container directory",
 )
 opts.add_argument(
-    "repo", metavar="REPO",
-    help="initial repository (can be changed later)",
+    "aportsdir", metavar="APORTSDIR",
+    help="project checkout directory",
 )
 
 opts = opts.parse_args()
 opts.cdir = Path(opts.cdir).resolve(strict=False)
-opts.repo = opts.repo
+
+branch = get_branch(opts.aportsdir)
+conf = local_conf(opts.aportsdir, branch)
 
 cont_make(
     opts.cdir,
-    opts.repo,
+    branch,
+    conf["bootstrap_repo"],
     arch=opts.arch,
     setarch=opts.setarch,
     mounts={

@@ -12,7 +12,7 @@ import shutil     # chown, copy2, copytree
 import subprocess # call, Popen
 from pathlib import Path
 
-from . import site_conf, LIBEXECDIR, SYSCONFDIR, rootid
+from . import site_conf, LIBEXECDIR, SYSCONFDIR, rootid, get_branchdir
 from .socket import client_refresh
 
 BUILDDIR = "/af/build"
@@ -28,7 +28,7 @@ _KEEP_ENV = (
     "TERM",
 )
 
-_APK_STATIC = SYSCONFDIR / "skel.bootstrap/apk.static"
+_APK_STATIC = SYSCONFDIR / "skel:bootstrap/apk.static"
 _CFG = site_conf("container")
 _SUBID = _CFG.getint("subid")
 
@@ -300,6 +300,7 @@ class Container:
 
 def cont_make(
         cdir,
+        branch,
         repo,
         *,
         arch=None,
@@ -353,6 +354,7 @@ def cont_make(
         (cdir / i).chmod(0o755)
         shutil.chown(cdir / i, group="apkfoundry")
 
+    (af_info / "branch").write_text(branch.strip())
     (af_info / "repo").write_text(repo.strip())
 
     if setarch:
@@ -384,7 +386,7 @@ def cont_make(
 
 def cont_bootstrap(cdir, **kwargs):
     cont = Container(cdir)
-    bootstrap_files = _force_copytree(SYSCONFDIR / "skel.bootstrap", cdir)
+    bootstrap_files = _force_copytree(SYSCONFDIR / "skel:bootstrap", cdir)
 
     (cdir / "dev").mkdir(exist_ok=True)
     (cdir / "tmp").mkdir(exist_ok=True)
@@ -431,15 +433,16 @@ def cont_refresh(cdir):
         raise FileNotFoundError("/af/info/repo file is required")
     repo = repo.read_text().strip()
 
-    conf_d = cdir / "af/info/aportsdir/.apkfoundry"
     arch = (cdir / "etc/apk/arch").read_text().strip()
+    branch = (cdir / "af/info/branch").read_text().strip()
+    branchdir = get_branchdir(cdir / "af/info/aportsdir", branch)
 
     for skel in (
             SYSCONFDIR / "skel",
-            conf_d / "skel",
-            conf_d / f"skel.{repo}",
-            conf_d / f"skel..{arch}",
-            conf_d / f"skel.{repo}.{arch}",
+            branchdir / "skel",
+            branchdir / f"skel:{repo}",
+            branchdir / f"skel::{arch}",
+            branchdir / f"skel:{repo}:{arch}",
         ):
 
         if not skel.is_dir():

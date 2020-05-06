@@ -47,9 +47,9 @@ install: all paths
 	@echo '	skel/etc/hosts'
 	@echo '	skel/etc/passwd'
 	@echo '	skel/etc/resolv.conf'
-	@echo '	skel.bootstrap/apk.static'
-	@echo '	skel.bootstrap/etc/apk/ca.pem'
-	@echo '	skel.bootstrap/etc/services'
+	@echo '	skel:bootstrap/apk.static'
+	@echo '	skel:bootstrap/etc/apk/ca.pem'
+	@echo '	skel:bootstrap/etc/services'
 	@echo
 	@echo 'See the documentation for details.'
 	@echo '*****************************************'

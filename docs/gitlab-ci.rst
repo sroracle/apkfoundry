@@ -57,7 +57,7 @@ Example .gitlab-ci.yml
         GIT_CLONE_PATH: $CI_BUILDS_DIR/af/aports
 
       script:
-        - .apkfoundry/build-script
+        - /af/build-script
 
       artifacts:
         paths:
@@ -102,8 +102,8 @@ Example .gitlab-ci.yml
       artifacts:
         when: always
 
-Example .apkfoundry/build-script
---------------------------------
+Example build-script
+--------------------
 
 .. code-block:: shell
 
@@ -112,8 +112,8 @@ Example .apkfoundry/build-script
     cd "$APORTSDIR/$1"
 
     echo "${STRONG}>>> Adding extra dependencies${NORMAL}"
-    # configure: error: GNAT is required to build ada
     case "$1" in
+    # configure: error: GNAT is required to build ada
     system/gcc) $SUDO_APK add -t .makedepends-gcc-self gcc-gnat;;
     esac
 

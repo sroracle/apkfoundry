@@ -213,7 +213,7 @@ class Digraph:
 
         return tsort
 
-def generate_graph(ignored_deps, skip_check=False, cont=None):
+def generate_graph(ignore_deps, skip_check=False, cont=None):
     graph = Digraph()
     args = ["af-deps"]
     if skip_check:
@@ -273,7 +273,7 @@ def generate_graph(ignored_deps, skip_check=False, cont=None):
             if dep == rdep:
                 continue
 
-            if [dep, rdep] in ignored_deps or [rdep, dep] in ignored_deps:
+            if [rdep, dep] in ignore_deps:
                 continue
 
             graph.add_edge(dep, rdep)

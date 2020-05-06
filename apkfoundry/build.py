@@ -13,6 +13,7 @@ import textwrap   # TextWrapper
 from pathlib import Path
 
 from . import EStatus, check_call
+from . import get_branch, get_branchdir, local_conf
 from . import msg2, section_start, section_end
 from . import container
 from .digraph import generate_graph
@@ -97,8 +98,12 @@ def run_task(cont, startdir):
 
     repo = startdir.split("/")[0]
 
+    build_script = "/af/build-script.alt"
+    if not (cont.cdir / build_script.lstrip("/")).is_file():
+        build_script = "/af/build-script"
+
     rc, _ = cont.run(
-        ["/af/build-script", startdir],
+        [build_script, startdir],
         repo=repo,
         env=env,
         net=net,
@@ -114,12 +119,17 @@ def run_task(cont, startdir):
 
     return rc
 
-def run_graph(cont, graph, startdirs):
+def run_graph(cont, conf, graph, startdirs):
     initial = set(startdirs)
     done = {}
 
-    # FIXME make configurable again
-    on_failure = FailureAction.STOP
+    on_failure = conf["on_failure"].upper()
+    if on_failure not in FailureAction:
+        _LOGGER.error(
+            "on_failure = %s is invalid; defaulting to STOP", on_failure
+        )
+        on_failure = "STOP"
+    on_failure = FailureAction[on_failure]
 
     while True:
         order = []
@@ -190,19 +200,10 @@ def run_graph(cont, graph, startdirs):
 
     return _stats_builds(done)
 
-def run_job(conn, cdir, startdirs):
-    cont = container.Container(cdir, rootd_conn=conn)
-
-    ignored_deps = cdir / "af/info/aportsdir/.apkfoundry/ignore-deps"
-    if ignored_deps.is_file():
-        ignored_deps = ignored_deps.read_text().strip().splitlines()
-        ignored_deps = [i.split() for i in ignored_deps]
-    else:
-        ignored_deps = []
-
+def run_job(cont, conf, startdirs):
     section_start(_LOGGER, "gen-build-order", "Generating build order...")
     graph = generate_graph(
-        ignored_deps,
+        [i.strip().split() for i in conf["ignore_deps"].strip().splitlines()],
         cont=cont,
     )
     if not graph or not graph.is_acyclic():
@@ -210,7 +211,7 @@ def run_job(conn, cdir, startdirs):
         return 1
     section_end(_LOGGER)
 
-    return run_graph(cont, graph, startdirs)
+    return run_graph(cont, conf, graph, startdirs)
 
 def changed_pkgs(*rev_range, gitdir=None):
     gitdir = ["-C", str(gitdir)] if gitdir else []
@@ -313,7 +314,7 @@ def buildrepo(args):
         help="git repository URL",
     )
     checkout.add_argument(
-        "--branch",
+        "--branch", default="master",
         help="""git branch for checkout (default: master). Only applicable
         if -g is given""",
     )
@@ -350,9 +351,13 @@ def buildrepo(args):
         _LOGGER.error("You must specify only one of -a APORTSDIR or -g GIT_URL")
         return cleanup(1, None, opts.delete)
 
-    if opts.branch and not opts.git_url:
-        _LOGGER.error("-b is only applicable if -g is given")
-        return cleanup(1, None, opts.delete)
+    if opts.aportsdir:
+        opts.aportsdir = Path(opts.aportsdir)
+        if opts.branch:
+            _LOGGER.error("-b is only applicable if -g is given")
+            return cleanup(1, None, opts.delete)
+
+        opts.branch = get_branch(opts.aportsdir)
 
     if opts.directory:
         if not opts.directory.startswith("/var/tmp/abuild.") \
@@ -371,17 +376,28 @@ def buildrepo(args):
         opts.aportsdir = cdir / "af/aports"
         opts.aportsdir.mkdir(parents=True, exist_ok=True)
         check_call(("git", "clone", opts.git_url, opts.aportsdir))
-        if opts.branch:
-            check_call(("git", "-C", opts.aportsdir, "checkout", opts.branch))
+        check_call(("git", "-C", opts.aportsdir, "checkout", opts.branch))
+        check_call((
+            "git", "-C", opts.aportsdir,
+            "worktree", "add", ".apkfoundry", "apkfoundry",
+        ))
         section_end(_LOGGER)
 
+    branchdir = get_branchdir(opts.aportsdir, opts.branch)
+    conf = local_conf(opts.aportsdir, opts.branch)
+
     if opts.startdirs:
-        section_start(_LOGGER, "manual_pkgs", "The following packages were manually included:")
+        section_start(
+            _LOGGER, "manual_pkgs",
+            "The following packages were manually included:"
+        )
         msg2(_LOGGER, opts.startdirs)
         section_end(_LOGGER)
 
     if opts.rev_range:
-        section_start(_LOGGER, "changed_pkgs", "Determining changed packages...")
+        section_start(
+            _LOGGER, "changed_pkgs", "Determining changed packages..."
+        )
         pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
         if pkgs is None:
             _LOGGER.info("No packages were changed")
@@ -408,7 +424,8 @@ def buildrepo(args):
             return cleanup(1, None, opts.delete)
     container.cont_make(
         cdir,
-        "user",
+        opts.branch,
+        conf["bootstrap_repo"],
         arch=opts.arch,
         setarch=opts.setarch,
         mounts={
@@ -419,7 +436,7 @@ def buildrepo(args):
         cache=opts.cache,
     )
     shutil.copy2(
-        cdir / "af/info/aportsdir/.apkfoundry/build-script",
+        branchdir / "build-script",
         cdir / "af/build-script",
     )
     rc, conn = client_init(cdir, bootstrap=True)
@@ -428,7 +445,8 @@ def buildrepo(args):
         return cleanup(rc, cdir, opts.delete)
     section_end(_LOGGER)
 
-    rc = run_job(conn, cdir, opts.startdirs)
+    cont = container.Container(cdir, rootd_conn=conn)
+    rc = run_job(cont, conf, opts.startdirs)
 
     if opts.key:
         if opts.pubkey is None:

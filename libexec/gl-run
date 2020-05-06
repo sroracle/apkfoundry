@@ -117,10 +117,15 @@ def get_keys():
 def get_sources(script, env):
     check_call((script,))
 
+    check_call((
+        "git", "-C", env.aportsdir,
+        "worktree", "add", ".apkfoundry", "apkfoundry",
+    ))
+
     if env.mr:
         check_call((
-            "git", "-C", env.aportsdir, "fetch",
-            env.target_url,
+            "git", "-C", env.aportsdir,
+            "fetch", env.target_url,
             f"+refs/heads/{env.ref}:refs/heads/{env.ref}",
         ))
 
@@ -129,8 +134,8 @@ def get_sources(script, env):
 def build_script(script, env, privkey, pubkey):
     os.chdir(env.aportsdir)
 
-    shutil.copy2(script, env.cdir / "af/aports/.apkfoundry/build-script")
-    sanitize_script(env.cdir / "af/aports/.apkfoundry/build-script")
+    shutil.copy2(script, env.cdir / "af/build-script.alt")
+    sanitize_script(env.cdir / "af/build-script.alt")
 
     if env.mr:
         env.before = subprocess.check_output(
@@ -176,7 +181,7 @@ def build_script(script, env, privkey, pubkey):
     if setarch:
         args += ["--setarch", setarch]
 
-    args.append("--")
+    args += ["--", env.cdir / "af/repos"]
     args += manual_pkgs
 
     args = [str(i) for i in args]

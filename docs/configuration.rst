@@ -31,7 +31,7 @@ split into restricted files away from more mundane options.
     [container]
     ; Base sub-id for containers.
     subid = 100000
-    
+
     [setarch]
     ; For each architecture flavor, list here what needs to be passed to
     ; setarch(8) (if anything).
@@ -49,7 +49,7 @@ Site bootstrap skeleton
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 The site bootstrap skeleton, located in
-``/etc/apkfoundry/skel.boostrap``, contains files that are temporarily
+``/etc/apkfoundry/skel:bootstrap``, contains files that are temporarily
 copied into the container when it is first being created. Once the
 container bootstrapping process is over, these files will be removed if
 they are not claimed by any package.
@@ -122,23 +122,33 @@ configuration will set things such as ``$JOBS``:
 Project-local configuration
 ---------------------------
 
-For each branch to be built, it should have an ``.apkfoundry`` directory
-in its repository root, with the following files:
+Each project's git repository should have an ``apkfoundry`` branch which
+contains APK Foundry's configuration files. It consists of INI files at
+the top level, and a directory for each branch. This branch is checked
+out as a git worktree as ``.apkfoundry`` in the git repository's root.
 
-.apkfoundry/repos
-^^^^^^^^^^^^^^^^^
+The INI files are loaded according to the ``.apkfoundry/*.ini`` glob in
+collation order, similar to the site configuration. The sections in
+these INI files are named for the branches to which they apply. The
+settings in the ``master`` section are used as a fallback for missing
+settings.
 
-The purpose of this **required** is to define which architectures the
-special ``arch`` values ``"all"`` and ``"noarch"`` should correspond to
-for each APK repository. It should be a plain text file separated by
-line feeds (``\n``). Each line should contain a single repository name,
-followed by the architectures that the repository supports. For example,
-if the file contained the following::
+INI setting: repos
+^^^^^^^^^^^^^^^^^^
 
-    system ppc ppc64 pmmx x86_64
-    user ppc64 x86_64
+The purpose of this **required** setting is to define which
+architectures the special ``arch`` values ``"all"`` and ``"noarch"``
+should correspond to for each APK repository. Each line should contain a
+single repository name, followed by the architectures that the
+repository supports. For example, if the is set to the following:
 
-Then, for APKBUILDs on this branch:
+.. code-block:: ini
+
+    [master]
+    repos = system ppc ppc64 pmmx x86_64
+            user ppc64 x86_64
+
+Then, for APKBUILDs on the ``master`` branch:
 
 * If the APKBUILD is in the ``system`` repository, then jobs will be
   executed for the ``ppc``, ``ppc64``, ``pmmx``, and ``x86_64``
@@ -146,35 +156,50 @@ Then, for APKBUILDs on this branch:
 * If the APKBUILD is in the ``user`` repository, then jobs will be
   executed for the ``ppc64`` and ``x86_64`` architectures.
 * Any other architectures will have their jobs skip these APKBUILDs.
-* The ordering of lines in the file is not significant. The dependency
-  resolution engine always considers APKBUILDs from every available
-  repository. In order to prevent one repository from depending on
-  another, change the ``repositories`` file in its skeleton as
-  appropriate.
+* The ordering of lines in the setting is not significant. The
+  dependency resolution engine always considers APKBUILDs from every
+  available repository. In order to prevent one repository from
+  depending on another, change the ``repositories`` file in its skeleton
+  as appropriate.
 
-If an architecture is not listed in this file, then no builds will occur
-for that architecture, even if changed APKBUILDs have ``arch="all"``,
-``arch="noarch"``, or even specifically name that architecture.
+If an architecture is not listed in this setting, then no builds will
+occur for that architecture, even if changed APKBUILDs have
+``arch="all"``, ``arch="noarch"``, or even specifically name that
+architecture.
 
-If a repository is not listed in this file, then no builds will occur
+If a repository is not listed in this setting, then no builds will occur
 for that repository.
 
-.apkfoundry/ignore-deps
-^^^^^^^^^^^^^^^^^^^^^^^
+INI setting: bootstrap_repo
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This **optional** file is used by the runners to ignore cyclic
-dependencies when calculating the build order. It should be a plain text
-file separated by line feeds (``\n``). Each line should contain a pair
-of startdirs.  For example, if it contains the following::
+The purpose of this **required** setting is to define with which what
+repository (i.e. from the ``repos`` setting) the container should be
+bootstrapped. For example:
 
-    system/python3 system/easy-kernel
-    system/attr system/libtool
+.. code-block:: ini
+
+    [master]
+    bootstrap_repo = system
+
+INI setting: ignore_deps
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+This **optional** setting is used by the runners to ignore cyclic
+dependencies when calculating the build order. Each line should contain
+a pair of startdirs. For example, if it contains the following:
+
+.. code-block:: ini
+
+    [master]
+    ignore_deps = system/python3 system/easy-kernel
+                  system/attr system/libtool
 
 Then the build order calculation will ignore ``system/python3``'s
 dependency on ``system/easy-kernel`` as well as ``system/attr``'s
 dependency on ``system/libtool``.
 
-**Note:** ``abuild`` will still install such dependencies. This file
+**Note:** ``abuild`` will still install such dependencies. This setting
 only affects APK Foundry's build order solver, the primary utility being
 to break dependency cycles. If you wish to prevent a package from ever
 being installed, add ``!pkgname`` to your world file.
@@ -182,7 +207,29 @@ being installed, add ``!pkgname`` to your world file.
 Additionally, if a package has a build-time dependency (``makedepends``)
 on its own subpackage, you will need to install that yourself before the
 build since ``abuild`` skips such dependencies. A future version of APK
-Foundry may provide a configuration file for this purpose.
+Foundry may provide a configuration setting for this purpose.
+Alternatively, you can perform a sort of trick by depending on something
+the package ``provides``, since abuild does not check for cycles here.
+
+INI setting: on_failure
+^^^^^^^^^^^^^^^^^^^^^^^
+
+This **optional** setting is used by the runner to determine the next
+step when a build fails. It can take one of three possible values:
+
+``stop``
+    Immediately stop the job. This is the default value. Exit with a
+    nonzero exit status.
+
+``recalculate``
+    Rebuild the dependency graph by removing the failed build and all of
+    its reverse dependencies, then continue with the next build in the
+    new topologically sorted build order. The process will still exit
+    with a nonzero exit status.
+
+``ignore``
+    Ignore the failure temporarily and continue building as much as
+    possible. The process will still exit with a nonzero exit status.
 
 Skeletons
 ^^^^^^^^^
@@ -194,11 +241,11 @@ for a specific architecture, or for a specific repository / architecture
 combination. The order in which the skeletons are copied into the
 container is:
 
-1. ``/etc/apkfoundry/skel``
+#. ``/etc/apkfoundry/skel``
 
    As discussed previously.
 
-2. ``.apkfoundry/skel``
+#. ``.apkfoundry/skel``
 
    General skeleton for this branch. Recommended contents:
 
@@ -210,7 +257,7 @@ container is:
        The file containing the names of packages that are to be
        explicitly installed.
 
-3. ``.apkfoundry/skel.repo``
+#. ``.apkfoundry/branch/skel:repo``
 
    Skeleton for this branch and repository. Recommended contents:
 
@@ -218,7 +265,7 @@ container is:
        The file containing the URLs and local paths to the repositories
        from which to obtain packages.
 
-4. ``.apkfoundry/skel..arch``
+#. ``.apkfoundry/branch/skel::arch``
 
    Skeleton for this branch and architecture. Recommended contents:
 
@@ -228,6 +275,12 @@ container is:
        in with a ``.local`` extension, as ``etc/abuild.conf`` will be
        overridden by the site configuration as discussed previously.
 
-5. ``.apkfoundry/skel.repo.arch``
+#. ``.apkfoundry/branch/skel:repo:arch``
 
    Skeleton for this branch, repository, and architecture.
+
+**Note:** If the branch name contains slashes (``/``), these are
+replaced with colons (``:``).
+
+**Note:** If the ``.apkfoundry/branch`` directory doesn't exist for this
+branch, APK Foundry will fall back to using ``.apkfoundry/master``.
