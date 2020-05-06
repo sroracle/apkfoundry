@@ -57,7 +57,7 @@ Example .gitlab-ci.yml
         GIT_CLONE_PATH: $CI_BUILDS_DIR/af/aports
 
       script:
-        - /af/build-script
+        - /af/build-script "$@"
 
       artifacts:
         paths:
