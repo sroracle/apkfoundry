@@ -25,7 +25,7 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
-def _ConfigParser():
+def _ConfigParser(**kwargs):
     parser = configparser.ConfigParser(
         interpolation=None,
         comment_prefixes=(";",),
@@ -36,6 +36,7 @@ def _ConfigParser():
             "list": lambda s: s.strip().splitlines(),
             "path": Path,
         },
+        **kwargs,
     )
     parser.BOOLEAN_STATES = {"true": True, "false": False}
     return parser
@@ -104,8 +105,7 @@ def local_conf(gitdir=None, section=None):
         gitdir = Path.cwd()
     files = sorted((Path(gitdir) / ".apkfoundry").glob("*.ini"))
 
-    config = _ConfigParser()
-    config.default_section = "master"
+    config = _ConfigParser(default_section="master")
     config.read_dict(_DEFAULT_LOCAL_CONFIG)
     config.read(files)
 
