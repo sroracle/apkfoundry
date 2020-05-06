@@ -314,9 +314,9 @@ def buildrepo(args):
         help="git repository URL",
     )
     checkout.add_argument(
-        "--branch", default="master",
-        help="""git branch for checkout (default: master). Only applicable
-        if -g is given""",
+        "--branch",
+        help="""git branch for checkout (default: master). This is also
+        useful when using --aportsdir in a detached HEAD state.""",
     )
 
     opts.add_argument(
@@ -353,11 +353,8 @@ def buildrepo(args):
 
     if opts.aportsdir:
         opts.aportsdir = Path(opts.aportsdir)
-        if opts.branch:
-            _LOGGER.error("-b is only applicable if -g is given")
-            return cleanup(1, None, opts.delete)
-
-        opts.branch = get_branch(opts.aportsdir)
+        if not opts.branch:
+            opts.branch = get_branch(opts.aportsdir)
 
     if opts.directory:
         if not opts.directory.startswith("/var/tmp/abuild.") \
@@ -372,6 +369,9 @@ def buildrepo(args):
     cdir.chmod(0o2770)
 
     if opts.git_url:
+        if not opts.branch:
+            opts.branch = "master"
+
         section_start(_LOGGER, "clone", "Cloning git repository...")
         opts.aportsdir = cdir / "af/aports"
         opts.aportsdir.mkdir(parents=True, exist_ok=True)

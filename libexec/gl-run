@@ -165,6 +165,7 @@ def build_script(script, env, privkey, pubkey):
     args = [
         "--directory", env.cdir,
         "--aportsdir", env.aportsdir,
+        "--branch", env.ref,
         "--cache", env.cache,
         "--delete", "on-success", # FIXME make customizable
     ]
