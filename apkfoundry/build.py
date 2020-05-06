@@ -202,10 +202,7 @@ def run_graph(cont, conf, graph, startdirs):
 
 def run_job(cont, conf, startdirs):
     section_start(_LOGGER, "gen-build-order", "Generating build order...")
-    graph = generate_graph(
-        [i.strip().split() for i in conf["ignore_deps"].strip().splitlines()],
-        cont=cont,
-    )
+    graph = generate_graph(conf, cont=cont)
     if not graph or not graph.is_acyclic():
         _LOGGER.error("failed to generate dependency graph")
         return 1

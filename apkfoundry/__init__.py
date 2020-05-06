@@ -55,7 +55,8 @@ _DEFAULT_LOCAL_CONFIG = {
         "repos": "",
         "bootstrap_repo": "",
         # Optional
-        "ignore_deps": "",
+        "deps_ignore": "",
+        "deps_map": "",
         "on_failure": "stop",
     },
 }

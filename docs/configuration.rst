@@ -182,7 +182,7 @@ bootstrapped. For example:
     [master]
     bootstrap_repo = system
 
-INI setting: ignore_deps
+INI setting: deps_ignore
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 This **optional** setting is used by the runners to ignore cyclic
@@ -192,7 +192,7 @@ a pair of startdirs. For example, if it contains the following:
 .. code-block:: ini
 
     [master]
-    ignore_deps = system/python3 system/easy-kernel
+    deps_ignore = system/python3 system/easy-kernel
                   system/attr system/libtool
 
 Then the build order calculation will ignore ``system/python3``'s
@@ -210,6 +210,25 @@ build since ``abuild`` skips such dependencies. A future version of APK
 Foundry may provide a configuration setting for this purpose.
 Alternatively, you can perform a sort of trick by depending on something
 the package ``provides``, since abuild does not check for cycles here.
+
+INI setting: deps_map
+^^^^^^^^^^^^^^^^^^^^^
+
+This **optional** setting is used by the runners to map subpackage
+providers to their respective origins. Due to the nature of the shell
+scripting language, it is not possible to easily extract the
+``provides`` that the split function of a subpackage specifies. If other
+packages depend on this name, APK Foundry will not know to which
+APKBUILD the name belongs and will ignore it unless it is specified
+here. Each line should consist of the ``provides`` name followed by the
+startdir of its origin. For example, if the ``system/musl`` package
+provides ``libc-dev`` and ``libc-utils`` in its subpackages:
+
+.. code-block:: ini
+
+   [master]
+   deps_map = libc-dev system/musl
+              libc-utils system/musl
 
 INI setting: on_failure
 ^^^^^^^^^^^^^^^^^^^^^^^

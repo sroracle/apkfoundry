@@ -213,7 +213,16 @@ class Digraph:
 
         return tsort
 
-def generate_graph(ignore_deps, skip_check=False, cont=None):
+def generate_graph(conf, skip_check=False, cont=None):
+    deps_ignore = [
+        i.strip().split(maxsplit=1)
+        for i in conf["deps_ignore"].strip().splitlines()
+    ]
+    deps_map = dict(map(
+        lambda i: i.strip().split(maxsplit=1),
+        conf["deps_map"].strip().splitlines(),
+    ))
+
     graph = Digraph()
     args = ["af-deps"]
     if skip_check:
@@ -264,16 +273,16 @@ def generate_graph(ignore_deps, skip_check=False, cont=None):
         graph.add_node(rdep)
 
         for name in names:
-            if name not in origins:
+            dep = origins.get(name, None) or deps_map.get(name, None)
+            if dep is None:
                 _LOGGER.warning("unknown dependency: %s", name)
                 continue
-            dep = origins[name]
             graph.add_node(dep)
 
             if dep == rdep:
                 continue
 
-            if [rdep, dep] in ignore_deps:
+            if [rdep, dep] in deps_ignore:
                 continue
 
             graph.add_edge(dep, rdep)
