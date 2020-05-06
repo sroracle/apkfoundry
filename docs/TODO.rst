@@ -27,7 +27,6 @@
 
   * Builder configuration
 
-    * Deletion policy
     * Distfiles cache
 
 * Long-term implementation wishlist
