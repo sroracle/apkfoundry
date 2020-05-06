@@ -123,13 +123,14 @@ def run_graph(cont, conf, graph, startdirs):
     initial = set(startdirs)
     done = {}
 
-    on_failure = conf["on_failure"].upper()
-    if on_failure not in FailureAction:
+    try:
+        on_failure = FailureAction[conf["on_failure"].upper()]
+    except KeyError:
         _LOGGER.error(
-            "on_failure = %s is invalid; defaulting to STOP", on_failure
+            "on_failure = %s is invalid; defaulting to STOP",
+            conf["on_failure"].upper(),
         )
-        on_failure = "STOP"
-    on_failure = FailureAction[on_failure]
+        on_failure = FailureAction.STOP
 
     while True:
         order = []
