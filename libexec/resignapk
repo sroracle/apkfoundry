@@ -1,0 +1,153 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2019 Max Rees
+program_version=3.4.1-6-g075e7b4
+datadir=/usr/share/abuild
+
+if ! [ -f "$datadir/functions.sh" ]; then
+	echo "$datadir/functions.sh: not found" >&2
+	exit 1
+fi
+. "$datadir/functions.sh"
+
+msg() {
+	[ -n "$quiet" ] && return 0
+	local prompt="$GREEN>>>${NORMAL}"
+	local fake="${FAKEROOTKEY:+${BLUE}*${NORMAL}}"
+	local name="${STRONG}${apk_basename}${NORMAL}"
+	printf "${prompt} ${name}${fake}: %s\n" "$1" >&2
+}
+
+warning() {
+	local prompt="${YELLOW}>>> WARNING:${NORMAL}"
+	local fake="${FAKEROOTKEY:+${BLUE}*${NORMAL}}"
+	local name="${STRONG}${apk_basename}${NORMAL}"
+	printf "${prompt} ${name}${fake}: %s\n" "$1" >&2
+}
+
+error() {
+	local prompt="${RED}>>> ERROR:${NORMAL}"
+	local fake="${FAKEROOTKEY:+${BLUE}*${NORMAL}}"
+	local name="${STRONG}${apk_basename}${NORMAL}"
+	printf "${prompt} ${name}${fake}: %s\n" "$1" >&2
+}
+
+usage() {
+	cat <<-EOF
+		usage: ${0##*/} [options] APK [APK ...]
+
+		Options:
+		 -i      Re-sign APKs in-place
+		 -k KEY  The private key to use for signing
+		 -n      Update packager name
+		 -p KEY  The filename to use for the key (to match /etc/apk/keys)
+		 -q      Quiet
+		 -h      Show this help and exit
+	EOF
+}
+
+list_sigs() {
+	[ -n "$quiet" ] && return 0
+	tarball="$1"
+	# (msg2)                                         >>>
+	tar -tf "$tarball" | grep '^\.SIGN\.' | sed 's/^/    /' >&2
+}
+
+privkey="$PACKAGER_PRIVKEY"
+pubkey="$PACKAGER_PUBKEY"
+
+while getopts ik:np:qh opt; do
+	case "$opt" in
+	i) inplace=1;;
+	k) privkey="$OPTARG";;
+	n) packager=1;;
+	p) pubkey="$OPTARG";;
+	q) quiet=1;;
+	*) usage
+	   [ "$opt" = "h" ] && exit 0
+	   exit 1;;
+	esac
+done
+shift $((OPTIND - 1))
+
+if [ -z "$*" ]; then
+	usage
+	exit 1
+fi
+
+if [ -z "$privkey" ]; then
+	abuild-sign --installed
+fi
+
+pubkey="${pubkey:-"${privkey}.pub"}"
+sig_new=".SIGN.RSA.${pubkey##*/}"
+
+if [ -z "$FAKEROOTKEY" ]; then
+	warning 'Without fakeroot, your username/group will be leaked'
+fi
+
+startpwd="$PWD"
+cleanup() {
+	cd "$startpwd"
+	rm -rf "$tmpdir"
+}
+trap cleanup INT EXIT
+
+for apk; do
+	case "$apk" in
+	/*) ;;
+	*) apk="$PWD/$apk";;
+	esac
+	apk_basename="${apk##*/}"
+
+	case "$apk" in
+	*.apk)
+		signpart=control.tar.gz
+		filetype=.apk
+		;;
+	*/APKINDEX.tar.gz)
+		signpart=data.tar.gz
+		filetype=APKINDEX
+		;;
+	*)
+		die 'Unknown file type'
+		;;
+	esac
+
+	msg "Splitting $filetype..."
+	tmpdir="$(mktemp -td resignapk.XXXXXX)"
+	cd "$tmpdir"
+	abuild-gzsplit < "$apk"
+
+	if [ -n "$packager" ] && [ "$filetype" = .apk ]; then
+		msg 'Updating control.tar.gz'
+		tar -xf control.tar.gz
+		ctrl_files="$(tar -tf control.tar.gz)"
+		sed -i -e "s#^packager = .*#packager = ${PACKAGER:-"Unknown"}#" \
+			.PKGINFO
+		tar --format pax -f - -c $ctrl_files \
+			| abuild-tar --cut \
+			| gzip -9 > control.tar.gz
+	fi
+
+	abuild-sign -k "$privkey" -p "$pubkey" -q "$signpart"
+
+	msg 'Old signatures:'
+	list_sigs signatures.tar.gz
+	msg 'New signatures:'
+	list_sigs "$signpart"
+
+	if [ -n "$inplace" ]; then
+		msg "Updating $filetype"
+	else
+		msg "Creating $filetype.new"
+		apk="$apk.new"
+	fi
+
+	if [ "$filetype" = APKINDEX ]; then
+		mv data.tar.gz "$apk"
+	else
+		cat control.tar.gz data.tar.gz > "$apk"
+	fi
+	cleanup
+done
