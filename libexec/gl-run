@@ -6,7 +6,7 @@
 import base64     # b64decode
 import logging    # info, error
 import os         # environ
-import shutil     # copy2
+import shutil     # copy2, rmtree
 import subprocess # check_output
 import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
@@ -35,6 +35,7 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
         "cdir",
         "project",
         "ref",
+        "tmp",
 
         "mr",
         "target_url",
@@ -50,6 +51,7 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
         self.cdir = Path(self["CI_BUILDS_DIR"])
         self.project = self["CI_PROJECT_PATH_SLUG"]
         self.ref = self["CI_COMMIT_REF_NAME"]
+        self.tmp = Path(self["CI_PROJECT_DIR"] + ".tmp")
 
         if "CI_MERGE_REQUEST_ID" in self:
             self.mr = self["CI_MERGE_REQUEST_ID"]
@@ -136,11 +138,15 @@ def build_script(script, env, privkey, pubkey):
 
     shutil.copy2(script, env.cdir / "af/build-script.alt")
     sanitize_script(env.cdir / "af/build-script.alt")
+    try:
+        shutil.rmtree(env.tmp)
+    except FileNotFoundError:
+        pass
+    env.tmp.symlink_to("/tmp")
 
     if env.mr:
         env.before = subprocess.check_output(
-            ("git", "-C", str(env.aportsdir),
-             "merge-base", env.ref, env.after),
+            ("git", "merge-base", env.ref, env.after),
             encoding="utf-8",
         )
         if not env.before or env.before == env.after:
@@ -186,11 +192,14 @@ def build_script(script, env, privkey, pubkey):
     args += manual_pkgs
 
     args = [str(i) for i in args]
-    return buildrepo(args)
+    rc = buildrepo(args)
+    env.tmp.unlink()
+    return rc
 
 def after_script(script, env):
     shutil.copy2(script, env.cdir / "af/after-script")
     sanitize_script(env.cdir / "af/after-script")
+
     rc, conn = client_init(env.cdir)
     if rc != 0:
         logging.error("Failed to connect to rootd")
