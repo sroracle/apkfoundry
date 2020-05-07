@@ -25,10 +25,6 @@
     * Updating / upgrading
     * Uploading
 
-  * Builder configuration
-
-    * Distfiles cache
-
 * Long-term implementation wishlist
 
   * GitLab >= 12.6: external custom ``.gitlab-ci.yml`` path (other
