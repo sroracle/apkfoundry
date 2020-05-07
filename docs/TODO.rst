@@ -1,14 +1,3 @@
-* Bugs
-
-  * bootstrapping without the widest coverage of repos leads to "package
-    not found" errors later when switching repositories - related to
-    updating / upgrading
-
-* Documentation
-
-  * Make note of disabling the "Auto-cancel redundant, pending
-    pipelines" option
-
 * QoI
 
   * General cleanup and refactoring
@@ -19,11 +8,6 @@
 
   * Project configuration
 
-    * Logging strategies - copy log for each package to separate file,
-      or exclusively log to separate file, or only one log - I think
-      this can be accomplished by using ``tee`` or redirecting output
-      from the ``build-script`` as appropriate.
-    * Updating / upgrading - likewise.
     * Uploading
 
 * Long-term implementation wishlist

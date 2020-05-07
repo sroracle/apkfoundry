@@ -20,6 +20,11 @@ into account:
 * Since GitLab runner only allows uploading artifacts from within
   ``GIT_CLONE_PATH``, a symlink ``.gl-repos`` is provided in the git
   repository root pointing to ``REPODEST`` for your convenience.
+* Don't enable shallow cloning unless you know what you're doing! It
+  could prevent APK Foundry from determining what to build for a job.
+* **Make sure to disable the "Auto-cancel redundant, pending pipelines"
+  option!** Otherwise, builds may get canceled before they complete just
+  because a new push has been made to the repository.
 
 Variables
 ---------
@@ -89,8 +94,9 @@ Example .gitlab-ci.yml
 
       artifacts:
         paths:
-          - .gl-repos/*/*/*.apk
           - .gl-repos/*/*/APKINDEX.tar.gz
+          - .gl-repos/*/*/*.apk
+          # - .gl-repos/*/*/logs/*.log
 
     .af-x86_64-build:
       extends: .af-build
@@ -136,8 +142,15 @@ Example build-script
 .. code-block:: shell
 
     #!/bin/sh -e
+    # Disable colors if logging to a separate file (see below)
+    #export USE_COLORS=
+
     . /usr/share/abuild/functions.sh
     cd "$APORTSDIR/$1"
+    repo="${1%/*}"
+
+    echo "${STRONG}>>> Upgrading container${NORMAL}"
+    $SUDO_APK upgrade --available --latest
 
     echo "${STRONG}>>> Adding extra dependencies${NORMAL}"
     case "$1" in
@@ -146,7 +159,22 @@ Example build-script
     esac
 
     echo "${STRONG}>>> abuild -r${NORMAL}"
+    # Log all builds to the master job log
     abuild -r
 
+    # Or, log each build to a separate file: (make sure to update
+    # .gitlab-ci.yml to upload these!)
+    #
+    #export USE_COLORS=
+    #(
+    #	. ./APKBUILD
+    #	logdir="$REPODEST/$repo/$CARCH/logs"
+    #	mkdir -p "$logdir"
+    #	rm -f /af/build/log
+    #	ln -s "$logdir/$pkgname-$pkgver-r$pkgrel.log" /af/build/log
+    #)
+    #abuild -r > /af/build/log 2>&1
+
     echo "${STRONG}>>> checkapk${NORMAL}"
-    checkapk
+    /af/libexec/checkapk
+    #/af/libexec/checkapk >> /af/build/log 2>&1
