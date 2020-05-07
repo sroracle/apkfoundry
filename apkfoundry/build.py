@@ -2,7 +2,7 @@
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
 import argparse   # ArgumentParser, FileType
-import enum       # Enum
+import enum       # Enum, IntFlag, unique
 import logging    # getLogger
 import re         # compile
 import shutil     # chown, copy2, rmtree
@@ -12,7 +12,7 @@ import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
 
-import apkfoundry           # EStatus, MOUNTS, check_call, get_arch, get_branch,
+import apkfoundry           # MOUNTS, check_call, get_arch, get_branch,
                             # get_branchdir, local_conf, msg2, section_end,
                             # section_start
 import apkfoundry.container # Container, cont_make
@@ -20,21 +20,40 @@ import apkfoundry.digraph   # generate_graph
 import apkfoundry.socket    # client_init
 
 _LOGGER = logging.getLogger(__name__)
-_REPORT_STATUSES = (
-    apkfoundry.EStatus.SUCCESS,
-    apkfoundry.EStatus.DEPFAIL,
-    apkfoundry.EStatus.FAIL,
-    apkfoundry.EStatus.ERROR,
-    apkfoundry.EStatus.CANCEL,
-)
-_NET_OPTION = re.compile(r"""^options=(["']?)[^"']*\bnet\b[^"']*\1""")
 
-_wrap = textwrap.TextWrapper()
+@enum.unique
+class Status(enum.IntFlag):
+    DONE = 8
+    ERROR = DONE | 16      # 24
+    CANCEL = ERROR | 32    # 56
+    SUCCESS = DONE | 64    # 72
+    FAIL = ERROR | 128     # 152
+    DEPFAIL = CANCEL | 256 # 312
+
+    # The following (and also CANCEL) are no longer used and may be
+    # removed in a future version.
+    NEW = 1
+    REJECT = 2
+    START = 4
+    SKIP = DONE | 512      # 520
+
+    def __str__(self):
+        return self.name
 
 class FailureAction(enum.Enum):
     STOP = 0
     RECALCULATE = 1
     IGNORE = 2
+
+_REPORT_STATUSES = (
+    Status.SUCCESS,
+    Status.DEPFAIL,
+    Status.FAIL,
+    Status.ERROR,
+    Status.CANCEL,
+)
+_NET_OPTION = re.compile(r"""^options=(["']?)[^"']*\bnet\b[^"']*\1""")
+_wrap = textwrap.TextWrapper()
 
 def _stats_list(status, l):
     if not l:
@@ -56,7 +75,7 @@ def _stats_builds(done):
     for status, startdirs in statuses.items():
         _stats_list(status, startdirs)
 
-    for status in set(_REPORT_STATUSES) - {apkfoundry.EStatus.SUCCESS}:
+    for status in set(_REPORT_STATUSES) - {Status.SUCCESS}:
         if any(statuses[status]):
             return 1
     return 0
@@ -133,13 +152,10 @@ def run_graph(cont, conf, graph, startdirs):
         on_failure = FailureAction.STOP
 
     while True:
-        order = []
-        for startdir in graph.topological_sort():
-            if startdir not in initial:
-                continue
-            if startdir not in done:
-                order.append(startdir)
-
+        order = [
+            i for i in graph.topological_sort()
+            if i in initial and i not in done
+        ]
         if not order:
             break
 
@@ -166,13 +182,13 @@ def run_graph(cont, conf, graph, startdirs):
                 apkfoundry.section_end(
                     _LOGGER, "(%d/%d) Success: %s", cur, tot, startdir,
                 )
-                done[startdir] = apkfoundry.EStatus.SUCCESS
+                done[startdir] = Status.SUCCESS
 
             else:
                 apkfoundry.section_end(
                     _LOGGER, "(%d/%d) Fail: %s", cur, tot, startdir,
                 )
-                done[startdir] = apkfoundry.EStatus.FAIL
+                done[startdir] = Status.FAIL
 
                 if on_failure == FailureAction.RECALCULATE:
                     apkfoundry.section_start(
@@ -187,7 +203,7 @@ def run_graph(cont, conf, graph, startdirs):
                     depfails &= initial
                     for rdep in depfails:
                         _LOGGER.error("Depfail: %s", rdep)
-                        done[rdep] = apkfoundry.EStatus.DEPFAIL
+                        done[rdep] = Status.DEPFAIL
 
                     apkfoundry.section_end(_LOGGER)
 
@@ -195,7 +211,7 @@ def run_graph(cont, conf, graph, startdirs):
                     _LOGGER.error("Stopping due to previous error")
                     cancels = initial - set(done.keys())
                     for rdep in cancels:
-                        done[rdep] = apkfoundry.EStatus.DEPFAIL
+                        done[rdep] = Status.DEPFAIL
                     graph.reset_graph()
 
                 elif on_failure == FailureAction.IGNORE:
@@ -413,7 +429,9 @@ def _buildrepo_args(args):
     return opts.parse_args(args)
 
 def _buildrepo_bootstrap(opts, cdir):
-    apkfoundry.section_start(_LOGGER, "bootstrap", "Bootstrapping container...")
+    apkfoundry.section_start(
+        _LOGGER, "bootstrap", "Bootstrapping container..."
+    )
     cont_make_args = []
     if opts.repodest:
         cont_make_args += ["--repodest", opts.repodest]
@@ -446,8 +464,11 @@ def buildrepo(args):
     if not opts.arch:
         opts.arch = apkfoundry.get_arch()
 
-    if not (opts.aportsdir or opts.git_url) or (opts.aportsdir and opts.git_url):
-        _LOGGER.error("You must specify only one of -a APORTSDIR or -g GIT_URL")
+    if not (opts.aportsdir or opts.git_url) \
+            or (opts.aportsdir and opts.git_url):
+        _LOGGER.error(
+            "You must specify only one of -a APORTSDIR or -g GIT_URL"
+        )
         return _cleanup(1, None, opts.delete)
 
     if opts.aportsdir:

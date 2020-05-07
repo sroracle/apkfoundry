@@ -4,7 +4,7 @@
 import collections  # defaultdict
 import configparser # ConfigParser
 import datetime     # datetime
-import enum         # Enum, IntFlag, unique
+import enum         # Enum
 import functools    # partial
 import logging      # Formatter, getLogger, StreamHandler
 import os           # environ, pathsep
@@ -87,34 +87,6 @@ _DEFAULT_LOCAL_CONFIG = {
     },
 }
 
-class Colors(enum.Enum):
-    NORMAL = "\033[1;0m"
-    STRONG = "\033[1;1m"
-    CRITICAL = ERROR = RED = "\033[1;31m"
-    INFO = GREEN = "\033[1;32m"
-    WARNING = YELLOW = "\033[1;33m"
-    DEBUG = BLUE = "\033[1;34m"
-    MAGENTA = "\033[1;35m"
-
-    def __str__(self):
-        return self.value
-
-@enum.unique
-class EStatus(enum.IntFlag):
-    NEW = 1
-    REJECT = 2
-    START = 4
-    DONE = 8
-    ERROR = DONE | 16      # 24
-    CANCEL = ERROR | 32    # 56
-    SUCCESS = DONE | 64    # 72
-    FAIL = ERROR | 128     # 152
-    DEPFAIL = CANCEL | 256 # 312
-    SKIP = DONE | 512      # 520
-
-    def __str__(self):
-        return self.name
-
 def site_conf(section=None):
     files = sorted(SYSCONFDIR.glob("*.ini"))
 
@@ -171,7 +143,7 @@ def get_branchdir(gitdir=None, branch=None):
             return path
 
     raise FileNotFoundError(
-        "could not find .apkfoundry/{branch} or .apkfoundry/master"
+        f"could not find .apkfoundry/{branch} or .apkfoundry/master"
     )
 
 def get_arch():
@@ -180,7 +152,19 @@ def get_arch():
         encoding="utf-8",
     ).strip()
 
-class abuildLogFormatter(logging.Formatter):
+class _Colors(enum.Enum):
+    NORMAL = "\033[1;0m"
+    STRONG = "\033[1;1m"
+    CRITICAL = ERROR = RED = "\033[1;31m"
+    INFO = GREEN = "\033[1;32m"
+    WARNING = YELLOW = "\033[1;33m"
+    DEBUG = BLUE = "\033[1;34m"
+    MAGENTA = "\033[1;35m"
+
+    def __str__(self):
+        return self.value
+
+class _AbuildLogFormatter(logging.Formatter):
     def __init__(self, color=True, sections=False, **kwargs):
         fmt = "%(levelcolor)s%(prettylevel)s%(normal)s%(message)s"
         super().__init__(fmt, **kwargs)
@@ -191,10 +175,10 @@ class abuildLogFormatter(logging.Formatter):
     def format(self, record):
         if self.color:
             try:
-                record.levelcolor = Colors[record.levelname]
-                record.strong = Colors.STRONG
-                record.normal = Colors.NORMAL
-                record.magenta = Colors.MAGENTA
+                record.levelcolor = _Colors[record.levelname]
+                record.strong = _Colors.STRONG
+                record.normal = _Colors.NORMAL
+                record.magenta = _Colors.MAGENTA
             except KeyError:
                 record.levelcolor = ""
                 record.strong = ""
@@ -222,8 +206,8 @@ class abuildLogFormatter(logging.Formatter):
             record.msg = sectionfmt
             if msg.strip():
                 record.msg += "\n" if record.levelno == 27 else ""
-                record.msg += f"{Colors.NORMAL}{Colors.STRONG}>>>"
-                record.msg += f" {Colors.BLUE}{msg}{Colors.NORMAL}"
+                record.msg += f"{_Colors.NORMAL}{_Colors.STRONG}>>>"
+                record.msg += f" {_Colors.BLUE}{msg}{_Colors.NORMAL}"
         else:
             record.prettylevel = f">>> {record.levelname}: "
 
@@ -233,7 +217,7 @@ def init_logger(name, level="INFO", color=False, sections=False):
     logger = logging.getLogger(name)
     logger.setLevel(level)
     handler = logging.StreamHandler()
-    formatter = abuildLogFormatter(color=color, sections=sections)
+    formatter = _AbuildLogFormatter(color=color, sections=sections)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
@@ -247,13 +231,13 @@ def msg2(logger, s, *args, **kwargs):
         for i in s:
             logger.log(25, i, *args, **kwargs)
 
-_sections = []
+_SECTIONS = []
 def section_start(logger, name, *args, **kwargs):
     if not logger or isinstance(logger, str):
         logger = logging.getLogger(logger)
 
     ts = str(int(datetime.datetime.now().timestamp()))
-    _sections.append((ts, name))
+    _SECTIONS.append((ts, name))
 
     logger.log(26, args[0], "start", ts, name, *args[1:], **kwargs)
 
@@ -264,5 +248,5 @@ def section_end(logger, *args, **kwargs):
     if not args:
         args = [""]
 
-    ts, name = _sections.pop()
+    ts, name = _SECTIONS.pop()
     logger.log(27, args[0], "end", ts, name, *args[1:], **kwargs)
