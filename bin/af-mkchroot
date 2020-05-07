@@ -7,7 +7,7 @@ import logging  # basicConfig
 import sys      # exit
 from pathlib import Path
 
-import apkfoundry           # get_branch, local_conf
+import apkfoundry           # get_arch, get_branch, local_conf
 import apkfoundry.container # cont_make
 import apkfoundry.socket    # client_init
 
@@ -50,6 +50,9 @@ opts.add_argument(
 
 opts = opts.parse_args()
 opts.cdir = Path(opts.cdir).resolve(strict=False)
+
+if not opts.arch:
+    opts.arch = apkfoundry.get_arch()
 
 branch = apkfoundry.get_branch(opts.aportsdir)
 conf = apkfoundry.local_conf(opts.aportsdir, branch)

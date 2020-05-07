@@ -12,8 +12,9 @@ import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
 
-import apkfoundry           # EStatus, check_call, get_branch, get_branchdir,
-                            # local_conf, msg2, section_end, section_start
+import apkfoundry           # EStatus, check_call, get_arch, get_branch,
+                            # get_branchdir, local_conf, msg2, section_end,
+                            # section_start
 import apkfoundry.container # BUILDDIR, Container, cont_make,
 import apkfoundry.digraph   # generate_graph
 import apkfoundry.socket    # client_init
@@ -279,6 +280,59 @@ def _ensure_dir(name):
 
     return ok
 
+def _build_list(opts):
+    if opts.startdirs:
+        apkfoundry.section_start(
+            _LOGGER, "manual_pkgs",
+            "The following packages were manually included:"
+        )
+        apkfoundry.msg2(_LOGGER, opts.startdirs)
+        apkfoundry.section_end(_LOGGER)
+
+    if opts.rev_range:
+        apkfoundry.section_start(
+            _LOGGER, "changed_pkgs", "Determining changed packages..."
+        )
+        pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
+        if pkgs is None:
+            _LOGGER.info("No packages were changed")
+        else:
+            apkfoundry.msg2(_LOGGER, pkgs)
+            opts.startdirs.extend(pkgs)
+
+        apkfoundry.section_end(_LOGGER)
+
+def _filter_list(conf, opts):
+    apkfoundry.section_start(
+        _LOGGER, "skip_pkgs",
+        "Determining packages to skip...",
+    )
+
+    repos = {}
+    for i in conf["repos"].strip().splitlines():
+        i = i.strip().split()
+        repos[i[0]] = i[1:]
+    for i, startdir in enumerate(opts.startdirs):
+        repo, _ = startdir.split("/", maxsplit=1)
+        arches = repos.get(repo, None)
+        if arches is None:
+            apkfoundry.msg2(
+                _LOGGER, "%s - repository not configured",
+                startdir,
+            )
+            opts.startdirs[i] = None
+            continue
+        if opts.arch not in arches:
+            apkfoundry.msg2(
+                _LOGGER, "%s - repository not enabled for %s",
+                startdir, opts.arch,
+            )
+            opts.startdirs[i] = None
+            continue
+    opts.startdirs = [i for i in opts.startdirs if i]
+
+    apkfoundry.section_end(_LOGGER)
+
 def buildrepo(args):
     opts = argparse.ArgumentParser(
         usage="af-buildrepo [options ...] REPODEST STARTDIR [STARTDIR ...]",
@@ -354,6 +408,9 @@ def buildrepo(args):
     )
     opts = opts.parse_args(args)
 
+    if not opts.arch:
+        opts.arch = apkfoundry.get_arch()
+
     if not (opts.aportsdir or opts.git_url) or (opts.aportsdir and opts.git_url):
         _LOGGER.error("You must specify only one of -a APORTSDIR or -g GIT_URL")
         return cleanup(1, None, opts.delete)
@@ -396,27 +453,8 @@ def buildrepo(args):
     branchdir = apkfoundry.get_branchdir(opts.aportsdir, opts.branch)
     conf = apkfoundry.local_conf(opts.aportsdir, opts.branch)
 
-    if opts.startdirs:
-        apkfoundry.section_start(
-            _LOGGER, "manual_pkgs",
-            "The following packages were manually included:"
-        )
-        apkfoundry.msg2(_LOGGER, opts.startdirs)
-        apkfoundry.section_end(_LOGGER)
-
-    if opts.rev_range:
-        apkfoundry.section_start(
-            _LOGGER, "changed_pkgs", "Determining changed packages..."
-        )
-        pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
-        if pkgs is None:
-            _LOGGER.info("No packages were changed")
-        else:
-            apkfoundry.msg2(_LOGGER, pkgs)
-            opts.startdirs.extend(pkgs)
-
-        apkfoundry.section_end(_LOGGER)
-
+    _build_list(opts)
+    _filter_list(conf, opts)
     if not opts.startdirs:
         _LOGGER.info("No packages to build!")
         return cleanup(0, None, opts.delete)

@@ -17,6 +17,7 @@ LIBEXECDIR = Path(__file__).parent.parent / "libexec"
 if not LIBEXECDIR.is_dir():
     LIBEXECDIR = Path("/usr/libexec/apkfoundry")
 LOCALSTATEDIR = Path("/var/lib/apkfoundry")
+APK_STATIC = SYSCONFDIR / "skel:bootstrap/apk.static"
 
 if "PATH" in os.environ:
     os.environ["PATH"] = str(LIBEXECDIR) + os.pathsep + os.environ["PATH"]
@@ -147,6 +148,12 @@ def get_branchdir(gitdir=None, branch=None):
     raise FileNotFoundError(
         "could not find .apkfoundry/{branch} or .apkfoundry/master"
     )
+
+def get_arch():
+    return subprocess.check_output(
+        [APK_STATIC, "--print-arch"],
+        encoding="utf-8",
+    ).strip()
 
 class abuildLogFormatter(logging.Formatter):
     def __init__(self, color=True, sections=False, **kwargs):

@@ -19,7 +19,6 @@
 
   * Project configuration
 
-    * Repository ordering and architecture coverage
     * Logging strategies - copy log for each package to separate file,
       or exclusively log to separate file, or only one log
     * Updating / upgrading

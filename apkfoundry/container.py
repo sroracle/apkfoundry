@@ -12,8 +12,8 @@ import shutil     # chown, copy2, copytree
 import subprocess # call, Popen
 from pathlib import Path
 
-import apkfoundry        # LIBEXECDIR, SYSCONFDIR, get_branchdir, rootid
-                         # site_conf
+import apkfoundry        # APK_STATIC, LIBEXECDIR, SYSCONFDIR, get_arch,
+                         # get_branchdir, rootid, site_conf
 import apkfoundry.socket # client_refresh
 
 BUILDDIR = "/af/build"
@@ -29,7 +29,6 @@ _KEEP_ENV = (
     "TERM",
 )
 
-_APK_STATIC = apkfoundry.SYSCONFDIR / "skel:bootstrap/apk.static"
 _CFG = apkfoundry.site_conf("container")
 _SUBID = _CFG.getint("subid")
 
@@ -303,8 +302,8 @@ def cont_make(
         cdir,
         branch,
         repo,
+        arch,
         *,
-        arch=None,
         setarch=None,
         mounts=None,
         cache=None):
@@ -317,11 +316,6 @@ def cont_make(
     for mount in MOUNTS.values():
         (cdir / mount.lstrip("/")).mkdir(parents=True, exist_ok=True)
 
-    if arch is None:
-        arch = subprocess.check_output(
-            [_APK_STATIC, "--print-arch"],
-            encoding="utf-8",
-        )
     (cdir / "etc/apk/keys").mkdir(parents=True, exist_ok=True)
     (cdir / "etc/apk/arch").write_text(arch.strip() + "\n")
 
@@ -415,7 +409,7 @@ def cont_bootstrap(cdir, **kwargs):
         if filename.with_suffix(".apk-new").exists():
             shutil.move(filename.with_suffix(".apk-new"), filename)
         elif subprocess.call(
-                [_APK_STATIC, "--root", cdir, "info",
+                [apkfoundry.APK_STATIC, "--root", cdir, "info",
                  "--who-owns", filename.relative_to(cdir)],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             ) != 0:
