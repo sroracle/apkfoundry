@@ -5,11 +5,10 @@ import collections  # defaultdict
 import configparser # ConfigParser
 import datetime     # datetime
 import enum         # Enum
-import functools    # partial
 import logging      # Formatter, getLogger, StreamHandler
 import os           # environ, pathsep
-import pwd          # getpwuid
-import subprocess   # check_call
+import pwd          # getpwnam
+import subprocess   # check_call, check_output
 import sys          # stderr, stdout
 from pathlib import Path
 

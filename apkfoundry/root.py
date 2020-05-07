@@ -4,14 +4,17 @@
 import argparse     # ArgumentParser
 import errno        # EBADF
 import logging      # getLogger
-import os           # close, umask, write
+import os           # close, umask, walk, write
 import selectors    # DefaultSelector, EVENT_READ
+import shutil       # copy2, move
 import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
+import subprocess   # DEVNULL, call
 import sys          # exc_info
 from pathlib import Path
 
-import apkfoundry           # rootid
-import apkfoundry.container # Container, cont_bootstrap, cont_refresh
+import apkfoundry           # APK_STATIC, SYSCONFDIR, force_copytree,
+                            # get_branchdir, rootid
+import apkfoundry.container # Container
 import apkfoundry.socket    # SOCK_PATH, get_creds, recv_fds, send_retcode
 
 _LOGGER = logging.getLogger(__name__)
@@ -305,6 +308,109 @@ _parse = {
     "abuild-adduser": ("adduser", _abuild_adduser),
 }
 
+def _force_copytree(src, dst):
+    src = Path(src)
+    dst = Path(dst)
+
+    copied_files = []
+
+    for srcpath, dirnames, filenames in os.walk(src):
+        srcpath = Path(srcpath)
+
+        dstpath = dst / srcpath.relative_to(src)
+        dstpath.mkdir(exist_ok=True)
+
+        for dirname in dirnames:
+            _LOGGER.debug("mkdir %s", dstpath / dirname)
+            (dstpath / dirname).mkdir(exist_ok=True)
+
+        for filename in filenames:
+            _LOGGER.debug("cp %s -> %s", srcpath / filename, dstpath / filename)
+            shutil.copy2(srcpath / filename, dstpath / filename)
+            copied_files.append(dstpath / filename)
+
+    return copied_files
+
+def _bootstrap_prepare(cdir):
+    bootstrap_files = _force_copytree(
+        apkfoundry.SYSCONFDIR / "skel:bootstrap", cdir
+    )
+
+    (cdir / "dev").mkdir(exist_ok=True)
+    (cdir / "tmp").mkdir(exist_ok=True)
+    (cdir / "var/tmp").mkdir(exist_ok=True, parents=True)
+    (cdir / "tmp").chmod(0o1777)
+    (cdir / "var/tmp").chmod(0o1777)
+
+    if (cdir / "af/info/cache").exists():
+        (cdir / "etc/apk/cache").mkdir(parents=True, exist_ok=True)
+
+    # --initdb will destroy this file >_<
+    world_f = cdir / "etc/apk/world"
+    if world_f.exists():
+        shutil.move(world_f, world_f.with_suffix(".af-bak"))
+        return bootstrap_files, world_f
+
+    return bootstrap_files, None
+
+def _bootstrap_clean(cdir, files):
+    for filename in files:
+        if filename.with_suffix(".apk-new").exists():
+            shutil.move(filename.with_suffix(".apk-new"), filename)
+        elif subprocess.call(
+                [apkfoundry.APK_STATIC, "--root", cdir, "info",
+                 "--who-owns", filename.relative_to(cdir)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            ) != 0:
+            filename.unlink()
+
+def _cont_bootstrap(cdir, **kwargs):
+    cont = apkfoundry.container.Container(cdir)
+    bootstrap_files, world_f = _bootstrap_prepare(cdir)
+
+    # Initialize database
+    args = ["/apk.static", "add", "--initdb"]
+    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
+    if rc != 0:
+        return rc
+
+    if world_f:
+        shutil.move(world_f.with_suffix(".af-bak"), world_f)
+
+    # Install packages
+    args = ["/apk.static", "--update-cache", "add", "--upgrade", "--latest"]
+    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
+
+    _bootstrap_clean(cdir, bootstrap_files)
+
+    return rc
+
+def _cont_refresh(cdir):
+    cdir = Path(cdir)
+
+    branch = (cdir / "af/info/branch").read_text().strip()
+    repo = (cdir / "af/info/repo").read_text().strip()
+    arch = (cdir / "etc/apk/arch").read_text().strip()
+    branchdir = apkfoundry.get_branchdir(cdir / "af/info/aportsdir", branch)
+
+    for skel in (
+            apkfoundry.SYSCONFDIR / "skel",
+            branchdir / "skel",
+            branchdir / f"skel:{repo}",
+            branchdir / f"skel::{arch}",
+            branchdir / f"skel:{repo}:{arch}",
+        ):
+
+        if not skel.is_dir():
+            _LOGGER.debug("could not find %s", skel)
+            continue
+
+        _force_copytree(skel, cdir)
+
+    abuild_conf = apkfoundry.SYSCONFDIR / "abuild.conf"
+    if abuild_conf.is_file():
+        shutil.copy2(abuild_conf, cdir / "etc/abuild.conf")
+
 class RootExc(Exception):
     pass
 
@@ -352,7 +458,7 @@ class RootConn(socketserver.StreamRequestHandler):
                 self._err("Must call af-init first")
                 continue
             if cmd == "af-refresh":
-                apkfoundry.container.cont_refresh(self.cdir)
+                _cont_refresh(self.cdir)
                 apkfoundry.socket.send_retcode(self.request, 0)
                 continue
 
@@ -435,8 +541,8 @@ class RootConn(socketserver.StreamRequestHandler):
         rc = 0
 
         if opts.bootstrap:
-            apkfoundry.container.cont_refresh(self.cdir)
-            rc = apkfoundry.container.cont_bootstrap(
+            _cont_refresh(self.cdir)
+            rc = _cont_bootstrap(
                 self.cdir,
                 stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
             )
