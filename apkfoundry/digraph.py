@@ -214,14 +214,8 @@ class Digraph:
         return tsort
 
 def generate_graph(conf, skip_check=False, cont=None):
-    deps_ignore = [
-        i.strip().split(maxsplit=1)
-        for i in conf["deps_ignore"].strip().splitlines()
-    ]
-    deps_map = dict(map(
-        lambda i: i.strip().split(maxsplit=1),
-        conf["deps_map"].strip().splitlines(),
-    ))
+    deps_ignore = conf.getmaplist("deps_ignore")
+    deps_map = conf.getmap("deps_map")
 
     graph = Digraph()
     args = ["af-deps"]
@@ -282,7 +276,7 @@ def generate_graph(conf, skip_check=False, cont=None):
             if dep == rdep:
                 continue
 
-            if [rdep, dep] in deps_ignore:
+            if dep in deps_ignore.get(rdep, []):
                 continue
 
             graph.add_edge(dep, rdep)

@@ -308,10 +308,7 @@ def _filter_list(conf, opts):
         "Determining packages to skip...",
     )
 
-    repos = {}
-    for i in conf["repos"].strip().splitlines():
-        i = i.strip().split()
-        repos[i[0]] = i[1:]
+    repos = conf.getmaplist("repos")
     for i, startdir in enumerate(opts.startdirs):
         repo, _ = startdir.split("/", maxsplit=1)
         arches = repos.get(repo, None)

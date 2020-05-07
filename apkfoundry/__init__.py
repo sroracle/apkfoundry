@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
+import collections  # defaultdict
 import configparser # ConfigParser
 import datetime     # datetime
 import enum         # Enum, IntFlag, unique
@@ -26,6 +27,20 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
+def _config_map(s):
+    d = {}
+    for i in s.strip().splitlines():
+        i = i.strip().split(maxsplit=1)
+        d[i[0]] = i[1]
+    return d
+
+def _config_maplist(s):
+    d = collections.defaultdict(list)
+    for i in s.strip().splitlines():
+        i = i.strip().split()
+        d[i[0]].extend(i[1:])
+    return d
+
 def _ConfigParser(**kwargs):
     parser = configparser.ConfigParser(
         interpolation=None,
@@ -36,6 +51,8 @@ def _ConfigParser(**kwargs):
         converters={
             "list": lambda s: s.strip().splitlines(),
             "path": Path,
+            "map": _config_map,
+            "maplist": _config_maplist,
         },
         **kwargs,
     )
