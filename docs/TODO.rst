@@ -20,8 +20,10 @@
   * Project configuration
 
     * Logging strategies - copy log for each package to separate file,
-      or exclusively log to separate file, or only one log
-    * Updating / upgrading
+      or exclusively log to separate file, or only one log - I think
+      this can be accomplished by using ``tee`` or redirecting output
+      from the ``build-script`` as appropriate.
+    * Updating / upgrading - likewise.
     * Uploading
 
 * Long-term implementation wishlist
