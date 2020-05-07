@@ -165,7 +165,6 @@ Example build-script
     # Or, log each build to a separate file: (make sure to update
     # .gitlab-ci.yml to upload these!)
     #
-    #export USE_COLORS=
     #(
     #	. ./APKBUILD
     #	logdir="$REPODEST/$repo/$CARCH/logs"

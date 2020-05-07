@@ -6,9 +6,10 @@
 
 * Immediate implementation wishlist
 
-  * Project configuration
-
-    * Uploading
+  * Project configuration - uploading
+  * Perhaps loosen the restrictions on the usage of $SUDO_APK - or
+    otherwise document what they are. In general, add documentation
+    about the internal environment
 
 * Long-term implementation wishlist
 
