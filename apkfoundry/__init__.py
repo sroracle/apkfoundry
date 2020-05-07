@@ -76,6 +76,7 @@ _DEFAULT_LOCAL_CONFIG = {
         "deps_ignore": "",
         "deps_map": "",
         "on_failure": "stop",
+        "skip": "",
     },
 }
 

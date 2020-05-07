@@ -267,6 +267,30 @@ step when a build fails. It can take one of three possible values:
     Ignore the failure temporarily and continue building as much as
     possible. The process will still exit with a nonzero exit status.
 
+INI setting: skip
+^^^^^^^^^^^^^^^^^
+
+This **optional** setting can be used to skip packages on certain
+architectures, if for example they would take too much time to normally
+build. For example:
+
+.. code-block:: ini
+
+   [master]
+   skip = user/libreoffice aarch64 ppc
+
+This would skip the ``user/libreoffice`` package on the ``aarch64`` and
+``ppc`` architectures.
+
+**Note**: It is preferable to change the ``arch`` option of the APKBUILD
+if the package is simply broken on that architecture. This setting is
+for dealing with problems that arise when the package is built under CI,
+such as incompatibilities with the CI environment or needing excessive
+time to build.
+
+This setting supports both formats described in ``repos`` setting
+section.
+
 Skeletons
 ^^^^^^^^^
 

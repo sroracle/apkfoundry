@@ -309,6 +309,7 @@ def _filter_list(conf, opts):
     )
 
     repos = conf.getmaplist("repos")
+    skip = conf.getmaplist("skip")
     for i, startdir in enumerate(opts.startdirs):
         repo, _ = startdir.split("/", maxsplit=1)
         arches = repos.get(repo, None)
@@ -322,6 +323,13 @@ def _filter_list(conf, opts):
         if opts.arch not in arches:
             apkfoundry.msg2(
                 _LOGGER, "%s - repository not enabled for %s",
+                startdir, opts.arch,
+            )
+            opts.startdirs[i] = None
+            continue
+        if opts.arch in skip.get(startdir, {}):
+            apkfoundry.msg2(
+                _LOGGER, "%s - package skipped for %s",
                 startdir, opts.arch,
             )
             opts.startdirs[i] = None
