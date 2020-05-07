@@ -12,10 +12,10 @@ import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
 
-import apkfoundry           # EStatus, check_call, get_arch, get_branch,
+import apkfoundry           # EStatus, MOUNTS, check_call, get_arch, get_branch,
                             # get_branchdir, local_conf, msg2, section_end,
                             # section_start
-import apkfoundry.container # BUILDDIR, Container, cont_make,
+import apkfoundry.container # Container, cont_make
 import apkfoundry.digraph   # generate_graph
 import apkfoundry.socket    # client_init
 
@@ -63,7 +63,7 @@ def _stats_builds(done):
 
 def run_task(cont, startdir):
     env = {}
-    buildbase = Path(apkfoundry.container.BUILDDIR) / startdir
+    buildbase = apkfoundry.MOUNTS["builddir"] / startdir
 
     tmp_real = cont.cdir / str(buildbase).lstrip("/") / "tmp"
     try:
@@ -229,10 +229,11 @@ def changed_pkgs(*rev_range, gitdir=None):
     return [i.replace("/APKBUILD", "") for i in pkgs]
 
 def resignapk(cdir, privkey, pubkey):
-    apks = list((cdir / "af/repos").glob("**/*.apk"))
+    repodir = cdir / apkfoundry.MOUNTS["repodest"].lstrip("/")
+    apks = list(repodir.glob("**/*.apk"))
     if not apks:
         return
-    apks += list((cdir / "af/repos").glob("**/APKINDEX.tar.gz"))
+    apks += list(repodir.glob("**/APKINDEX.tar.gz"))
 
     apkfoundry.section_start(_LOGGER, "resignapk", "Re-signing APKs...")
     apkfoundry.check_call((
@@ -471,7 +472,7 @@ def buildrepo(args):
             opts.branch = "master"
 
         apkfoundry.section_start(_LOGGER, "clone", "Cloning git repository...")
-        opts.aportsdir = cdir / "af/aports"
+        opts.aportsdir = cdir / apkfoundry.MOUNTS["aportsdir"].lstrip("/")
         opts.aportsdir.mkdir(parents=True, exist_ok=True)
         apkfoundry.check_call(("git", "clone", opts.git_url, opts.aportsdir))
         apkfoundry.check_call((

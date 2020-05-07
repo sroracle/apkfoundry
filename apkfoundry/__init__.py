@@ -25,6 +25,13 @@ if "PATH" in os.environ:
 else:
     os.environ["PATH"] = str(LIBEXECDIR)
 
+MOUNTS = {
+    "aportsdir": "/af/aports",
+    "builddir": "/af/build",
+    "repodest": "/af/repos",
+    "srcdest": "/var/cache/distfiles",
+}
+
 _LOGGER = logging.getLogger(__name__)
 
 def _config_map(s):

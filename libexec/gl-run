@@ -12,7 +12,7 @@ import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-import apkfoundry           # LOCALSTATEDIR, SYSCONFDIR, check_call,
+import apkfoundry           # LOCALSTATEDIR, MOUNTS, SYSCONFDIR, check_call,
                             # init_logger, site_conf
 import apkfoundry.build     # buildrepo
 import apkfoundry.container # Container
@@ -193,7 +193,10 @@ def build_script(script, env, privkey, pubkey):
     if setarch:
         args += ["--setarch", setarch]
 
-    args += ["--", env.cdir / "af/repos"]
+    args += [
+        "--",
+        env.cdir / apkfoundry.MOUNTS["repodest"].lstrip("/"),
+    ]
     args += manual_pkgs
 
     args = [str(i) for i in args]

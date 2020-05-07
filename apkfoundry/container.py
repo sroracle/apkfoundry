@@ -13,17 +13,10 @@ import shutil     # chown, copy2, copytree
 import subprocess # call, Popen
 from pathlib import Path
 
-import apkfoundry        # APK_STATIC, LIBEXECDIR, SYSCONFDIR, get_arch,
-                         # get_branch, get_branchdir, local_conf, rootid,
-                         # site_conf
+import apkfoundry        # APK_STATIC, LIBEXECDIR, MOUNTS, SYSCONFDIR,
+                         # get_arch, get_branch, get_branchdir, local_conf,
+                         # rootid, site_conf
 import apkfoundry.socket # client_init, client_refresh
-
-BUILDDIR = "/af/build"
-MOUNTS = {
-    "aportsdir": "/af/aports",
-    "repodest": "/af/repos",
-    "srcdest": "/var/cache/distfiles",
-}
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -78,26 +71,6 @@ def _userns_init(pid, uid, gid):
     retcodes.append(_idmap("newgidmap", pid, gid))
     return retcodes
 
-def _checkfile(path):
-    if not path.is_file():
-        raise FileNotFoundError(f"Missing {path}")
-
-    return path
-
-def _checkdir(path):
-    if not path.is_dir():
-        raise FileNotFoundError(f"Missing {path}")
-
-    return path
-
-def _checkfile_repo(path, repo):
-    path = path.with_suffix("." + repo)
-    if not path.is_file():
-        path = path.with_suffix("")
-        _checkfile(path)
-
-    return path
-
 def _force_copytree(src, dst):
     src = Path(src)
     dst = Path(dst)
@@ -151,6 +124,43 @@ class Container:
 
         self.rootd_conn = rootd_conn
 
+    def _run_env(self, kwargs):
+        if "env" not in kwargs:
+            kwargs["env"] = {}
+        kwargs["env"].update({
+            name: os.environ[name] for name in _KEEP_ENV \
+            if name in os.environ and name not in kwargs["env"]
+        })
+        kwargs["env"].update({
+            "LOGNAME": getpass.getuser(),
+            "USER": getpass.getuser(),
+            "UID": str(self._setuid),
+            "PACKAGER": "APK Foundry",
+            "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
+            "SRCDEST": apkfoundry.MOUNTS["srcdest"],
+            "APORTSDIR": apkfoundry.MOUNTS["aportsdir"],
+            "REPODEST": apkfoundry.MOUNTS["repodest"],
+            "ABUILD_USERDIR": "/af/key",
+            "ABUILD_GIT": "git -C " + apkfoundry.MOUNTS["aportsdir"],
+            "ABUILD_FETCH": "/af/libexec/af-req-root abuild-fetch",
+            "ADDGROUP": "/af/libexec/af-req-root abuild-addgroup",
+            "ADDUSER": "/af/libexec/af-req-root abuild-adduser",
+            "SUDO_APK": "/af/libexec/af-req-root abuild-apk",
+            "APK_FETCH": "/af/libexec/af-req-root apk",
+        })
+
+    def refresh(self, **kwargs):
+        rc = apkfoundry.socket.client_refresh(
+            self.rootd_conn,
+            **{
+                k: v for k, v in kwargs.items() \
+                if k in ("stdin", "stdout", "stderr")
+            },
+        )
+        if rc != 0:
+            _LOGGER.error("failed to refresh container")
+        return rc
+
     def run(self,
             cmd,
             *,
@@ -173,35 +183,13 @@ class Container:
         else:
             kwargs["pass_fds"] = [pipe_r, info_w]
 
-        mounts = MOUNTS.copy()
+        mounts = apkfoundry.MOUNTS.copy()
         for mount in mounts:
             mounts[mount] = self.cdir / "af/info" / mount
             if not mounts[mount].is_symlink():
                 raise FileNotFoundError(mounts[mount])
 
-        if "env" not in kwargs:
-            kwargs["env"] = {}
-        kwargs["env"].update({
-            name: os.environ[name] for name in _KEEP_ENV \
-            if name in os.environ and name not in kwargs["env"]
-        })
-        kwargs["env"].update({
-            "LOGNAME": getpass.getuser(),
-            "USER": getpass.getuser(),
-            "UID": str(self._setuid),
-            "PACKAGER": "APK Foundry",
-            "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
-            "SRCDEST": MOUNTS["srcdest"],
-            "APORTSDIR": MOUNTS["aportsdir"],
-            "REPODEST": MOUNTS["repodest"],
-            "ABUILD_USERDIR": "/af/key",
-            "ABUILD_GIT": "git -C /af/aports",
-            "ABUILD_FETCH": "/af/libexec/af-req-root abuild-fetch",
-            "ADDGROUP": "/af/libexec/af-req-root abuild-addgroup",
-            "ADDUSER": "/af/libexec/af-req-root abuild-adduser",
-            "SUDO_APK": "/af/libexec/af-req-root abuild-apk",
-            "APK_FETCH": "/af/libexec/af-req-root apk",
-        })
+        self._run_env(kwargs)
 
         args = [
             apkfoundry.SYSCONFDIR / "bwrap.nosuid",
@@ -219,12 +207,12 @@ class Container:
             "--proc", "/proc",
             "--bind", self.cdir / "tmp", "/tmp",
             "--bind", self.cdir / "var/tmp", "/var/tmp",
-            aports_bind, mounts["aportsdir"], MOUNTS["aportsdir"],
-            "--bind", mounts["repodest"], MOUNTS["repodest"],
-            "--bind", mounts["srcdest"], MOUNTS["srcdest"],
-            "--bind", self.cdir / BUILDDIR.lstrip("/"), BUILDDIR,
+            aports_bind, mounts["aportsdir"], apkfoundry.MOUNTS["aportsdir"],
+            "--bind", mounts["repodest"], apkfoundry.MOUNTS["repodest"],
+            "--bind", mounts["srcdest"], apkfoundry.MOUNTS["srcdest"],
+            "--bind", mounts["builddir"], apkfoundry.MOUNTS["builddir"],
             "--ro-bind", str(apkfoundry.LIBEXECDIR), "/af/libexec",
-            "--chdir", MOUNTS["aportsdir"],
+            "--chdir", apkfoundry.MOUNTS["aportsdir"],
         ]
 
         if repo:
@@ -235,34 +223,26 @@ class Container:
                 "--bind", self.cdir / "af/info/cache", "/etc/apk/cache",
             ))
 
-        if self.rootd_conn and not skip_rootd:
-            rc = apkfoundry.socket.client_refresh(
-                self.rootd_conn,
-                **{
-                    k: v for k, v in kwargs.items() \
-                    if k in ("stdin", "stdout", "stderr")
-                },
-            )
-            if rc != 0:
-                _LOGGER.debug("failed to refresh container")
-                return (rc, None)
+        if not net:
+            args.append("--unshare-net")
 
+        if self.rootd_conn and not skip_rootd:
+            if self.refresh(**kwargs):
+                return 1, None
             kwargs["pass_fds"].append(self.rootd_conn.fileno())
             args.extend((
                 "--setenv", "AF_ROOT_FD", str(self.rootd_conn.fileno()),
             ))
-
-        if not net:
-            args.append("--unshare-net")
 
         if self._setuid == 0:
             args.extend([
                 "--cap-add", "CAP_CHOWN",
                 "--cap-add", "CAP_FOWNER",
                 "--cap-add", "CAP_DAC_OVERRIDE",
-                # Required to restore security file caps during package installation
-                # On Linux 4.14+ these caps are tied to the user namespace in which
-                # they are created
+                # Required to restore security file caps during package
+                # installation. On Linux 4.14+ these caps are tied to
+                # the user namespace in which they are created, but
+                # fakeroot will handle this correctly
                 "--cap-add", "CAP_SETFCAP",
                 # Used by apk_db_run_script
                 "--cap-add", "CAP_SYS_CHROOT",
@@ -341,19 +321,19 @@ def _make_infodir(conf, opts):
     }
 
     for mount in mounts:
-        if mount not in MOUNTS:
+        if mount not in apkfoundry.MOUNTS:
             raise ValueError(f"Unknown mount '{mount}'")
         if not mounts[mount]:
             continue
 
         (opts.cdir / "af/info" / mount).symlink_to(mounts[mount])
 
-    for mount in MOUNTS:
+    for mount in apkfoundry.MOUNTS:
         if mount in mounts and mounts[mount]:
             continue
 
         (opts.cdir / "af/info" / mount).symlink_to(
-            opts.cdir / MOUNTS[mount].lstrip("/")
+            opts.cdir / apkfoundry.MOUNTS[mount].lstrip("/")
         )
 
     (opts.cdir / "af/libexec").mkdir()
@@ -418,9 +398,7 @@ def cont_make(args):
     shutil.chown(opts.cdir, group="apkfoundry")
     opts.cdir.chmod(0o770)
 
-    (opts.cdir / BUILDDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
-
-    for mount in MOUNTS.values():
+    for mount in apkfoundry.MOUNTS.values():
         (opts.cdir / mount.lstrip("/")).mkdir(parents=True, exist_ok=True)
 
     (opts.cdir / "etc/apk/keys").mkdir(parents=True, exist_ok=True)
@@ -441,8 +419,7 @@ def cont_make(args):
 
     return rc, conn
 
-def cont_bootstrap(cdir, **kwargs):
-    cont = Container(cdir)
+def _bootstrap_prepare(cdir):
     bootstrap_files = _force_copytree(
         apkfoundry.SYSCONFDIR / "skel:bootstrap", cdir
     )
@@ -456,20 +433,16 @@ def cont_bootstrap(cdir, **kwargs):
     if (cdir / "af/info/cache").exists():
         (cdir / "etc/apk/cache").mkdir(parents=True, exist_ok=True)
 
+    # --initdb will destroy this file >_<
     world_f = cdir / "etc/apk/world"
     if world_f.exists():
         shutil.move(world_f, world_f.with_suffix(".af-bak"))
-    args = ["/apk.static", "add", "--initdb"]
-    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
-    if rc != 0:
-        return rc
-    if world_f.with_suffix(".af-bak").exists():
-        shutil.move(world_f.with_suffix(".af-bak"), world_f)
+        return bootstrap_files, world_f
 
-    args = ["/apk.static", "--update-cache", "add", "--upgrade", "--latest"]
-    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
+    return bootstrap_files, None
 
-    for filename in bootstrap_files:
+def _bootstrap_clean(cdir, files):
+    for filename in files:
         if filename.with_suffix(".apk-new").exists():
             shutil.move(filename.with_suffix(".apk-new"), filename)
         elif subprocess.call(
@@ -479,8 +452,24 @@ def cont_bootstrap(cdir, **kwargs):
             ) != 0:
             filename.unlink()
 
+def cont_bootstrap(cdir, **kwargs):
+    cont = Container(cdir)
+    bootstrap_files, world_f = _bootstrap_prepare(cdir)
+
+    # Initialize database
+    args = ["/apk.static", "add", "--initdb"]
+    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
     if rc != 0:
         return rc
+
+    if world_f:
+        shutil.move(world_f.with_suffix(".af-bak"), world_f)
+
+    # Install packages
+    args = ["/apk.static", "--update-cache", "add", "--upgrade", "--latest"]
+    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
+
+    _bootstrap_clean(cdir, bootstrap_files)
 
     return rc
 
