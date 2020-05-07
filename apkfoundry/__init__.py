@@ -7,9 +7,6 @@ import datetime     # datetime
 import enum         # Enum
 import logging      # Formatter, getLogger, StreamHandler
 import os           # environ, pathsep
-import pwd          # getpwnam
-import subprocess   # check_call, check_output
-import sys          # stderr, stdout
 from pathlib import Path
 
 SYSCONFDIR = Path("/etc/apkfoundry")
@@ -113,43 +110,6 @@ def local_conf(gitdir=None, section=None):
         return config[section]
 
     return config
-
-def rootid():
-    return pwd.getpwnam("af-root")
-
-def check_call(args, **kwargs):
-    args = [str(arg) for arg in args]
-    sys.stdout.flush()
-    sys.stderr.flush()
-    return subprocess.check_call(args, **kwargs)
-
-def get_branch(gitdir=None):
-    args = ["git"]
-    if gitdir:
-        args += ["-C", str(gitdir)]
-    args += ["branch", "--show-current"]
-    return subprocess.check_output(args, encoding="utf-8").strip()
-
-def get_branchdir(gitdir=None, branch=None):
-    if not branch:
-        branch = get_branch(gitdir)
-    if not gitdir:
-        gitdir = Path.cwd()
-    branch = branch.replace("/", ":")
-    for i in (branch, "master"):
-        path = gitdir / ".apkfoundry" / i
-        if path.exists():
-            return path
-
-    raise FileNotFoundError(
-        f"could not find .apkfoundry/{branch} or .apkfoundry/master"
-    )
-
-def get_arch():
-    return subprocess.check_output(
-        [APK_STATIC, "--print-arch"],
-        encoding="utf-8",
-    ).strip()
 
 class _Colors(enum.Enum):
     NORMAL = "\033[1;0m"

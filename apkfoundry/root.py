@@ -12,8 +12,8 @@ import subprocess   # DEVNULL, call
 import sys          # exc_info
 from pathlib import Path
 
-import apkfoundry           # APK_STATIC, SYSCONFDIR, force_copytree,
-                            # get_branchdir, rootid
+import apkfoundry           # APK_STATIC, SYSCONFDIR
+import apkfoundry._util     # get_branchdir, rootid
 import apkfoundry.container # Container
 import apkfoundry.socket    # SOCK_PATH, get_creds, recv_fds, send_retcode
 
@@ -391,7 +391,9 @@ def _cont_refresh(cdir):
     branch = (cdir / "af/info/branch").read_text().strip()
     repo = (cdir / "af/info/repo").read_text().strip()
     arch = (cdir / "etc/apk/arch").read_text().strip()
-    branchdir = apkfoundry.get_branchdir(cdir / "af/info/aportsdir", branch)
+    branchdir = apkfoundry._util.get_branchdir(
+        cdir / "af/info/aportsdir", branch
+    )
 
     for skel in (
             apkfoundry.SYSCONFDIR / "skel",
@@ -533,7 +535,7 @@ class RootConn(socketserver.StreamRequestHandler):
             return
 
         owner = opts.cdir.stat().st_uid
-        if self.uid != owner and self.uid != apkfoundry.rootid().pw_uid:
+        if self.uid != owner and self.uid != apkfoundry._util.rootid().pw_uid:
             self._err("%s belongs to %s", opts.cdir, owner)
             return
 
