@@ -82,7 +82,6 @@ def _stats_builds(done):
     return 0
 
 def run_task(cont, startdir):
-    env = {}
     buildbase = apkfoundry.MOUNTS["builddir"] / startdir
 
     tmp_real = cont.cdir / str(buildbase).lstrip("/") / "tmp"
@@ -91,19 +90,23 @@ def run_task(cont, startdir):
     except (FileNotFoundError, PermissionError):
         pass
     tmp_real.mkdir(parents=True, exist_ok=True)
-
-    env["ABUILD_SRCDIR"] = str(buildbase / "src")
-    env["ABUILD_PKGBASEDIR"] = str(buildbase / "pkg")
     tmp = str(buildbase / "tmp")
 
-    env["TEMP"] = env["TMP"] = tmp
-    env["TEMPDIR"] = env["TMPDIR"] = tmp
-    env["HOME"] = tmp
+    env = {
+        "HOME": tmp,
+        "TEMP": tmp,
+        "TEMPDIR": tmp,
+        "TMP": tmp,
+        "TMPDIR": tmp,
 
-    # "deps" is a waste of time since world will be refreshed
-    # on next package
-    env["CLEANUP"] = "srcdir pkgdir"
-    env["ERROR_CLEANUP"] = ""
+        "ABUILD_SRCDIR": str(buildbase / "src"),
+        "ABUILD_PKGBASEDIR": str(buildbase / "pkg"),
+        # "deps" is a waste of time since world will be refreshed
+        # on next package
+        "CLEANUP": "srcdir pkgdir",
+        "ERROR_CLEANUP": "",
+    }
+
 
     APKBUILD = cont.cdir / f"af/info/aportsdir/{startdir}/APKBUILD"
     net = False
@@ -132,7 +135,7 @@ def run_task(cont, startdir):
     if rc == 0:
         try:
             # Only remove TEMP files, not src/pkg
-            _LOGGER.info("Removing private /tmp")
+            _LOGGER.info("Removing package tmpfiles")
             shutil.rmtree(tmp_real)
         except (FileNotFoundError, PermissionError):
             pass
@@ -497,7 +500,7 @@ def buildrepo(args):
         opts.aportsdir = cdir / apkfoundry.MOUNTS["aportsdir"].lstrip("/")
         opts.aportsdir.mkdir(parents=True, exist_ok=True)
         _util.check_call((
-            "git", "clone", opts.git_url, opts.aportsdir
+            "git", "clone", opts.git_url, opts.aportsdir,
         ))
         _util.check_call((
             "git", "-C", opts.aportsdir,
