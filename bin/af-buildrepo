@@ -5,14 +5,14 @@
 import os   # environ, isatty
 import sys  # argv, exit
 
-from apkfoundry import init_logger
-from apkfoundry.build import buildrepo
+import apkfoundry       # init_logger
+import apkfoundry.build # buildrepo
 
 if os.isatty(sys.stdout.fileno()):
     os.environ["USE_COLORS"] = "force"
     color = True
 else:
     color = False
-init_logger(None, color=color)
+apkfoundry.init_logger(None, color=color)
 
-sys.exit(buildrepo(sys.argv[1:]))
+sys.exit(apkfoundry.build.buildrepo(sys.argv[1:]))

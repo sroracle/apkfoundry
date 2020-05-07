@@ -12,8 +12,9 @@ import shutil     # chown, copy2, copytree
 import subprocess # call, Popen
 from pathlib import Path
 
-from . import site_conf, LIBEXECDIR, SYSCONFDIR, rootid, get_branchdir
-from .socket import client_refresh
+import apkfoundry        # LIBEXECDIR, SYSCONFDIR, get_branchdir, rootid
+                         # site_conf
+import apkfoundry.socket # client_refresh
 
 BUILDDIR = "/af/build"
 MOUNTS = {
@@ -28,20 +29,20 @@ _KEEP_ENV = (
     "TERM",
 )
 
-_APK_STATIC = SYSCONFDIR / "skel:bootstrap/apk.static"
-_CFG = site_conf("container")
+_APK_STATIC = apkfoundry.SYSCONFDIR / "skel:bootstrap/apk.static"
+_CFG = apkfoundry.site_conf("container")
 _SUBID = _CFG.getint("subid")
 
 def _idmap(cmd, pid, ent_id):
     if cmd == "newuidmap":
         holes = {
-            0: rootid().pw_uid,
+            0: apkfoundry.rootid().pw_uid,
             ent_id: ent_id,
         }
     else:
         af_gid = grp.getgrnam("apkfoundry").gr_gid
         holes = {
-            0: rootid().pw_gid,
+            0: apkfoundry.rootid().pw_gid,
             ent_id: ent_id,
             af_gid: af_gid,
         }
@@ -140,7 +141,7 @@ class Container:
 
         cdir_uid = self.cdir.stat().st_uid
         if self._owneruid != cdir_uid:
-            if self._owneruid != rootid().pw_uid:
+            if self._owneruid != apkfoundry.rootid().pw_uid:
                 raise PermissionError(f"'{self.cdir}' belongs to '{cdir_uid}'")
 
             self._owneruid = cdir_uid
@@ -202,7 +203,7 @@ class Container:
         })
 
         args = [
-            SYSCONFDIR / "bwrap.nosuid",
+            apkfoundry.SYSCONFDIR / "bwrap.nosuid",
             "--unshare-user",
             "--userns-block-fd", str(pipe_r),
             "--info-fd", str(info_w),
@@ -221,7 +222,7 @@ class Container:
             "--bind", mounts["repodest"], MOUNTS["repodest"],
             "--bind", mounts["srcdest"], MOUNTS["srcdest"],
             "--bind", self.cdir / BUILDDIR.lstrip("/"), BUILDDIR,
-            "--ro-bind", str(LIBEXECDIR), "/af/libexec",
+            "--ro-bind", str(apkfoundry.LIBEXECDIR), "/af/libexec",
             "--chdir", MOUNTS["aportsdir"],
         ]
 
@@ -234,7 +235,7 @@ class Container:
             ))
 
         if self.rootd_conn and not skip_rootd:
-            rc = client_refresh(
+            rc = apkfoundry.socket.client_refresh(
                 self.rootd_conn,
                 **{
                     k: v for k, v in kwargs.items() \
@@ -386,7 +387,7 @@ def cont_make(
 
 def cont_bootstrap(cdir, **kwargs):
     cont = Container(cdir)
-    bootstrap_files = _force_copytree(SYSCONFDIR / "skel:bootstrap", cdir)
+    bootstrap_files = _force_copytree(apkfoundry.SYSCONFDIR / "skel:bootstrap", cdir)
 
     (cdir / "dev").mkdir(exist_ok=True)
     (cdir / "tmp").mkdir(exist_ok=True)
@@ -435,10 +436,10 @@ def cont_refresh(cdir):
 
     arch = (cdir / "etc/apk/arch").read_text().strip()
     branch = (cdir / "af/info/branch").read_text().strip()
-    branchdir = get_branchdir(cdir / "af/info/aportsdir", branch)
+    branchdir = apkfoundry.get_branchdir(cdir / "af/info/aportsdir", branch)
 
     for skel in (
-            SYSCONFDIR / "skel",
+            apkfoundry.SYSCONFDIR / "skel",
             branchdir / "skel",
             branchdir / f"skel:{repo}",
             branchdir / f"skel::{arch}",
@@ -451,6 +452,6 @@ def cont_refresh(cdir):
 
         _force_copytree(skel, cdir)
 
-    abuild_conf = SYSCONFDIR / "abuild.conf"
+    abuild_conf = apkfoundry.SYSCONFDIR / "abuild.conf"
     if abuild_conf.is_file():
         shutil.copy2(abuild_conf, cdir / "etc/abuild.conf")

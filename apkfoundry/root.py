@@ -10,9 +10,9 @@ import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
 import sys          # exc_info
 from pathlib import Path
 
-from . import rootid
-from .container import Container, cont_bootstrap, cont_refresh
-from .socket import get_creds, recv_fds, send_retcode, SOCK_PATH
+import apkfoundry           # rootid
+import apkfoundry.container # Container, cont_bootstrap, cont_refresh
+import apkfoundry.socket    # SOCK_PATH, get_creds, recv_fds, send_retcode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -322,8 +322,8 @@ class RootConn(socketserver.StreamRequestHandler):
             self._close_fds()
 
             try:
-                argv, fds = recv_fds(self.request)
-                self.pid, self.uid, _ = get_creds(self.request)
+                argv, fds = apkfoundry.socket.recv_fds(self.request)
+                self.pid, self.uid, _ = apkfoundry.socket.get_creds(self.request)
             except ConnectionError:
                 _LOGGER.info("[%d:%d] Disconnected", self.uid, self.pid)
                 break
@@ -352,8 +352,8 @@ class RootConn(socketserver.StreamRequestHandler):
                 self._err("Must call af-init first")
                 continue
             if cmd == "af-refresh":
-                cont_refresh(self.cdir)
-                send_retcode(self.request, 0)
+                apkfoundry.container.cont_refresh(self.cdir)
+                apkfoundry.socket.send_retcode(self.request, 0)
                 continue
 
             if cmd not in _parse:
@@ -373,14 +373,14 @@ class RootConn(socketserver.StreamRequestHandler):
             argv[0] = _parse[cmd][0]
 
             try:
-                cont = Container(self.cdir)
+                cont = apkfoundry.container.Container(self.cdir)
                 rc, _ = cont.run(
                     argv,
                     net=True, ro_root=False,
                     stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
                 )
 
-                send_retcode(self.request, rc)
+                apkfoundry.socket.send_retcode(self.request, rc)
             except ConnectionError:
                 pass
 
@@ -427,7 +427,7 @@ class RootConn(socketserver.StreamRequestHandler):
             return
 
         owner = opts.cdir.stat().st_uid
-        if self.uid != owner and self.uid != rootid().pw_uid:
+        if self.uid != owner and self.uid != apkfoundry.rootid().pw_uid:
             self._err("%s belongs to %s", opts.cdir, owner)
             return
 
@@ -435,13 +435,13 @@ class RootConn(socketserver.StreamRequestHandler):
         rc = 0
 
         if opts.bootstrap:
-            cont_refresh(self.cdir)
-            rc = cont_bootstrap(
+            apkfoundry.container.cont_refresh(self.cdir)
+            rc = apkfoundry.container.cont_bootstrap(
                 self.cdir,
                 stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
             )
 
-        send_retcode(self.request, rc)
+        apkfoundry.socket.send_retcode(self.request, rc)
 
     def _err(self, fmt, *args):
         msg = fmt % args
@@ -452,7 +452,7 @@ class RootConn(socketserver.StreamRequestHandler):
             pass
 
         try:
-            send_retcode(self.request, 1)
+            apkfoundry.socket.send_retcode(self.request, 1)
         except ConnectionError:
             pass
 
@@ -463,11 +463,11 @@ class RootServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         self.sel = sel
 
         try:
-            SOCK_PATH.unlink()
+            apkfoundry.socket.SOCK_PATH.unlink()
         except FileNotFoundError:
             pass
         oldmask = os.umask(0o007)
-        super().__init__(str(SOCK_PATH), RootConn)
+        super().__init__(str(apkfoundry.socket.SOCK_PATH), RootConn)
         os.umask(oldmask)
 
     def handle_error(self, request, _):
@@ -475,7 +475,7 @@ class RootServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         _LOGGER.exception("%s", exc)
 
         try:
-            send_retcode(request, 1)
+            apkfoundry.socket.send_retcode(request, 1)
         except ConnectionError:
             pass
 

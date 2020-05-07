@@ -7,8 +7,8 @@ import logging  # basicConfig
 import sys      # exit
 from pathlib import Path
 
-from apkfoundry.container import Container
-from apkfoundry.socket import client_init
+import apkfoundry.container # Container
+import apkfoundry.socket    # client_init
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -54,13 +54,13 @@ opts = opts.parse_args()
 opts.cdir = Path(opts.cdir).resolve(strict=False)
 
 if opts.rootd:
-    rc, conn = client_init(opts.cdir)
+    rc, conn = apkfoundry.socket.client_init(opts.cdir)
     if rc != 0:
         sys.exit(rc)
 else:
     conn = None
 
-cont = Container(
+cont = apkfoundry.container.Container(
     opts.cdir,
     rootd_conn=conn,
 )

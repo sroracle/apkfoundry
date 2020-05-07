@@ -7,7 +7,7 @@ import logging  # basicConfig, critical, info
 import getpass  # getuser
 import sys      # exit
 
-from apkfoundry.root import listen
+import apkfoundry.root # listen
 
 opts = argparse.ArgumentParser(
     description="""Launch the APK Foundry af-root daemon, which listens
@@ -38,6 +38,6 @@ if getpass.getuser() != "af-root":
 
 logging.info("rootd started")
 try:
-    listen()
+    apkfoundry.root.listen()
 except KeyboardInterrupt:
     pass

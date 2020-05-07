@@ -2,6 +2,7 @@
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
 import configparser # ConfigParser
+import datetime     # datetime
 import enum         # Enum, IntFlag, unique
 import functools    # partial
 import logging      # Formatter, getLogger, StreamHandler
@@ -9,7 +10,6 @@ import os           # environ, pathsep
 import pwd          # getpwuid
 import subprocess   # check_call
 import sys          # stderr, stdout
-import datetime as dt # timezone
 from pathlib import Path
 
 SYSCONFDIR = Path("/etc/apkfoundry")
@@ -220,7 +220,7 @@ def section_start(logger, name, *args, **kwargs):
     if not logger or isinstance(logger, str):
         logger = logging.getLogger(logger)
 
-    ts = str(int(dt.datetime.now().timestamp()))
+    ts = str(int(datetime.datetime.now().timestamp()))
     _sections.append((ts, name))
 
     logger.log(26, args[0], "start", ts, name, *args[1:], **kwargs)

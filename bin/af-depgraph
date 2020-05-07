@@ -6,9 +6,9 @@ import argparse # ArgumentParser, FileType
 import logging  # basicConfig
 import sys      # exit
 
-from apkfoundry import get_branch, local_conf
-from apkfoundry.container import Container
-from apkfoundry.digraph import generate_graph
+import apkfoundry           # get_branch, local_conf
+import apkfoundry.container # Container
+import apkfoundry.digraph   # generate_graph
 
 def print_list(startdirs, func, sep):
     for startdir in startdirs:
@@ -97,14 +97,16 @@ opts.add_argument(
 )
 opts = opts.parse_args()
 
-conf = local_conf(None, get_branch())
+conf = apkfoundry.local_conf(None, apkfoundry.get_branch())
 
 if opts.chroot:
-    cont = Container(opts.chroot)
+    cont = apkfoundry.container.Container(opts.chroot)
 else:
     cont = None
 
-graph = generate_graph(conf, skip_check=opts.skip_check, cont=cont)
+graph = apkfoundry.digraph.generate_graph(
+    conf, skip_check=opts.skip_check, cont=cont
+)
 if graph is None:
     sys.exit(3)
 

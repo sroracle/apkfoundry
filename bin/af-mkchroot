@@ -7,9 +7,9 @@ import logging  # basicConfig
 import sys      # exit
 from pathlib import Path
 
-from apkfoundry import get_branch, local_conf
-from apkfoundry.container import cont_make
-from apkfoundry.socket import client_init
+import apkfoundry           # get_branch, local_conf
+import apkfoundry.container # cont_make
+import apkfoundry.socket    # client_init
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -51,10 +51,10 @@ opts.add_argument(
 opts = opts.parse_args()
 opts.cdir = Path(opts.cdir).resolve(strict=False)
 
-branch = get_branch(opts.aportsdir)
-conf = local_conf(opts.aportsdir, branch)
+branch = apkfoundry.get_branch(opts.aportsdir)
+conf = apkfoundry.local_conf(opts.aportsdir, branch)
 
-cont_make(
+apkfoundry.container.cont_make(
     opts.cdir,
     branch,
     conf["bootstrap_repo"],
@@ -68,5 +68,5 @@ cont_make(
     cache=opts.cache,
 )
 
-rc, _ = client_init(opts.cdir, bootstrap=True)
+rc, _ = apkfoundry.socket.client_init(opts.cdir, bootstrap=True)
 sys.exit(rc)

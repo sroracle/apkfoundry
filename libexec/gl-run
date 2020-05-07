@@ -12,18 +12,18 @@ import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-from apkfoundry import site_conf, check_call, LOCALSTATEDIR, SYSCONFDIR
-from apkfoundry import init_logger
-from apkfoundry.build import buildrepo
-from apkfoundry.container import Container
-from apkfoundry.socket import client_init
+import apkfoundry           # LOCALSTATEDIR, SYSCONFDIR, check_call,
+                            # init_logger, site_conf
+import apkfoundry.build     # buildrepo
+import apkfoundry.container # Container
+import apkfoundry.socket    # client_init
 
 FAKE_BEFORE = "0000000000000000000000000000000000000000"
 
-SETARCH = site_conf("setarch")
+SETARCH = apkfoundry.site_conf("setarch")
 os.environ["USE_COLORS"] = "force"
 
-init_logger(None, color=True, sections=True)
+apkfoundry.init_logger(None, color=True, sections=True)
 
 class CI_Env: # pylint: disable=too-many-instance-attributes
     prefix = "CUSTOM_ENV_"
@@ -61,7 +61,7 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
             self.mr = None
             self.target_url = None
 
-        self.cache = LOCALSTATEDIR / "apk-cache" / \
+        self.cache = apkfoundry.LOCALSTATEDIR / "apk-cache" / \
             f"{self['CI_PROJECT_PATH_SLUG']}.{self.ref}.{self.arch}"
 
     def __getitem__(self, key):
@@ -80,7 +80,7 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
         return self.prefix + item in os.environ
 
 def sanitize_script(script):
-    check_call((
+    apkfoundry.check_call((
         "sed", "-i",
         "-e", f"s@{env.cdir}[/]*@/@g",
         "-e", "/AF_PRIVKEY/d",
@@ -103,7 +103,7 @@ def get_keys():
             logging.error("AF_PRIVKEY cannot contain slashes")
             return None, None
 
-        privkey = Path(SYSCONFDIR / "keys" / env.project / privkey)
+        privkey = Path(apkfoundry.SYSCONFDIR / "keys" / env.project / privkey)
         if not privkey.is_file():
             logging.error("AF_PRIVKEY does not exist on this builder")
             return None, None
@@ -117,15 +117,15 @@ def get_keys():
     return None, None
 
 def get_sources(script, env):
-    check_call((script,))
+    apkfoundry.check_call((script,))
 
-    check_call((
+    apkfoundry.check_call((
         "git", "-C", env.aportsdir,
         "worktree", "add", ".apkfoundry", "apkfoundry",
     ))
 
     if env.mr:
-        check_call((
+        apkfoundry.check_call((
             "git", "-C", env.aportsdir,
             "fetch", env.target_url,
             f"+refs/heads/{env.ref}:refs/heads/{env.ref}",
@@ -192,7 +192,7 @@ def build_script(script, env, privkey, pubkey):
     args += manual_pkgs
 
     args = [str(i) for i in args]
-    rc = buildrepo(args)
+    rc = apkfoundry.build.buildrepo(args)
     env.tmp.unlink()
     return rc
 
@@ -200,12 +200,12 @@ def after_script(script, env):
     shutil.copy2(script, env.cdir / "af/after-script")
     sanitize_script(env.cdir / "af/after-script")
 
-    rc, conn = client_init(env.cdir)
+    rc, conn = apkfoundry.socket.client_init(env.cdir)
     if rc != 0:
         logging.error("Failed to connect to rootd")
         return rc
 
-    cont = Container(env.cdir, rootd_conn=conn)
+    cont = apkfoundry.container.Container(env.cdir, rootd_conn=conn)
     return cont.run(["/af/after-script"])[0]
 
 env = CI_Env()
@@ -227,7 +227,7 @@ elif stage == "after_script":
         logging.error("Container was not created, skipping after_script")
         rc = 1
 else:
-    check_call((script,))
+    apkfoundry.check_call((script,))
     rc = 0
 
 sys.exit(rc)
