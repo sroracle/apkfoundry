@@ -244,10 +244,8 @@ def resignapk(cdir, privkey, pubkey):
     ))
     apkfoundry.section_end(_LOGGER)
 
-def cleanup(rc, cdir, delete):
+def _cleanup(rc, cdir, delete):
     if cdir:
-        (cdir / "af/info/rc").write_text(str(rc))
-
         if (delete == "always" or (delete == "on-success" and rc == 0)):
             _LOGGER.info("Deleting container...")
             apkfoundry.check_call(("abuild-rmtemp", cdir))
@@ -418,7 +416,7 @@ def buildrepo(args):
 
     if not (opts.aportsdir or opts.git_url) or (opts.aportsdir and opts.git_url):
         _LOGGER.error("You must specify only one of -a APORTSDIR or -g GIT_URL")
-        return cleanup(1, None, opts.delete)
+        return _cleanup(1, None, opts.delete)
 
     if opts.aportsdir:
         opts.aportsdir = Path(opts.aportsdir)
@@ -462,7 +460,7 @@ def buildrepo(args):
     _filter_list(conf, opts)
     if not opts.startdirs:
         _LOGGER.info("No packages to build!")
-        return cleanup(0, None, opts.delete)
+        return _cleanup(0, None, opts.delete)
 
     apkfoundry.section_start(_LOGGER, "bootstrap", "Bootstrapping container...")
     if opts.repodest:
@@ -470,11 +468,11 @@ def buildrepo(args):
     if opts.srcdest:
         opts.srcdest = Path(opts.srcdest)
         if not _ensure_dir(opts.srcdest):
-            return cleanup(1, None, opts.delete)
+            return _cleanup(1, None, opts.delete)
     if opts.cache:
         opts.cache = Path(opts.cache)
         if not _ensure_dir(opts.cache):
-            return cleanup(1, None, opts.delete)
+            return _cleanup(1, None, opts.delete)
     apkfoundry.container.cont_make(
         cdir,
         opts.branch,
@@ -495,7 +493,7 @@ def buildrepo(args):
     rc, conn = apkfoundry.socket.client_init(cdir, bootstrap=True)
     if rc != 0:
         _LOGGER.error("Failed to connect to rootd")
-        return cleanup(rc, cdir, opts.delete)
+        return _cleanup(rc, cdir, opts.delete)
     apkfoundry.section_end(_LOGGER)
 
     cont = apkfoundry.container.Container(cdir, rootd_conn=conn)
@@ -506,4 +504,4 @@ def buildrepo(args):
             opts.pubkey = Path(opts.key).name + ".pub"
         resignapk(cdir, opts.key, opts.pubkey)
 
-    return cleanup(rc, cdir, opts.delete)
+    return _cleanup(rc, cdir, opts.delete)
