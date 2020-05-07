@@ -14,10 +14,10 @@ from pathlib import Path
 
 import apkfoundry           # LOCALSTATEDIR, MOUNTS, SYSCONFDIR, init_logger,
                             # site_conf
-import apkfoundry._util     # check_call
 import apkfoundry.build     # buildrepo
 import apkfoundry.container # Container
 import apkfoundry.socket    # client_init
+import apkfoundry._util as _util
 
 FAKE_BEFORE = "0000000000000000000000000000000000000000"
 
@@ -85,7 +85,7 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
         return self.prefix + item in os.environ
 
 def sanitize_script(script):
-    apkfoundry._util.check_call((
+    _util.check_call((
         "sed", "-i",
         "-e", f"s@{env.cdir}[/]*@/@g",
         "-e", "/AF_PRIVKEY/d",
@@ -122,15 +122,15 @@ def get_keys():
     return None, None
 
 def get_sources(script, env):
-    apkfoundry._util.check_call((script,))
+    _util.check_call((script,))
 
-    apkfoundry._util.check_call((
+    _util.check_call((
         "git", "-C", env.aportsdir,
         "worktree", "add", ".apkfoundry", "apkfoundry",
     ))
 
     if env.mr:
-        apkfoundry._util.check_call((
+        _util.check_call((
             "git", "-C", env.aportsdir,
             "fetch", env.target_url,
             f"+refs/heads/{env.ref}:refs/heads/{env.ref}",
@@ -237,7 +237,7 @@ elif stage == "after_script":
         logging.error("Container was not created, skipping after_script")
         rc = 1
 else:
-    apkfoundry._util.check_call((script,))
+    _util.check_call((script,))
     rc = 0
 
 sys.exit(rc)

@@ -15,8 +15,8 @@ from pathlib import Path
 
 import apkfoundry        # APK_STATIC, LIBEXECDIR, MOUNTS, SYSCONFDIR,
                          # local_conf, site_conf
-import apkfoundry._util  # check_call, get_arch, get_branch, rootid
 import apkfoundry.socket # client_init, client_refresh
+import apkfoundry._util as _util
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,13 +28,13 @@ _SUBID = apkfoundry.site_conf().getint("container", "subid")
 def _idmap(cmd, pid, ent_id):
     if cmd == "newuidmap":
         holes = {
-            0: apkfoundry._util.rootid().pw_uid,
+            0: _util.rootid().pw_uid,
             ent_id: ent_id,
         }
     else:
         af_gid = grp.getgrnam("apkfoundry").gr_gid
         holes = {
-            0: apkfoundry._util.rootid().pw_gid,
+            0: _util.rootid().pw_gid,
             ent_id: ent_id,
             af_gid: af_gid,
         }
@@ -90,7 +90,7 @@ class Container:
 
         cdir_uid = self.cdir.stat().st_uid
         if self._owneruid != cdir_uid:
-            if self._owneruid != apkfoundry._util.rootid().pw_uid:
+            if self._owneruid != _util.rootid().pw_uid:
                 raise PermissionError(f"'{self.cdir}' belongs to '{cdir_uid}'")
 
             self._owneruid = cdir_uid
@@ -259,7 +259,7 @@ def _keygen(cdir):
     keydir = cdir / "af/key"
     env = os.environ.copy()
     env["ABUILD_USERDIR"] = str(keydir)
-    apkfoundry._util.check_call(["abuild-keygen", "-anq"], env=env)
+    _util.check_call(["abuild-keygen", "-anq"], env=env)
 
     privkey = (keydir / "abuild.conf").read_text().strip()
     privkey = privkey.replace("PACKAGER_PRIVKEY=\"", "", 1).rstrip("\"")
@@ -362,10 +362,10 @@ def cont_make(args):
     opts.cdir = Path(opts.cdir)
 
     if not opts.arch:
-        opts.arch = apkfoundry._util.get_arch()
+        opts.arch = _util.get_arch()
 
     if not opts.branch:
-        opts.branch = apkfoundry._util.get_branch(opts.aportsdir)
+        opts.branch = _util.get_branch(opts.aportsdir)
 
     conf = apkfoundry.local_conf(opts.aportsdir, opts.branch)
 

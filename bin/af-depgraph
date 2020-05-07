@@ -7,9 +7,9 @@ import logging  # basicConfig
 import sys      # exit
 
 import apkfoundry           # local_conf
-import apkfoundry._util     # get_branch
 import apkfoundry.container # Container
 import apkfoundry.digraph   # generate_graph
+import apkfoundry._util as _util
 
 def print_list(startdirs, func, sep):
     for startdir in startdirs:
@@ -98,7 +98,7 @@ opts.add_argument(
 )
 opts = opts.parse_args()
 
-conf = apkfoundry.local_conf(None, apkfoundry._util.get_branch())
+conf = apkfoundry.local_conf(None, _util.get_branch())
 
 if opts.chroot:
     cont = apkfoundry.container.Container(opts.chroot)

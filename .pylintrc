@@ -65,7 +65,7 @@ disable=missing-docstring,
         fixme,
         invalid-name,
         redefined-outer-name,
-        protected-access,
+        useless-import-alias,
 
         #too-few-public-methods,
         #too-many-instance-attributes,

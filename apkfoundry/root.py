@@ -13,9 +13,9 @@ import sys          # exc_info
 from pathlib import Path
 
 import apkfoundry           # APK_STATIC, SYSCONFDIR
-import apkfoundry._util     # get_branchdir, rootid
 import apkfoundry.container # Container
 import apkfoundry.socket    # SOCK_PATH, get_creds, recv_fds, send_retcode
+import apkfoundry._util as _util
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -391,7 +391,7 @@ def _cont_refresh(cdir):
     branch = (cdir / "af/info/branch").read_text().strip()
     repo = (cdir / "af/info/repo").read_text().strip()
     arch = (cdir / "etc/apk/arch").read_text().strip()
-    branchdir = apkfoundry._util.get_branchdir(
+    branchdir = _util.get_branchdir(
         cdir / "af/info/aportsdir", branch
     )
 
@@ -535,7 +535,7 @@ class RootConn(socketserver.StreamRequestHandler):
             return
 
         owner = opts.cdir.stat().st_uid
-        if self.uid != owner and self.uid != apkfoundry._util.rootid().pw_uid:
+        if self.uid != owner and self.uid != _util.rootid().pw_uid:
             self._err("%s belongs to %s", opts.cdir, owner)
             return
 

@@ -14,10 +14,10 @@ from pathlib import Path
 
 import apkfoundry           # MOUNTS, local_conf, msg2, section_end,
                             # section_start
-import apkfoundry._util     # check_call, get_arch, get_branch, get_branchdir
 import apkfoundry.container # Container, cont_make
 import apkfoundry.digraph   # generate_graph
 import apkfoundry.socket    # client_init
+import apkfoundry._util as _util
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -252,7 +252,7 @@ def resignapk(cdir, privkey, pubkey):
     apks += list(repodir.glob("**/APKINDEX.tar.gz"))
 
     apkfoundry.section_start(_LOGGER, "resignapk", "Re-signing APKs...")
-    apkfoundry._util.check_call((
+    _util.check_call((
         "fakeroot", "--",
         "resignapk", "-i",
         "-p", pubkey,
@@ -265,7 +265,7 @@ def _cleanup(rc, cdir, delete):
     if cdir:
         if (delete == "always" or (delete == "on-success" and rc == 0)):
             _LOGGER.info("Deleting container...")
-            apkfoundry._util.check_call(("abuild-rmtemp", cdir))
+            _util.check_call(("abuild-rmtemp", cdir))
 
     return rc
 
@@ -462,7 +462,7 @@ def buildrepo(args):
     opts = _buildrepo_args(args)
 
     if not opts.arch:
-        opts.arch = apkfoundry._util.get_arch()
+        opts.arch = _util.get_arch()
 
     if not (opts.aportsdir or opts.git_url) \
             or (opts.aportsdir and opts.git_url):
@@ -474,7 +474,7 @@ def buildrepo(args):
     if opts.aportsdir:
         opts.aportsdir = Path(opts.aportsdir)
         if not opts.branch:
-            opts.branch = apkfoundry._util.get_branch(opts.aportsdir)
+            opts.branch = _util.get_branch(opts.aportsdir)
 
     if opts.directory:
         if not opts.directory.startswith("/var/tmp/abuild.") \
@@ -495,20 +495,20 @@ def buildrepo(args):
         apkfoundry.section_start(_LOGGER, "clone", "Cloning git repository...")
         opts.aportsdir = cdir / apkfoundry.MOUNTS["aportsdir"].lstrip("/")
         opts.aportsdir.mkdir(parents=True, exist_ok=True)
-        apkfoundry._util.check_call((
+        _util.check_call((
             "git", "clone", opts.git_url, opts.aportsdir
         ))
-        apkfoundry._util.check_call((
+        _util.check_call((
             "git", "-C", opts.aportsdir,
             "checkout", opts.branch,
         ))
-        apkfoundry._util.check_call((
+        _util.check_call((
             "git", "-C", opts.aportsdir,
             "worktree", "add", ".apkfoundry", "apkfoundry",
         ))
         apkfoundry.section_end(_LOGGER)
 
-    branchdir = apkfoundry._util.get_branchdir(opts.aportsdir, opts.branch)
+    branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
     conf = apkfoundry.local_conf(opts.aportsdir, opts.branch)
 
     _build_list(opts)
