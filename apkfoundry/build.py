@@ -17,6 +17,7 @@ import apkfoundry           # MOUNTS, local_conf, msg2, section_end,
 import apkfoundry.container # Container, cont_make
 import apkfoundry.digraph   # generate_graph
 import apkfoundry.socket    # client_init
+import apkfoundry._log as _log
 import apkfoundry._util as _util
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ def _stats_list(status, l):
     _LOGGER.info("%s: %d", status.name.title(), len(l))
     l = _wrap.fill(" ".join(l)).splitlines()
     for i in l:
-        apkfoundry.msg2(_LOGGER, "%s", i)
+        _log.msg2(_LOGGER, "%s", i)
 
 def _stats_builds(done):
     _LOGGER.info("Total: %d", len(done))
@@ -162,16 +163,16 @@ def run_graph(cont, conf, graph, startdirs):
         tot = len(order)
         cur = 0
 
-        apkfoundry.section_start(_LOGGER, "build_order", "Build order:\n")
+        _log.section_start(_LOGGER, "build_order", "Build order:\n")
         for startdir in order:
             cur += 1
-            apkfoundry.msg2(_LOGGER, "(%d/%d) %s", cur, tot, startdir)
-        apkfoundry.section_end(_LOGGER)
+            _log.msg2(_LOGGER, "(%d/%d) %s", cur, tot, startdir)
+        _log.section_end(_LOGGER)
 
         cur = 0
         for startdir in order:
             cur += 1
-            apkfoundry.section_start(
+            _log.section_start(
                 _LOGGER, "build_" + startdir.replace("/", "_"),
                 "(%d/%d) Start: %s", cur, tot, startdir
             )
@@ -179,19 +180,19 @@ def run_graph(cont, conf, graph, startdirs):
             rc = run_task(cont, startdir)
 
             if rc == 0:
-                apkfoundry.section_end(
+                _log.section_end(
                     _LOGGER, "(%d/%d) Success: %s", cur, tot, startdir,
                 )
                 done[startdir] = Status.SUCCESS
 
             else:
-                apkfoundry.section_end(
+                _log.section_end(
                     _LOGGER, "(%d/%d) Fail: %s", cur, tot, startdir,
                 )
                 done[startdir] = Status.FAIL
 
                 if on_failure == FailureAction.RECALCULATE:
-                    apkfoundry.section_start(
+                    _log.section_start(
                         _LOGGER, "recalc-order", "Recalculating build order"
                     )
 
@@ -205,7 +206,7 @@ def run_graph(cont, conf, graph, startdirs):
                         _LOGGER.error("Depfail: %s", rdep)
                         done[rdep] = Status.DEPFAIL
 
-                    apkfoundry.section_end(_LOGGER)
+                    _log.section_end(_LOGGER)
 
                 elif on_failure == FailureAction.STOP:
                     _LOGGER.error("Stopping due to previous error")
@@ -222,14 +223,14 @@ def run_graph(cont, conf, graph, startdirs):
     return _stats_builds(done)
 
 def run_job(cont, conf, startdirs):
-    apkfoundry.section_start(
+    _log.section_start(
         _LOGGER, "gen-build-order", "Generating build order...",
     )
     graph = apkfoundry.digraph.generate_graph(conf, cont=cont)
     if not graph or not graph.is_acyclic():
         _LOGGER.error("failed to generate dependency graph")
         return 1
-    apkfoundry.section_end(_LOGGER)
+    _log.section_end(_LOGGER)
 
     return run_graph(cont, conf, graph, startdirs)
 
@@ -251,7 +252,7 @@ def resignapk(cdir, privkey, pubkey):
         return
     apks += list(repodir.glob("**/APKINDEX.tar.gz"))
 
-    apkfoundry.section_start(_LOGGER, "resignapk", "Re-signing APKs...")
+    _log.section_start(_LOGGER, "resignapk", "Re-signing APKs...")
     _util.check_call((
         "fakeroot", "--",
         "resignapk", "-i",
@@ -259,7 +260,7 @@ def resignapk(cdir, privkey, pubkey):
         "-k", privkey,
         *apks,
     ))
-    apkfoundry.section_end(_LOGGER)
+    _log.section_end(_LOGGER)
 
 def _cleanup(rc, cdir, delete):
     if cdir:
@@ -297,28 +298,28 @@ def _ensure_dir(name):
 
 def _build_list(opts):
     if opts.startdirs:
-        apkfoundry.section_start(
+        _log.section_start(
             _LOGGER, "manual_pkgs",
             "The following packages were manually included:"
         )
-        apkfoundry.msg2(_LOGGER, opts.startdirs)
-        apkfoundry.section_end(_LOGGER)
+        _log.msg2(_LOGGER, opts.startdirs)
+        _log.section_end(_LOGGER)
 
     if opts.rev_range:
-        apkfoundry.section_start(
+        _log.section_start(
             _LOGGER, "changed_pkgs", "Determining changed packages..."
         )
         pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
         if pkgs is None:
             _LOGGER.info("No packages were changed")
         else:
-            apkfoundry.msg2(_LOGGER, pkgs)
+            _log.msg2(_LOGGER, pkgs)
             opts.startdirs.extend(pkgs)
 
-        apkfoundry.section_end(_LOGGER)
+        _log.section_end(_LOGGER)
 
 def _filter_list(conf, opts):
-    apkfoundry.section_start(
+    _log.section_start(
         _LOGGER, "skip_pkgs",
         "Determining packages to skip...",
     )
@@ -329,21 +330,21 @@ def _filter_list(conf, opts):
         repo, _ = startdir.split("/", maxsplit=1)
         arches = repos.get(repo, None)
         if arches is None:
-            apkfoundry.msg2(
+            _log.msg2(
                 _LOGGER, "%s - repository not configured",
                 startdir,
             )
             opts.startdirs[i] = None
             continue
         if opts.arch not in arches:
-            apkfoundry.msg2(
+            _log.msg2(
                 _LOGGER, "%s - repository not enabled for %s",
                 startdir, opts.arch,
             )
             opts.startdirs[i] = None
             continue
         if opts.arch in skip.get(startdir, {}):
-            apkfoundry.msg2(
+            _log.msg2(
                 _LOGGER, "%s - package skipped for %s",
                 startdir, opts.arch,
             )
@@ -351,7 +352,7 @@ def _filter_list(conf, opts):
             continue
     opts.startdirs = [i for i in opts.startdirs if i]
 
-    apkfoundry.section_end(_LOGGER)
+    _log.section_end(_LOGGER)
 
 def _buildrepo_args(args):
     opts = argparse.ArgumentParser(
@@ -429,7 +430,7 @@ def _buildrepo_args(args):
     return opts.parse_args(args)
 
 def _buildrepo_bootstrap(opts, cdir):
-    apkfoundry.section_start(
+    _log.section_start(
         _LOGGER, "bootstrap", "Bootstrapping container..."
     )
     cont_make_args = []
@@ -455,7 +456,7 @@ def _buildrepo_bootstrap(opts, cdir):
         "--", str(cdir), str(opts.aportsdir),
     ]
     rc, conn = apkfoundry.container.cont_make(cont_make_args)
-    apkfoundry.section_end(_LOGGER)
+    _log.section_end(_LOGGER)
     return rc, conn
 
 def buildrepo(args):
@@ -492,7 +493,7 @@ def buildrepo(args):
         if not opts.branch:
             opts.branch = "master"
 
-        apkfoundry.section_start(_LOGGER, "clone", "Cloning git repository...")
+        _log.section_start(_LOGGER, "clone", "Cloning git repository...")
         opts.aportsdir = cdir / apkfoundry.MOUNTS["aportsdir"].lstrip("/")
         opts.aportsdir.mkdir(parents=True, exist_ok=True)
         _util.check_call((
@@ -506,7 +507,7 @@ def buildrepo(args):
             "git", "-C", opts.aportsdir,
             "worktree", "add", ".apkfoundry", "apkfoundry",
         ))
-        apkfoundry.section_end(_LOGGER)
+        _log.section_end(_LOGGER)
 
     branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
     conf = apkfoundry.local_conf(opts.aportsdir, opts.branch)

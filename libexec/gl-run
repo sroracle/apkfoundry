@@ -12,11 +12,11 @@ import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-import apkfoundry           # LOCALSTATEDIR, MOUNTS, SYSCONFDIR, init_logger,
-                            # site_conf
+import apkfoundry           # LOCALSTATEDIR, MOUNTS, SYSCONFDIR, site_conf
 import apkfoundry.build     # buildrepo
 import apkfoundry.container # Container
 import apkfoundry.socket    # client_init
+import apkfoundry._log as _log
 import apkfoundry._util as _util
 
 FAKE_BEFORE = "0000000000000000000000000000000000000000"
@@ -24,7 +24,7 @@ FAKE_BEFORE = "0000000000000000000000000000000000000000"
 SETARCH = apkfoundry.site_conf("setarch")
 os.environ["USE_COLORS"] = "force"
 
-apkfoundry.init_logger(None, color=True, sections=True)
+_log.init(None, color=True, sections=True)
 
 class CI_Env: # pylint: disable=too-many-instance-attributes
     prefix = "CUSTOM_ENV_"
