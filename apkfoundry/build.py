@@ -82,7 +82,7 @@ def _stats_builds(done):
     return 0
 
 def run_task(cont, startdir):
-    buildbase = apkfoundry.MOUNTS["builddir"] / startdir
+    buildbase = Path(apkfoundry.MOUNTS["builddir"]) / startdir
 
     tmp_real = cont.cdir / "af/info/builddir" / startdir / "tmp"
     try:
