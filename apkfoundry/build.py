@@ -336,7 +336,7 @@ def _filter_list(conf, opts):
 
     apkfoundry.section_end(_LOGGER)
 
-def buildrepo(args):
+def _buildrepo_args(args):
     opts = argparse.ArgumentParser(
         usage="af-buildrepo [options ...] REPODEST STARTDIR [STARTDIR ...]",
     )
@@ -409,7 +409,38 @@ def buildrepo(args):
         "startdirs", metavar="STARTDIR", nargs="*",
         help="list of STARTDIRs to build",
     )
-    opts = opts.parse_args(args)
+    return opts.parse_args(args)
+
+def _buildrepo_bootstrap(opts, cdir):
+    apkfoundry.section_start(_LOGGER, "bootstrap", "Bootstrapping container...")
+    cont_make_args = []
+    if opts.repodest:
+        cont_make_args += ["--repodest", opts.repodest]
+        Path(opts.repodest).mkdir(parents=True, exist_ok=True)
+    if opts.srcdest:
+        cont_make_args += ["--srcdest", opts.srcdest]
+        opts.srcdest = Path(opts.srcdest)
+        if not _ensure_dir(opts.srcdest):
+            return _cleanup(1, None, opts.delete)
+    if opts.cache:
+        cont_make_args += ["--cache", opts.cache]
+        opts.cache = Path(opts.cache)
+        if not _ensure_dir(opts.cache):
+            return _cleanup(1, None, opts.delete)
+    if opts.setarch:
+        cont_make_args += ["--setarch", opts.setarch]
+
+    cont_make_args += [
+        "--arch", opts.arch,
+        "--branch", opts.branch,
+        "--", str(cdir), str(opts.aportsdir),
+    ]
+    rc, conn = apkfoundry.container.cont_make(cont_make_args)
+    apkfoundry.section_end(_LOGGER)
+    return rc, conn
+
+def buildrepo(args):
+    opts = _buildrepo_args(args)
 
     if not opts.arch:
         opts.arch = apkfoundry.get_arch()
@@ -462,39 +493,15 @@ def buildrepo(args):
         _LOGGER.info("No packages to build!")
         return _cleanup(0, None, opts.delete)
 
-    apkfoundry.section_start(_LOGGER, "bootstrap", "Bootstrapping container...")
-    if opts.repodest:
-        Path(opts.repodest).mkdir(parents=True, exist_ok=True)
-    if opts.srcdest:
-        opts.srcdest = Path(opts.srcdest)
-        if not _ensure_dir(opts.srcdest):
-            return _cleanup(1, None, opts.delete)
-    if opts.cache:
-        opts.cache = Path(opts.cache)
-        if not _ensure_dir(opts.cache):
-            return _cleanup(1, None, opts.delete)
-    apkfoundry.container.cont_make(
-        cdir,
-        opts.branch,
-        conf["bootstrap_repo"],
-        arch=opts.arch,
-        setarch=opts.setarch,
-        mounts={
-            "aportsdir": opts.aportsdir,
-            "repodest": opts.repodest,
-            "srcdest": opts.srcdest,
-        },
-        cache=opts.cache,
-    )
+    rc, conn = _buildrepo_bootstrap(opts, cdir)
+    if rc != 0:
+        _LOGGER.error("Failed to bootstrap container")
+        return _cleanup(rc, cdir, opts.delete)
+
     shutil.copy2(
         branchdir / "build-script",
         cdir / "af/build-script",
     )
-    rc, conn = apkfoundry.socket.client_init(cdir, bootstrap=True)
-    if rc != 0:
-        _LOGGER.error("Failed to connect to rootd")
-        return _cleanup(rc, cdir, opts.delete)
-    apkfoundry.section_end(_LOGGER)
 
     cont = apkfoundry.container.Container(cdir, rootd_conn=conn)
     rc = run_job(cont, conf, opts.startdirs)

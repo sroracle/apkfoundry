@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
+import argparse   # ArgumentParser, REMAINDER
 import getpass    # getuser
 import grp        # getgrnam
 import json       # load
@@ -13,8 +14,9 @@ import subprocess # call, Popen
 from pathlib import Path
 
 import apkfoundry        # APK_STATIC, LIBEXECDIR, SYSCONFDIR, get_arch,
-                         # get_branchdir, rootid, site_conf
-import apkfoundry.socket # client_refresh
+                         # get_branch, get_branchdir, local_conf, rootid,
+                         # site_conf
+import apkfoundry.socket # client_init, client_refresh
 
 BUILDDIR = "/af/build"
 MOUNTS = {
@@ -298,27 +300,7 @@ class Container:
 
         return (max(abs(i) for i in retcodes), proc)
 
-def cont_make(
-        cdir,
-        branch,
-        repo,
-        arch,
-        *,
-        setarch=None,
-        mounts=None,
-        cache=None):
-
-    cdir = Path(cdir)
-    (cdir / "af").mkdir(parents=True, exist_ok=True)
-    shutil.chown(cdir, group="apkfoundry")
-    cdir.chmod(0o770)
-
-    for mount in MOUNTS.values():
-        (cdir / mount.lstrip("/")).mkdir(parents=True, exist_ok=True)
-
-    (cdir / "etc/apk/keys").mkdir(parents=True, exist_ok=True)
-    (cdir / "etc/apk/arch").write_text(arch.strip() + "\n")
-
+def _keygen(cdir):
     keydir = cdir / "af/key"
     env = os.environ.copy()
     env["ABUILD_USERDIR"] = str(keydir)
@@ -331,7 +313,8 @@ def cont_make(
     privkey = Path(privkey).relative_to(cdir)
     (keydir / "abuild.conf").write_text(f"PACKAGER_PRIVKEY=\"/{privkey}\"\n")
 
-    for i in ("etc", "var"):
+def _fix_paths(cdir, *paths):
+    for i in paths:
         for dirpath, _, filenames in os.walk(cdir / i):
             dirpath = Path(dirpath)
             dirpath.chmod(0o775)
@@ -340,23 +323,22 @@ def cont_make(
                 (dirpath / filename).chmod(0o664)
                 shutil.chown(dirpath / filename, group="apkfoundry")
 
-    (cdir / BUILDDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
-
-    af_info = cdir / "af/info"
+def _make_infodir(conf, opts):
+    af_info = opts.cdir / "af/info"
     af_info.mkdir()
 
-    for i in ("af", "af/info"):
-        (cdir / i).chmod(0o755)
-        shutil.chown(cdir / i, group="apkfoundry")
+    (af_info / "branch").write_text(opts.branch.strip())
+    (af_info / "repo").write_text(conf["bootstrap_repo"].strip())
 
-    (af_info / "branch").write_text(branch.strip())
-    (af_info / "repo").write_text(repo.strip())
+    if opts.setarch:
+        (opts.cdir / "af/info/setarch").write_text(opts.setarch.strip())
 
-    if setarch:
-        (cdir / "af/info/setarch").write_text(setarch.strip())
-
-    if mounts is None:
-        mounts = {}
+    mounts = {
+        "aportsdir": opts.aportsdir, # this make act weird since
+                                     # it's always specified
+        "repodest": opts.repodest,
+        "srcdest": opts.srcdest,
+    }
 
     for mount in mounts:
         if mount not in MOUNTS:
@@ -364,24 +346,106 @@ def cont_make(
         if not mounts[mount]:
             continue
 
-        (cdir / "af/info" / mount).symlink_to(mounts[mount])
+        (opts.cdir / "af/info" / mount).symlink_to(mounts[mount])
 
     for mount in MOUNTS:
         if mount in mounts and mounts[mount]:
             continue
 
-        (cdir / "af/info" / mount).symlink_to(
-            cdir / MOUNTS[mount].lstrip("/")
+        (opts.cdir / "af/info" / mount).symlink_to(
+            opts.cdir / MOUNTS[mount].lstrip("/")
         )
 
-    (cdir / "af/libexec").mkdir()
+    (opts.cdir / "af/libexec").mkdir()
 
-    if cache:
-        (cdir / "af/info/cache").symlink_to(cache)
+    if opts.cache:
+        (opts.cdir / "af/info/cache").symlink_to(opts.cache)
+
+def _cont_make_args(args):
+    opts = argparse.ArgumentParser(
+        usage="af-mkchroot [options ...] DIR APORTSDIR",
+    )
+    opts.add_argument(
+        "-A", "--arch",
+        help="APK architecture name (default: output of apk --print-arch)",
+    )
+    opts.add_argument(
+        "--branch",
+        help="""git branch for APORTSDIR (default: detect). This is
+        useful when APORTSDIR is in a detached HEAD state.""",
+    )
+    opts.add_argument(
+        "-c", "--cache",
+        help="shared APK cache directory (default: disabled)",
+    )
+    opts.add_argument(
+        "-r", "--repodest",
+        help="""package destination directory (default: container root
+        /af/repos)""",
+    )
+    opts.add_argument(
+        "-S", "--setarch",
+        help="setarch(8) architecture name (default: none)",
+    )
+    opts.add_argument(
+        "-s", "--srcdest",
+        help="""source file directory (default: container root
+        /var/cache/distfiles)""",
+    )
+    opts.add_argument(
+        "cdir", metavar="DIR",
+        help="container directory",
+    )
+    opts.add_argument(
+        "aportsdir", metavar="APORTSDIR",
+        help="project checkout directory",
+    )
+    return opts.parse_args(args)
+
+def cont_make(args):
+    opts = _cont_make_args(args)
+    opts.cdir = Path(opts.cdir)
+
+    if not opts.arch:
+        opts.arch = apkfoundry.get_arch()
+
+    if not opts.branch:
+        opts.branch = apkfoundry.get_branch(opts.aportsdir)
+
+    conf = apkfoundry.local_conf(opts.aportsdir, opts.branch)
+
+    (opts.cdir / "af").mkdir(parents=True, exist_ok=True)
+    shutil.chown(opts.cdir, group="apkfoundry")
+    opts.cdir.chmod(0o770)
+
+    (opts.cdir / BUILDDIR.lstrip("/")).mkdir(parents=True, exist_ok=True)
+
+    for mount in MOUNTS.values():
+        (opts.cdir / mount.lstrip("/")).mkdir(parents=True, exist_ok=True)
+
+    (opts.cdir / "etc/apk/keys").mkdir(parents=True, exist_ok=True)
+    (opts.cdir / "etc/apk/arch").write_text(opts.arch.strip() + "\n")
+
+    _keygen(opts.cdir)
+    _fix_paths(opts.cdir, "etc", "var")
+    _make_infodir(conf, opts)
+
+    for i in ("af", "af/info"):
+        (opts.cdir / i).chmod(0o755)
+        shutil.chown(opts.cdir / i, group="apkfoundry")
+
+    rc, conn = apkfoundry.socket.client_init(opts.cdir, bootstrap=True)
+    if rc != 0:
+        _LOGGER.error("Failed to connect to rootd")
+        return rc, None
+
+    return rc, conn
 
 def cont_bootstrap(cdir, **kwargs):
     cont = Container(cdir)
-    bootstrap_files = _force_copytree(apkfoundry.SYSCONFDIR / "skel:bootstrap", cdir)
+    bootstrap_files = _force_copytree(
+        apkfoundry.SYSCONFDIR / "skel:bootstrap", cdir
+    )
 
     (cdir / "dev").mkdir(exist_ok=True)
     (cdir / "tmp").mkdir(exist_ok=True)
