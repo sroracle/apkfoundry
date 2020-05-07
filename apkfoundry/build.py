@@ -84,7 +84,7 @@ def _stats_builds(done):
 def run_task(cont, startdir):
     buildbase = apkfoundry.MOUNTS["builddir"] / startdir
 
-    tmp_real = cont.cdir / str(buildbase).lstrip("/") / "tmp"
+    tmp_real = cont.cdir / "af/info/builddir" / startdir / "tmp"
     try:
         shutil.rmtree(tmp_real.parent)
     except (FileNotFoundError, PermissionError):
@@ -249,7 +249,7 @@ def changed_pkgs(*rev_range, gitdir=None):
     return [i.replace("/APKBUILD", "") for i in pkgs]
 
 def resignapk(cdir, privkey, pubkey):
-    repodir = cdir / apkfoundry.MOUNTS["repodest"].lstrip("/")
+    repodir = cdir / "af/info/repodest"
     apks = list(repodir.glob("**/*.apk"))
     if not apks:
         return
