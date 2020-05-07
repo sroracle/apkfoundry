@@ -170,6 +170,20 @@ architecture.
 If a repository is not listed in this setting, then no builds will occur
 for that repository.
 
+The mapping can also be specified in an alternate yet equivalent format:
+
+.. code-block:: ini
+
+    [master]
+    repos = system ppc
+            system ppc64
+            system pmmx
+            system x86_64
+            user ppc64
+            user x86_64
+
+or any mix of the two formats.
+
 INI setting: bootstrap_repo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -210,6 +224,9 @@ build since ``abuild`` skips such dependencies. A future version of APK
 Foundry may provide a configuration setting for this purpose.
 Alternatively, you can perform a sort of trick by depending on something
 the package ``provides``, since abuild does not check for cycles here.
+
+This setting supports both formats described in ``repos`` setting
+section.
 
 INI setting: deps_map
 ^^^^^^^^^^^^^^^^^^^^^
