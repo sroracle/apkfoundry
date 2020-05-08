@@ -453,9 +453,13 @@ class RootConn(socketserver.StreamRequestHandler):
             cmd = argv[0]
 
             if cmd == "af-init":
-                argv = argv[1:]
-                self._init(argv)
-                continue
+                if not self.cdir:
+                    argv = argv[1:]
+                    self._init(argv)
+                    continue
+                else:
+                    self._err("Already initialized")
+                    continue
             if not self.cdir:
                 self._err("Must call af-init first")
                 continue
