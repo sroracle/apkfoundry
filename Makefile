@@ -77,4 +77,4 @@ lint: $(LINT_TARGETS)
 .PHONY: clean
 clean:
 	rm -rf apkfoundry.egg-info build dist etc target
-	rm -f libexec/af-req-root
+	rm -f libexec/af-req-root libexec/af-rm-container
