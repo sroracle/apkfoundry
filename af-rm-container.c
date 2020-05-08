@@ -24,6 +24,7 @@
 
 int verbose = 0;
 int dry = 0;
+const char *last_fpath = 0;
 
 /* Don't try to remove these directories */
 const char *m_dirs[] = {
@@ -89,6 +90,7 @@ static int handler(const char *fpath, const struct stat *sb, int typeflag, struc
 			if (strcmp(fpath, m_dirs[i]) == 0)
 				return 0;
 
+	last_fpath = fpath;
 	if (verbose)
 		puts(fpath);
 	if (!dry)
@@ -138,7 +140,7 @@ int main(int argc, char *argv[]) {
 		errx(1, "not an apkfoundry container");
 
 	if (nftw("/", handler, 512, FTW_DEPTH|FTW_MOUNT|FTW_PHYS))
-		fail("nftw /");
+		fail(last_fpath ? last_fpath : "nftw /");
 
 	return 0;
 }
