@@ -12,7 +12,7 @@ exec cat <<EOF
 	"builds_dir_is_shared": false,
 	"driver": {
 		"name": "apkfoundry",
-		"version": "0.1"
+		"version": "0.2"
 	}
 }
 EOF
