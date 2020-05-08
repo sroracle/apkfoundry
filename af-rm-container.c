@@ -13,14 +13,12 @@
 #define USAGE PROG " [-n] [-v]"
 
 #define _XOPEN_SOURCE 700
-#include <err.h>       /* err, errx              */
-#include <errno.h>     /* errno                  */
+#include <err.h>       /* err, errx                            */
+#include <errno.h>     /* errno                                */
 #include <ftw.h>
-#include <grp.h>       /* getgrnam               */
-#include <stdio.h>     /* puts, remove           */
-#include <string.h>    /* strcmp, strncmp        */
-#include <sys/stat.h>  /* stat                   */
-#include <unistd.h>    /* getopt, getuid, optind */
+#include <stdio.h>     /* puts, remove                         */
+#include <string.h>    /* strcmp, strncmp                      */
+#include <unistd.h>    /* F_OK, access, getopt, getuid, optind */
 
 int verbose = 0;
 int dry = 0;
@@ -108,8 +106,6 @@ static int handler(const char *fpath, const struct stat *sb, int typeflag, struc
 
 int main(int argc, char *argv[]) {
 	int opt;
-	struct stat s;
-	struct group *g;
 
 	while ((opt = getopt(argc, argv, "nv")) != -1) {
 		switch (opt) {
@@ -125,25 +121,13 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (getuid())
-		errx(1, "must be run as root");
-
 	if (optind < argc)
 		usage();
 
-	if (stat("/", &s))
-		fail("stat /");
+	if (getuid())
+		errx(1, "must be run as root");
 
-	errno = 0;
-	g = getgrnam("apkfoundry");
-	if (!g) {
-		if (errno)
-			fail("getgrnam apkfoundry");
-		else
-			errx(1, "apkfoundry group not found");
-	}
-
-	if (s.st_gid != g->gr_gid)
+	if (access("/af", F_OK))
 		errx(1, "not an apkfoundry container");
 
 	if (nftw("/", handler, 512, FTW_DEPTH|FTW_MOUNT|FTW_PHYS))

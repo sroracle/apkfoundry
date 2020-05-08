@@ -563,6 +563,9 @@ class RootConn(socketserver.StreamRequestHandler):
 
         if opts.destroy:
             cont = apkfoundry.container.Container(self.cdir)
+            for i in ("dev", "proc"):
+                (self.cdir / i).mkdir(exist_ok=True)
+
             rc, _ = cont.run(
                 ["/af/libexec/af-rm-container"],
                 ro_root=False,
