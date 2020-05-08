@@ -401,7 +401,7 @@ def cont_make(args):
 def cont_destroy(cdir):
     cdir = Path(cdir)
     for i in ("af/libexec", "dev", "proc"):
-        (cdir / i).mkdir(exist_ok=True)
+        (cdir / i).mkdir(parents=True, exist_ok=True)
 
     rc, _ = apkfoundry.socket.client_init(cdir, destroy=True)
     if rc != 0:
