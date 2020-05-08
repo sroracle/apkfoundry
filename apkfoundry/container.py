@@ -145,6 +145,7 @@ class Container:
             ro_aports=True,
             ro_root=True,
             skip_rootd=False,
+            skip_mounts=False,
             setsid=True,
             **kwargs):
 
@@ -180,23 +181,26 @@ class Container:
             root_bind, self.cdir, "/",
             "--dev-bind", "/dev", "/dev",
             "--proc", "/proc",
-            "--bind", self.cdir / "tmp", "/tmp",
-            "--bind", self.cdir / "var/tmp", "/var/tmp",
-            aports_bind, mounts["aportsdir"], apkfoundry.MOUNTS["aportsdir"],
-            "--bind", mounts["repodest"], apkfoundry.MOUNTS["repodest"],
-            "--bind", mounts["srcdest"], apkfoundry.MOUNTS["srcdest"],
-            "--bind", mounts["builddir"], apkfoundry.MOUNTS["builddir"],
             "--ro-bind", str(apkfoundry.LIBEXECDIR), "/af/libexec",
-            "--chdir", apkfoundry.MOUNTS["aportsdir"],
         ]
+
+        if not skip_mounts:
+            args += [
+                "--bind", self.cdir / "tmp", "/tmp",
+                "--bind", self.cdir / "var/tmp", "/var/tmp",
+                aports_bind, mounts["aportsdir"], apkfoundry.MOUNTS["aportsdir"],
+                "--bind", mounts["repodest"], apkfoundry.MOUNTS["repodest"],
+                "--bind", mounts["srcdest"], apkfoundry.MOUNTS["srcdest"],
+                "--bind", mounts["builddir"], apkfoundry.MOUNTS["builddir"],
+                "--chdir", apkfoundry.MOUNTS["aportsdir"],
+            ]
+        if not skip_mounts and (self.cdir / "af/info/cache").exists():
+            args += [
+                "--bind", self.cdir / "af/info/cache", "/etc/apk/cache",
+            ]
 
         if repo:
             (self.cdir / "af/info/repo").write_text(repo.strip())
-
-        if (self.cdir / "af/info/cache").exists():
-            args.extend((
-                "--bind", self.cdir / "af/info/cache", "/etc/apk/cache",
-            ))
 
         if not net:
             args.append("--unshare-net")

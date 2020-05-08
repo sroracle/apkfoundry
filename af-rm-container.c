@@ -30,19 +30,22 @@ const char *last_fpath = 0;
 const char *m_dirs[] = {
 	/* Ancestors of the mounts below */
 	"/af",
-	"/var",
 
 	/* System mounts */
 	"/",
 	"/af/libexec",
-	"/tmp",
-	"/var/tmp",
 
 	/* User-defined mounts */
+	/* We intentionally exclude these since they should be unmounted,
+	 * and even if they aren't nftw will just fail since they are not
+	 * empty (their contents are excluded below)
+
 	"/af/aports",
 	"/af/build",
 	"/af/repos",
 	"/af/distfiles",
+
+	 */
 	0,
 };
 
@@ -51,18 +54,22 @@ const char *m_dirs[] = {
  * FTW_MOUNT
  */
 const char *m_contents[] = {
+	/* System mounts */
 	/* Intentionally exclude this since we DO want to delete its
 	 * contents, unless otherwise already excluded
-	 *
-	 * "/",
+
+	"/",
+
 	 */
 	"/af/libexec/",
-	/* Ditto
-	 *
-	 * "/tmp/",
-	 * "/var/tmp/",
-	 */
 
+	/* User-defined mounts */
+	/* These should be unmounted - but just in case they aren't, don't
+	 * delete their contents.
+	 *
+	 * FIXME: /etc/apk/cache should symlink to a directory here instead
+	 * of mounting directly to /etc/apk/cache...
+	 */
 	"/af/aports/",
 	"/af/build/",
 	"/af/repos/",

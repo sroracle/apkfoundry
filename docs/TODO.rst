@@ -14,7 +14,6 @@
     bootstrapped
   * Make it easier to open container as root
     * setgid /af/info and make sure the files are writable by group
-  * Remove dependency on abuild-rmtemp (in progress)
 
 * Long-term implementation wishlist
 

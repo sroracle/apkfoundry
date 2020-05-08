@@ -566,13 +566,9 @@ class RootConn(socketserver.StreamRequestHandler):
             rc, _ = cont.run(
                 ["/af/libexec/af-rm-container"],
                 ro_root=False,
+                skip_mounts=True,
                 stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
             )
-            vartmp = self.cdir / "var/tmp"
-            if vartmp.is_symlink():
-                vartmp.unlink()
-            elif vartmp.is_dir():
-                vartmp.rmdir()
 
         apkfoundry.socket.send_retcode(self.request, rc)
 
