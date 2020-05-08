@@ -41,6 +41,9 @@ install: all paths
 	mkdir -p "$(DESTDIR)/$(LOCALSTATEDIR)"
 	chmod 2770 "$(DESTDIR)/$(LOCALSTATEDIR)"
 	-chown af-root:apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)"
+	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/build"
+	chmod 770 "$(DESTDIR)/$(LOCALSTATEDIR)/build"
+	-chown af-root:apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/build"
 	@echo
 	@echo '*****************************************'
 	@echo 'The following files should be installed'
