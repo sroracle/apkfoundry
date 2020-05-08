@@ -10,6 +10,7 @@ export SYSCONFDIR LIBEXECDIR DOCDIR
 
 PYTHON = python3
 PYLINT = pylint
+SETUP.PY = $(PYTHON) src/setup.py
 
 LINT_TARGETS = \
 	apkfoundry \
@@ -27,7 +28,7 @@ C_TARGETS = \
 
 .PHONY: all
 all: libexec
-	$(PYTHON) src/setup.py build
+	$(SETUP.PY) build
 
 libexec/%: src/%.c
 	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $<
@@ -36,7 +37,7 @@ libexec: $(C_TARGETS)
 
 .PHONY: install
 install: all paths
-	$(PYTHON) src/setup.py install \
+	$(SETUP.PY) install \
 		--root="$(DESTDIR)" \
 		--prefix="/$(PREFIX)"
 	chmod 750 "$(DESTDIR)/$(SYSCONFDIR)"
@@ -75,11 +76,11 @@ paths: apkfoundry/__init__.py
 
 .PHONY: dist
 dist: clean
-	$(PYTHON) src/setup.py sdist -u root -g root -t src/MANIFEST.in
+	$(SETUP.PY) sdist -u root -g root -t src/MANIFEST.in
 
 .PHONY: setup
 setup:
-	@$(PYTHON) src/setup.py $(SETUP_ARGS)
+	@$(SETUP.PY) $(SETUP_ARGS)
 
 .PHONY: lint
 lint: $(LINT_TARGETS)
