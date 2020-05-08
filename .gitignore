@@ -1,7 +1,7 @@
-archive/
 libexec/af-req-root
 libexec/af-rm-container
 *.bak
+MANIFEST
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

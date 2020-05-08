@@ -27,16 +27,16 @@ C_TARGETS = \
 
 .PHONY: all
 all: libexec
-	$(PYTHON) setup.py build
+	$(PYTHON) src/setup.py build
 
-libexec/%: %.c
+libexec/%: src/%.c
 	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $<
 
 libexec: $(C_TARGETS)
 
 .PHONY: install
 install: all paths
-	$(PYTHON) setup.py install \
+	$(PYTHON) src/setup.py install \
 		--root="$(DESTDIR)" \
 		--prefix="/$(PREFIX)"
 	chmod 750 "$(DESTDIR)/$(SYSCONFDIR)"
@@ -75,13 +75,17 @@ paths: apkfoundry/__init__.py
 
 .PHONY: dist
 dist: clean
-	$(PYTHON) setup.py sdist
+	$(PYTHON) src/setup.py sdist -u root -g root -t src/MANIFEST.in
+
+.PHONY: setup
+setup:
+	@$(PYTHON) src/setup.py $(SETUP_ARGS)
 
 .PHONY: lint
 lint: $(LINT_TARGETS)
-	-$(PYLINT) $?
+	-$(PYLINT) --rcfile src/pylintrc $?
 
 .PHONY: clean
 clean:
-	rm -rf apkfoundry.egg-info build dist etc target
+	rm -rf MANIFEST apkfoundry.egg-info build dist etc target
 	rm -f $(C_TARGETS)

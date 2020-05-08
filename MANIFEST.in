@@ -1,3 +1,0 @@
-include af-req-root.c
-include af-rm-container.c
-include Makefile
