@@ -8,7 +8,6 @@ LOCALSTATEDIR = var/lib/apkfoundry
 
 export SYSCONFDIR LIBEXECDIR DOCDIR
 
-LIBS = -lskarnet
 PYTHON = python3
 PYLINT = pylint
 
@@ -26,7 +25,7 @@ all: libexec/af-req-root
 	$(PYTHON) setup.py build
 
 libexec/af-req-root: af-req-root.c
-	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $< $(LIBS)
+	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $<
 
 .PHONY: install
 install: all paths

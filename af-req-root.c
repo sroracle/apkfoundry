@@ -3,45 +3,47 @@
  * Copyright (c) 2019-2020 Max Rees
  * See LICENSE for more information.
  */
-char const *PROG = "af-req-root";
-char const *USAGE = "af-req-root COMMAND [ARGS ...]";
+#define PROG "af-req-root"
+#define USAGE PROG " COMMAND [ARGS ...]"
 #define BUF_SIZE 4096
 #define NUM_FDS 3
 
-#include <errno.h>                /* errno                   */
-#include <libgen.h>               /* basename                */
-#include <stdlib.h>               /* getenv, strtol          */
-#include <stdio.h>                /* snprintf                */
-#include <string.h>               /* memcpy                  */
-#include <sys/socket.h>           /* sendmsg                 */
-#include <unistd.h>               /* *_FILENO                */
-
-#include <skalibs/bytestr.h>      /* str_equal               */
-#include <skalibs/strerr2.h>      /* strerr_*                */
-#include <skalibs/webipc.h>       /* ipc_connect             */
+#define _XOPEN_SOURCE 700
+#include <err.h>        /* err, errx      */
+#include <errno.h>      /* errno          */
+#include <libgen.h>     /* basename       */
+#include <stdlib.h>     /* getenv, strtol */
+#include <stdio.h>      /* snprintf       */
+#include <string.h>     /* memcpy, strcmp */
+#include <sys/socket.h>
+#include <unistd.h>     /* *_FILENO       */
 
 #define FATAL_IF(what, why) \
 	errno = 0; \
 	if (what) \
-	strerr_diefu1x(errno, why);
+	err(3, "%s", why);
 
-int fd_from_env(char *name) {
+static void usage(void) {
+	errx(1, "usage: %s", USAGE);
+}
+
+static int fd_from_env(char *name) {
 	int fd;
 	char *value;
 
 	value = getenv(name);
 	if (value == 0)
-		strerr_dienotset(1, name);
+		errx(1, "%s is not set", name);
 
 	errno = 0;
 	fd = (int) strtol(value, 0, 10);
 	if (errno != 0)
-		strerr_dieinvalid(1, name);
+		errx(1, "%s=%s is not a valid FD", name, value);
 
 	return fd;
 }
 
-void send_cmd(int sock_fd, int my_fds[NUM_FDS], int argc, int start, char *argv[]) {
+static void send_cmd(int sock_fd, int my_fds[NUM_FDS], int argc, int start, char *argv[]) {
 	char buf[BUF_SIZE];
 	int i, written, remaining, added;
 	struct iovec iov;
@@ -54,9 +56,9 @@ void send_cmd(int sock_fd, int my_fds[NUM_FDS], int argc, int start, char *argv[
 		remaining = BUF_SIZE - written;
 		added = snprintf(buf + written, remaining, "%s", argv[i]) + 1;
 		if (added >= remaining)
-			strerr_dief1x(2, "argv too long");
+			errx(2, "argv length exceeds maximum size of %d", BUF_SIZE);
 		else if (added < 0)
-			strerr_diefu1x(3, "snprintf argv");
+			err(3, "send_cmd snprintf");
 
 		written += added;
 	}
@@ -78,14 +80,14 @@ void send_cmd(int sock_fd, int my_fds[NUM_FDS], int argc, int start, char *argv[
 	cmsg->cmsg_type = SCM_RIGHTS;
 	memcpy(CMSG_DATA(cmsg), my_fds, NUM_FDS * sizeof(int));
 
-	FATAL_IF(sendmsg(sock_fd, &msg, 0) == -1, "send cmd");
+	FATAL_IF(sendmsg(sock_fd, &msg, 0) == -1, "send_cmd sendmsg");
 }
 
-int recv_retcode(int sock_fd) {
+static int recv_retcode(int sock_fd) {
 	char buf[BUF_SIZE];
 	int *rc;
 
-	FATAL_IF(recv(sock_fd, buf, BUF_SIZE, 0) == -1, "receive retcode");
+	FATAL_IF(recv(sock_fd, buf, BUF_SIZE, 0) == -1, "recv_retcode recv");
 	rc = (int *) buf;
 	return *rc;
 }
@@ -96,16 +98,16 @@ int main(int argc, char *argv[]) {
 	int my_fds[NUM_FDS] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO};
 
 	if (argc == 0)
-		strerr_dieusage(1, USAGE);
+		usage();
 
 	cmd = basename(argv[0]);
-	if (str_equal(cmd, PROG))
+	if (strcmp(cmd, PROG) == 0)
 		start = 1;
 	else
 		start = 0;
 
 	if (argc - start == 0)
-		strerr_dieusage(1, USAGE);
+		usage();
 
 	sock_fd = fd_from_env("AF_ROOT_FD");
 
