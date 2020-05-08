@@ -162,7 +162,7 @@ class Container:
         mounts = apkfoundry.MOUNTS.copy()
         for mount in mounts:
             mounts[mount] = self.cdir / "af/info" / mount
-            if not mounts[mount].is_symlink():
+            if not mounts[mount].is_symlink() and not skip_mounts:
                 raise FileNotFoundError(mounts[mount])
 
         self._run_env(kwargs)
@@ -199,7 +199,7 @@ class Container:
                 "--bind", self.cdir / "af/info/cache", "/etc/apk/cache",
             ]
 
-        if repo:
+        if repo and not skip_mounts:
             (self.cdir / "af/info/repo").write_text(repo.strip())
 
         if not net:
@@ -231,7 +231,7 @@ class Container:
             args.append("--new-session")
 
         setarch_f = self.cdir / "af/info/setarch"
-        if setarch_f.is_file() and not bootstrap:
+        if setarch_f.is_file() and not (bootstrap or skip_mounts):
             args.extend(["setarch", setarch_f.read_text().strip()])
 
         args.extend(cmd)
@@ -399,6 +399,10 @@ def cont_make(args):
     return rc, conn
 
 def cont_destroy(cdir):
+    cdir = Path(cdir)
+    for i in ("af/libexec", "dev", "proc"):
+        (cdir / i).mkdir(exist_ok=True)
+
     rc, _ = apkfoundry.socket.client_init(cdir, destroy=True)
     if rc != 0:
         _LOGGER.error("Failed to connect to rootd")
