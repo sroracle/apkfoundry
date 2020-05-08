@@ -345,7 +345,7 @@ def _cont_make_args(args):
     opts.add_argument(
         "-s", "--srcdest",
         help="""source file directory (default: container root
-        /var/cache/distfiles)""",
+        /af/distfiles)""",
     )
     opts.add_argument(
         "cdir", metavar="DIR",
@@ -380,7 +380,7 @@ def cont_make(args):
     (opts.cdir / "etc/apk/arch").write_text(opts.arch.strip() + "\n")
 
     _keygen(opts.cdir)
-    _fix_paths(opts.cdir, "etc", "var")
+    _fix_paths(opts.cdir, "etc")
     _make_infodir(conf, opts)
 
     for i in ("af", "af/info"):

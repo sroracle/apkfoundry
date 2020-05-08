@@ -23,7 +23,7 @@ MOUNTS = {
     "aportsdir": "/af/aports",
     "builddir": "/af/build",
     "repodest": "/af/repos",
-    "srcdest": "/var/cache/distfiles",
+    "srcdest": "/af/distfiles",
 }
 
 _LOGGER = logging.getLogger(__name__)
