@@ -21,15 +21,18 @@ LINT_TARGETS = \
 	bin/af-rootd \
 	libexec/gl-run
 
+C_TARGETS = \
+	libexec/af-req-root \
+	libexec/af-rm-container
+
 .PHONY: all
-all: libexec/af-req-root
+all: libexec
 	$(PYTHON) setup.py build
 
-libexec/af-req-root: af-req-root.c
+libexec/%: %.c
 	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $<
 
-libexec/af-rm-container: af-rm-container.c
-	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $<
+libexec: $(C_TARGETS)
 
 .PHONY: install
 install: all paths
@@ -80,4 +83,4 @@ lint: $(LINT_TARGETS)
 .PHONY: clean
 clean:
 	rm -rf apkfoundry.egg-info build dist etc target
-	rm -f libexec/af-req-root libexec/af-rm-container
+	rm -f $(C_TARGETS)
