@@ -12,9 +12,8 @@ import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
 
-import apkfoundry           # MOUNTS, local_conf, msg2, section_end,
-                            # section_start
-import apkfoundry.container # Container, cont_make
+import apkfoundry           # LOCALSTATEDIR, MOUNTS, local_conf
+import apkfoundry.container # Container, cont_destroy, cont_make
 import apkfoundry.digraph   # generate_graph
 import apkfoundry.socket    # client_init
 import apkfoundry._log as _log
@@ -266,10 +265,10 @@ def resignapk(cdir, privkey, pubkey):
     _log.section_end(_LOGGER)
 
 def _cleanup(rc, cdir, delete):
-    if cdir:
-        if (delete == "always" or (delete == "on-success" and rc == 0)):
-            _LOGGER.info("Deleting container...")
-            _util.check_call(("abuild-rmtemp", cdir))
+    if cdir and (delete == "always" or (delete == "on-success" and rc == 0)):
+        _LOGGER.info("Deleting container...")
+        rc2 = apkfoundry.container.cont_destroy(cdir)
+        rc = rc2 if rc == 0 else rc
 
     return rc
 
@@ -481,14 +480,9 @@ def buildrepo(args):
             opts.branch = _util.get_branch(opts.aportsdir)
 
     if opts.directory:
-        if not opts.directory.startswith("/var/tmp/abuild.") \
-                and opts.delete != "never":
-            _LOGGER.warning("Container DIR incompatible with abuild-rmtemp")
-            _LOGGER.warning("Disabling --delete")
-            opts.delete = "never"
         cdir = Path(opts.directory)
     else:
-        cdir = Path(tempfile.mkdtemp(dir="/var/tmp", prefix="abuild."))
+        cdir = Path(tempfile.mkdtemp(dir=apkfoundry.LOCALSTATEDIR / "build"))
     shutil.chown(cdir, group="apkfoundry")
     cdir.chmod(0o2770)
 

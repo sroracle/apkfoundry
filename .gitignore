@@ -1,6 +1,6 @@
 archive/
 libexec/af-req-root
-bin/af-rmtemp
+libexec/af-rm-container
 *.bak
 
 # Byte-compiled / optimized / DLL files

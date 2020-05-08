@@ -511,24 +511,28 @@ class RootConn(socketserver.StreamRequestHandler):
             self.fds[i] = -1
 
     def _init(self, argv):
-        getopts = _ParseOrRaise(
+        opts = _ParseOrRaise(
             allow_abbrev=False,
             add_help=False,
         )
-        getopts.add_argument(
+        opts.add_argument(
             "--bootstrap",
             action="store_true",
         )
-        getopts.add_argument(
+        opts.add_argument(
+            "--destroy",
+            action="store_true",
+        )
+        opts.add_argument(
             "cdir", metavar="CDIR",
         )
         try:
-            opts = getopts.parse_args(argv)
+            opts = opts.parse_args(argv)
         except _ParseOrRaise.Error as e:
             self._err("%s", e)
             return
 
-        opts.cdir = Path(opts.cdir)
+        opts.cdir = Path(opts.cdir) # pylint: disable=attribute-defined-outside-init
 
         if not opts.cdir.is_absolute():
             self._err("Relative path: %s", opts.cdir)
@@ -543,6 +547,10 @@ class RootConn(socketserver.StreamRequestHandler):
             self._err("%s belongs to %s", opts.cdir, owner)
             return
 
+        if opts.bootstrap and opts.destroy:
+            self._err("cannot bootstrap and destroy at the same time")
+            return
+
         self.cdir = opts.cdir # pylint: disable=attribute-defined-outside-init
         rc = 0
 
@@ -552,6 +560,19 @@ class RootConn(socketserver.StreamRequestHandler):
                 self.cdir,
                 stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
             )
+
+        if opts.destroy:
+            cont = apkfoundry.container.Container(self.cdir)
+            rc, _ = cont.run(
+                ["/af/libexec/af-rm-container"],
+                ro_root=False,
+                stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
+            )
+            vartmp = self.cdir / "var/tmp"
+            if vartmp.is_symlink():
+                vartmp.unlink()
+            elif vartmp.is_dir():
+                vartmp.rmdir()
 
         apkfoundry.socket.send_retcode(self.request, rc)
 

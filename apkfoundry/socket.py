@@ -65,7 +65,16 @@ def recv_retcode(conn):
     (rc,) = struct.unpack(_RC_FMT, rc)
     return rc
 
-def client_init(cdir, bootstrap=False, stdin=None, stdout=None, stderr=None):
+def client_init(
+        cdir,
+        bootstrap=False,
+        destroy=False,
+        stdin=None,
+        stdout=None,
+        stderr=None,
+    ):
+    assert not (bootstrap and destroy)
+
     conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     conn.connect(str(SOCK_PATH))
 
@@ -79,6 +88,8 @@ def client_init(cdir, bootstrap=False, stdin=None, stdout=None, stderr=None):
     msg = ["af-init"]
     if bootstrap:
         msg.append("--bootstrap")
+    elif destroy:
+        msg.append("--destroy")
     msg.append(str(cdir))
     msg = "\0".join(msg).encode("utf-8")
 

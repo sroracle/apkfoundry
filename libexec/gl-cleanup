@@ -4,7 +4,7 @@
 # See LICENSE for more information.
 
 cleanup() {
-	abuild-rmtemp "$CUSTOM_ENV_CI_BUILDS_DIR"
+	af-rmchroot "$CUSTOM_ENV_CI_BUILDS_DIR"
 }
 
 case "$1" in

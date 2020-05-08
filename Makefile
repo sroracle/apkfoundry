@@ -17,6 +17,7 @@ LINT_TARGETS = \
 	bin/af-chroot \
 	bin/af-depgraph \
 	bin/af-mkchroot \
+	bin/af-rmchroot \
 	bin/af-rootd \
 	libexec/gl-run
 
@@ -25,6 +26,9 @@ all: libexec/af-req-root
 	$(PYTHON) setup.py build
 
 libexec/af-req-root: af-req-root.c
+	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $<
+
+libexec/af-rm-container: af-rm-container.c
 	$(CC) $(CFLAGS) -static-pie $(LDFLAGS) -o $@ $<
 
 .PHONY: install

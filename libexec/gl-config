@@ -3,7 +3,7 @@
 # Copyright (c) 2020 Max Rees
 # See LICENSE for more information.
 umask 007
-builds_dir="$(mktemp -dp /var/tmp "abuild.XXXXXXXXXX")"
+builds_dir="$(mktemp -dp /var/lib/apkfoundry XXXXXXXXXX)"
 chgrp apkfoundry "$builds_dir"
 
 exec cat <<EOF

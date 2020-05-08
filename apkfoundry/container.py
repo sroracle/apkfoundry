@@ -9,7 +9,7 @@ import logging    # getLogger
 import os         # close, environ, fdopen, getuid, getgid, pipe, walk, write
 import pwd        # getpwuid
 import select     # select
-import shutil     # chown, copy2
+import shutil     # chown, copy2, rmtree
 import subprocess # call, Popen
 from pathlib import Path
 
@@ -393,3 +393,12 @@ def cont_make(args):
         return rc, None
 
     return rc, conn
+
+def cont_destroy(cdir):
+    rc, _ = apkfoundry.socket.client_init(cdir, destroy=True)
+    if rc != 0:
+        _LOGGER.error("Failed to connect to rootd")
+        return rc
+
+    shutil.rmtree(cdir)
+    return 0
