@@ -77,10 +77,6 @@ static void usage(void) {
 	errx(1, "usage: %s", USAGE);
 }
 
-static void fail(const char *msg) {
-	err(1, "%s", msg);
-}
-
 static int handler(
 		const char *fpath,
 		UNUSED const struct stat *sb,
@@ -141,7 +137,7 @@ int main(int argc, char *argv[]) {
 		errx(1, "not an apkfoundry container");
 
 	if (nftw("/", handler, 512, FTW_DEPTH|FTW_MOUNT|FTW_PHYS))
-		fail(last_fpath ? last_fpath : "nftw /");
+		err(1, "%s", last_fpath ? last_fpath : "nftw /");
 
 	return 0;
 }
