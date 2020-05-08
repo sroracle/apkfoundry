@@ -4,7 +4,7 @@ README for APK Foundry
 an APK-based package build orchestrator and distribution builder
 
 :Authors:
-  * **Max Rees**, maintainer
+  **Max Rees**, maintainer
 :Status:
   Alpha
 :Copyright:
