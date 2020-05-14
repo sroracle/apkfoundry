@@ -99,7 +99,7 @@ class Container:
 
         self.rootd_conn = rootd_conn
 
-    def _run_env(self, kwargs):
+    def _bwrap(self, args, *, net=False, setsid=True, **kwargs):
         if "env" not in kwargs:
             kwargs["env"] = {}
         kwargs["env"].update({
@@ -110,8 +110,68 @@ class Container:
             "LOGNAME": getpass.getuser(),
             "USER": getpass.getuser(),
             "UID": str(self._setuid),
-            "PACKAGER": "APK Foundry",
             "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
+        })
+
+        info_r, info_w = os.pipe()
+        pipe_r, pipe_w = os.pipe()
+        if "pass_fds" not in kwargs:
+            kwargs["pass_fds"] = []
+        kwargs["pass_fds"].extend((pipe_r, info_w))
+
+        args_pre = [
+            apkfoundry.SYSCONFDIR / "bwrap.nosuid",
+            "--unshare-all",
+            "--unshare-user",
+            "--userns-block-fd", str(pipe_r),
+            "--info-fd", str(info_w),
+            "--uid", str(self._setuid),
+            "--gid", str(self._setgid),
+        ]
+
+        if net:
+            args_pre.append("--share-net")
+        if setsid:
+            args_pre.append("--new-session")
+
+        if self._setuid == 0:
+            args_pre.extend([
+                "--cap-add", "CAP_CHOWN",
+                "--cap-add", "CAP_FOWNER",
+                "--cap-add", "CAP_DAC_OVERRIDE",
+                # Required to restore security file caps during package
+                # installation. On Linux 4.14+ these caps are tied to
+                # the user namespace in which they are created, but
+                # fakeroot will handle this correctly
+                "--cap-add", "CAP_SETFCAP",
+                # Used by apk_db_run_script
+                "--cap-add", "CAP_SYS_CHROOT",
+            ])
+
+        proc = subprocess.Popen(args_pre + args, **kwargs)
+        os.close(pipe_r)
+        os.close(info_w)
+        select.select([info_r], [], [])
+        info = json.load(os.fdopen(info_r))
+        retcodes = _userns_init(
+            info["child-pid"], self._owneruid, self._ownergid,
+        )
+        os.write(pipe_w, b"\n")
+        os.close(pipe_w)
+
+        proc.stdout, proc.stderr = proc.communicate()
+        retcodes.append(proc.returncode)
+        success = all(i == 0 for i in retcodes)
+        if not success:
+            _LOGGER.debug("container failed with status %r!", retcodes)
+        return (max(abs(i) for i in retcodes), proc)
+
+    @staticmethod
+    def _run_env(kwargs):
+        if "env" not in kwargs:
+            kwargs["env"] = {}
+        kwargs["env"].update({
+            "PACKAGER": "APK Foundry",
             "SRCDEST": apkfoundry.MOUNTS["srcdest"],
             "APORTSDIR": apkfoundry.MOUNTS["aportsdir"],
             "REPODEST": apkfoundry.MOUNTS["repodest"],
@@ -140,41 +200,22 @@ class Container:
             cmd,
             *,
             bootstrap=False,
-            net=False,
             repo=None,
             ro_aports=True,
             ro_root=True,
             skip_rootd=False,
             skip_mounts=False,
+
+            net=False,
             setsid=True,
             **kwargs):
 
         root_bind = "--ro-bind" if ro_root else "--bind"
         aports_bind = "--ro-bind" if ro_aports else "--bind"
 
-        info_r, info_w = os.pipe()
-        pipe_r, pipe_w = os.pipe()
-        if "pass_fds" in kwargs:
-            kwargs["pass_fds"].extend((pipe_r, info_w))
-        else:
-            kwargs["pass_fds"] = [pipe_r, info_w]
-
-        mounts = apkfoundry.MOUNTS.copy()
-        for mount in mounts:
-            mounts[mount] = self.cdir / "af/info" / mount
-            if not mounts[mount].is_symlink() and not skip_mounts:
-                raise FileNotFoundError(mounts[mount])
-
         self._run_env(kwargs)
 
         args = [
-            apkfoundry.SYSCONFDIR / "bwrap.nosuid",
-            "--unshare-all",
-            "--unshare-user",
-            "--userns-block-fd", str(pipe_r),
-            "--info-fd", str(info_w),
-            "--uid", str(self._setuid),
-            "--gid", str(self._setgid),
             root_bind, self.cdir, "/",
             "--dev-bind", "/dev", "/dev",
             "--proc", "/proc",
@@ -182,6 +223,11 @@ class Container:
         ]
 
         if not skip_mounts:
+            mounts = apkfoundry.MOUNTS.copy()
+            for mount in mounts:
+                mounts[mount] = self.cdir / "af/info" / mount
+                if not mounts[mount].is_symlink():
+                    raise FileNotFoundError(mounts[mount])
             args += [
                 "--bind", self.cdir / "tmp", "/tmp",
                 "--bind", self.cdir / "var/tmp", "/var/tmp",
@@ -191,70 +237,34 @@ class Container:
                 "--bind", mounts["builddir"], apkfoundry.MOUNTS["builddir"],
                 "--chdir", apkfoundry.MOUNTS["aportsdir"],
             ]
-        if not skip_mounts and (self.cdir / "af/info/cache").exists():
-            args += [
-                "--bind", self.cdir / "af/info/cache", "/etc/apk/cache",
-            ]
-
-        if repo and not skip_mounts:
-            (self.cdir / "af/info/repo").write_text(repo.strip())
-
-        if net:
-            args.append("--share-net")
+            if (self.cdir / "af/info/cache").exists():
+                args += [
+                    "--bind", self.cdir / "af/info/cache", "/etc/apk/cache",
+                ]
+            if repo:
+                (self.cdir / "af/info/repo").write_text(repo.strip())
 
         if self.rootd_conn and not skip_rootd:
             if self.refresh(**kwargs):
                 return 1, None
+            if "pass_fds" not in kwargs:
+                kwargs["pass_fds"] = []
             kwargs["pass_fds"].append(self.rootd_conn.fileno())
             args.extend((
                 "--setenv", "AF_ROOT_FD", str(self.rootd_conn.fileno()),
             ))
-
-        if self._setuid == 0:
-            args.extend([
-                "--cap-add", "CAP_CHOWN",
-                "--cap-add", "CAP_FOWNER",
-                "--cap-add", "CAP_DAC_OVERRIDE",
-                # Required to restore security file caps during package
-                # installation. On Linux 4.14+ these caps are tied to
-                # the user namespace in which they are created, but
-                # fakeroot will handle this correctly
-                "--cap-add", "CAP_SETFCAP",
-                # Used by apk_db_run_script
-                "--cap-add", "CAP_SYS_CHROOT",
-            ])
-
-        if setsid:
-            args.append("--new-session")
 
         setarch_f = self.cdir / "af/info/setarch"
         if setarch_f.is_file() and not (bootstrap or skip_mounts):
             args.extend(["setarch", setarch_f.read_text().strip()])
 
         args.extend(cmd)
-
-        proc = subprocess.Popen(args, **kwargs)
-
-        os.close(pipe_r)
-        os.close(info_w)
-
-        select.select([info_r], [], [])
-        info = json.load(os.fdopen(info_r))
-        retcodes = _userns_init(
-            info["child-pid"], self._owneruid, self._ownergid,
+        return self._bwrap(
+            args,
+            net=net,
+            setsid=setsid,
+            **kwargs,
         )
-        os.write(pipe_w, b"\n")
-        os.close(pipe_w)
-
-        proc.stdout, proc.stderr = proc.communicate()
-        retcodes.append(proc.returncode)
-
-        success = all(i == 0 for i in retcodes)
-
-        if not success:
-            _LOGGER.debug("container failed with status %r!", retcodes)
-
-        return (max(abs(i) for i in retcodes), proc)
 
 def _keygen(cdir):
     keydir = cdir / "af/key"
