@@ -169,15 +169,12 @@ class Container:
 
         args = [
             apkfoundry.SYSCONFDIR / "bwrap.nosuid",
+            "--unshare-all",
             "--unshare-user",
             "--userns-block-fd", str(pipe_r),
             "--info-fd", str(info_w),
             "--uid", str(self._setuid),
             "--gid", str(self._setgid),
-            "--unshare-cgroup",
-            "--unshare-ipc",
-            "--unshare-pid",
-            "--unshare-uts",
             root_bind, self.cdir, "/",
             "--dev-bind", "/dev", "/dev",
             "--proc", "/proc",
@@ -202,8 +199,8 @@ class Container:
         if repo and not skip_mounts:
             (self.cdir / "af/info/repo").write_text(repo.strip())
 
-        if not net:
-            args.append("--unshare-net")
+        if net:
+            args.append("--share-net")
 
         if self.rootd_conn and not skip_rootd:
             if self.refresh(**kwargs):
