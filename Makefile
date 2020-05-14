@@ -1,12 +1,14 @@
 # vi: noet
 DESTDIR = target
 PREFIX = usr
-SYSCONFDIR = etc/apkfoundry
-LIBEXECDIR = $(PREFIX)/libexec/apkfoundry
 DOCDIR = $(PREFIX)/share/doc/apkfoundry
+LIBEXECDIR = $(PREFIX)/libexec/apkfoundry
 LOCALSTATEDIR = var/lib/apkfoundry
+SYSCONFDIR = etc/apkfoundry
+export DOCDIR LIBEXECDIR SYSCONFDIR
 
-export SYSCONFDIR LIBEXECDIR DOCDIR
+BWRAP = bwrap.nosuid
+DEFAULT_ARCH = $(shell apk --print-arch)
 
 PYTHON = python3
 PYLINT = pylint
@@ -35,7 +37,7 @@ libexec/%: src/%.c
 libexec: $(C_TARGETS)
 
 .PHONY: install
-install: all paths
+install: all configure
 	$(SETUP.PY) install \
 		--root="$(DESTDIR)" \
 		--prefix="/$(PREFIX)"
@@ -48,29 +50,21 @@ install: all paths
 	chmod 770 "$(DESTDIR)/$(LOCALSTATEDIR)/build"
 	chmod g-s "$(DESTDIR)/$(LOCALSTATEDIR)/build"
 	-chown af-root:apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/build"
-	@echo
-	@echo '*****************************************'
-	@echo 'The following files should be installed'
-	@echo 'to "$(DESTDIR)/$(SYSCONFDIR)":'
-	@echo '	bwrap.nosuid'
-	@echo '	skel/etc/group'
-	@echo '	skel/etc/hosts'
-	@echo '	skel/etc/passwd'
-	@echo '	skel/etc/resolv.conf'
-	@echo '	skel:bootstrap/apk.static'
-	@echo '	skel:bootstrap/etc/apk/ca.pem'
-	@echo '	skel:bootstrap/etc/services'
-	@echo
-	@echo 'See the documentation for details.'
-	@echo '*****************************************'
-	@echo
+	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/apk-cache"
+	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/apk-cache"
+	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/rootfs-cache"
+	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/rootfs-cache"
+	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
+	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
 
-.PHONY: paths
-paths: apkfoundry/__init__.py
+.PHONY: configure
+configure: apkfoundry/__init__.py
 	sed -i \
-		-e '/SYSCONFDIR = Path("/s@("[^"]*")@("/$(SYSCONFDIR)")@' \
-		-e '/LIBEXECDIR = Path("/s@("[^"]*")@("/$(LIBEXECDIR)")@' \
-		-e '/LOCALSTATEDIR = Path("/s@("[^"]*")@("/$(LOCALSTATEDIR)")@' \
+		-e '/^BWRAP = /s@= .*@= "$(BWRAP)"@' \
+		-e '/^DEFAULT_ARCH = /s@= .*@= "$(DEFAULT_ARCH)"@' \
+		-e '/^LIBEXECDIR = /s@= .*@= "/$(LIBEXECDIR)"@' \
+		-e '/^LOCALSTATEDIR = /s@= .*@= "/$(LOCALSTATEDIR)"@' \
+		-e '/^SYSCONFDIR = /s@= .*@= "/$(SYSCONFDIR)"@' \
 		apkfoundry/__init__.py
 
 .PHONY: dist

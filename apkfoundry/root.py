@@ -6,12 +6,11 @@ import errno        # EBADF
 import logging      # getLogger
 import os           # close, umask, walk, write
 import selectors    # DefaultSelector, EVENT_READ
-import shutil       # copy2, move
 import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
 import sys          # exc_info
 from pathlib import Path
 
-import apkfoundry           # APK_STATIC, SYSCONFDIR
+import apkfoundry           # LOCALSTATEDIR
 import apkfoundry.container # Container
 import apkfoundry.socket    # SOCK_PATH, get_creds, recv_fds, send_retcode
 import apkfoundry._util as _util
@@ -307,110 +306,45 @@ _parse = {
     "abuild-adduser": ("adduser", _abuild_adduser),
 }
 
-def _force_copytree(src, dst):
-    src = Path(src)
-    dst = Path(dst)
-
-    copied_files = []
-
-    for srcpath, dirnames, filenames in os.walk(src):
-        srcpath = Path(srcpath)
-
-        dstpath = dst / srcpath.relative_to(src)
-        dstpath.mkdir(exist_ok=True)
-
-        for dirname in dirnames:
-            _LOGGER.debug("mkdir %s", dstpath / dirname)
-            (dstpath / dirname).mkdir(exist_ok=True)
-
-        for filename in filenames:
-            _LOGGER.debug("cp %s -> %s", srcpath / filename, dstpath / filename)
-            shutil.copy2(srcpath / filename, dstpath / filename)
-            copied_files.append(dstpath / filename)
-
-    return copied_files
-
-def _bootstrap_prepare(cdir):
-    bootstrap_files = _force_copytree(
-        apkfoundry.SYSCONFDIR / "skel:bootstrap", cdir
-    )
-
-    (cdir / "dev").mkdir(exist_ok=True)
-    (cdir / "tmp").mkdir(exist_ok=True)
-    (cdir / "var/tmp").mkdir(exist_ok=True, parents=True)
-    (cdir / "tmp").chmod(0o1777)
-    (cdir / "var/tmp").chmod(0o1777)
-
-    if (cdir / "af/info/cache").exists():
-        (cdir / "etc/apk/cache").mkdir(parents=True, exist_ok=True)
-
-    # --initdb will destroy this file >_<
-    world_f = cdir / "etc/apk/world"
-    if world_f.exists():
-        shutil.move(world_f, world_f.with_suffix(".af-bak"))
-        return bootstrap_files, world_f
-
-    return bootstrap_files, None
-
-def _bootstrap_clean(cdir, files):
-    for filename in files:
-        if filename.with_suffix(".apk-new").exists():
-            shutil.move(filename.with_suffix(".apk-new"), filename)
-        elif subprocess.call(
-                [apkfoundry.APK_STATIC, "--root", cdir, "info",
-                 "--who-owns", filename.relative_to(cdir)],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            ) != 0:
-            filename.unlink()
-
-def _cont_bootstrap(cdir, **kwargs):
+def _cont_bootstrap(cdir, uid, gid, **kwargs):
     cont = apkfoundry.container.Container(cdir)
-    bootstrap_files, world_f = _bootstrap_prepare(cdir)
-
-    # Initialize database
-    args = ["/apk.static", "add", "--initdb"]
-    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
-    if rc != 0:
+    rc, _ = cont.run_external(
+        (cdir / "af/bootstrap-stage1",), **kwargs,
+        net=True, env={
+            "AF_ROOTFS_CACHE": apkfoundry.LOCALSTATEDIR / "rootfs-cache",
+            "AF_BUILD_UID": str(uid),
+            "AF_BUILD_GID": str(gid),
+            "AF_ARCH": "x86_64", # FIXME don't hardcode
+        },
+    )
+    if rc:
         return rc
 
-    if world_f:
-        shutil.move(world_f.with_suffix(".af-bak"), world_f)
+    _cont_refresh(cont.cdir, **kwargs)
 
-    # Install packages
-    args = ["/apk.static", "--update-cache", "add", "--upgrade", "--latest"]
-    rc, _ = cont.run(args, ro_root=False, net=True, bootstrap=True, **kwargs)
-
-    _bootstrap_clean(cdir, bootstrap_files)
+    rc, _ = cont.run(
+        ("/af/bootstrap-stage2",), **kwargs,
+        net=True, ro_root=False,
+    )
 
     return rc
 
-def _cont_refresh(cdir):
-    cdir = Path(cdir)
-
-    branch = (cdir / "af/info/branch").read_text().strip()
-    repo = (cdir / "af/info/repo").read_text().strip()
-    arch = (cdir / "etc/apk/arch").read_text().strip()
+def _cont_refresh(cdir, **kwargs):
+    cont = apkfoundry.container.Container(cdir)
+    branch = (cont.cdir / "af/info/branch").read_text().strip()
     branchdir = _util.get_branchdir(
-        cdir / "af/info/aportsdir", branch
+        cont.cdir / "af/info/aportsdir", branch
     )
 
-    for skel in (
-            apkfoundry.SYSCONFDIR / "skel",
-            branchdir / "skel",
-            branchdir / f"skel:{repo}",
-            branchdir / f"skel::{arch}",
-            branchdir / f"skel:{repo}:{arch}",
-        ):
+    script = branchdir / "refresh"
+    if not script.is_file():
+        _LOGGER.warning("No refresh script found")
+        return
 
-        if not skel.is_dir():
-            _LOGGER.debug("could not find %s", skel)
-            continue
-
-        _force_copytree(skel, cdir)
-
-    abuild_conf = apkfoundry.SYSCONFDIR / "abuild.conf"
-    if abuild_conf.is_file():
-        shutil.copy2(abuild_conf, cdir / "etc/abuild.conf")
+    cont.run_external(
+        (script,), **kwargs,
+        net=True,
+    )
 
 class RootExc(Exception):
     pass
@@ -420,7 +354,7 @@ class RootConn(socketserver.StreamRequestHandler):
         super().setup()
         self.cdir = None
         self.fds = [-1, -1, -1]
-        self.pid = self.uid = -1
+        self.pid = self.uid = self.gid = -1
 
     def handle(self):
         announced = False
@@ -430,7 +364,9 @@ class RootConn(socketserver.StreamRequestHandler):
 
             try:
                 argv, fds = apkfoundry.socket.recv_fds(self.request)
-                self.pid, self.uid, _ = apkfoundry.socket.get_creds(self.request)
+                self.pid, self.uid, self.gid = apkfoundry.socket.get_creds(
+                    self.request
+                )
             except ConnectionError:
                 _LOGGER.info("[%d:%d] Disconnected", self.uid, self.pid)
                 break
@@ -463,7 +399,10 @@ class RootConn(socketserver.StreamRequestHandler):
                 self._err("Must call af-init first")
                 continue
             if cmd == "af-refresh":
-                _cont_refresh(self.cdir)
+                _cont_refresh(
+                    self.cdir,
+                    stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
+                )
                 apkfoundry.socket.send_retcode(self.request, 0)
                 continue
 
@@ -554,9 +493,10 @@ class RootConn(socketserver.StreamRequestHandler):
         rc = 0
 
         if opts.bootstrap:
-            _cont_refresh(self.cdir)
             rc = _cont_bootstrap(
                 self.cdir,
+                self.uid,
+                self.gid,
                 stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
             )
 

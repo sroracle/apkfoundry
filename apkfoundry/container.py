@@ -2,7 +2,6 @@
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
 import argparse   # ArgumentParser, REMAINDER
-import getpass    # getuser
 import grp        # getgrnam
 import json       # load
 import logging    # getLogger
@@ -13,8 +12,8 @@ import shutil     # chown, copy2, rmtree
 import subprocess # call, Popen
 from pathlib import Path
 
-import apkfoundry        # APK_STATIC, LIBEXECDIR, MOUNTS, SYSCONFDIR,
-                         # local_conf, site_conf
+import apkfoundry        # BWRAP, DEFAULT_ARCH, LIBEXECDIR, MOUNTS, local_conf,
+                         # site_conf
 import apkfoundry.socket # client_init, client_refresh
 import apkfoundry._util as _util
 
@@ -106,9 +105,10 @@ class Container:
             name: os.environ[name] for name in _KEEP_ENV \
             if name in os.environ and name not in kwargs["env"]
         })
+        user = "root" if self._setuid == 0 else "build"
         kwargs["env"].update({
-            "LOGNAME": getpass.getuser(),
-            "USER": getpass.getuser(),
+            "LOGNAME": user,
+            "USER": user,
             "UID": str(self._setuid),
             "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
         })
@@ -120,7 +120,7 @@ class Container:
         kwargs["pass_fds"].extend((pipe_r, info_w))
 
         args_pre = [
-            apkfoundry.SYSCONFDIR / "bwrap.nosuid",
+            apkfoundry.BWRAP,
             "--unshare-all",
             "--unshare-user",
             "--userns-block-fd", str(pipe_r),
@@ -146,6 +146,10 @@ class Container:
                 "--cap-add", "CAP_SETFCAP",
                 # Used by apk_db_run_script
                 "--cap-add", "CAP_SYS_CHROOT",
+
+                # Switch to build user
+                "--cap-add", "CAP_SETUID",
+                "--cap-add", "CAP_SETGID",
             ])
 
         proc = subprocess.Popen(args_pre + args, **kwargs)
@@ -184,6 +188,14 @@ class Container:
             "APK_FETCH": "/af/libexec/af-req-root apk",
         })
 
+    def run_external(self, cmd, **kwargs):
+        args = [
+            "--bind", "/", "/",
+            "--chdir", self.cdir,
+            *cmd,
+        ]
+        return self._bwrap(args, **kwargs)
+
     def destroy(self, **kwargs):
         args = [
             "--bind", "/", "/",
@@ -206,7 +218,6 @@ class Container:
     def run(self,
             cmd,
             *,
-            bootstrap=False,
             repo=None,
             ro_aports=True,
             ro_root=True,
@@ -262,7 +273,7 @@ class Container:
             ))
 
         setarch_f = self.cdir / "af/info/setarch"
-        if setarch_f.is_file() and not (bootstrap or skip_mounts):
+        if setarch_f.is_file() and not skip_mounts:
             args.extend(["setarch", setarch_f.read_text().strip()])
 
         args.extend(cmd)
@@ -273,35 +284,12 @@ class Container:
             **kwargs,
         )
 
-def _keygen(cdir):
-    keydir = cdir / "af/key"
-    env = os.environ.copy()
-    env["ABUILD_USERDIR"] = str(keydir)
-    _util.check_call(["abuild-keygen", "-anq"], env=env)
-
-    privkey = (keydir / "abuild.conf").read_text().strip()
-    privkey = privkey.replace("PACKAGER_PRIVKEY=\"", "", 1).rstrip("\"")
-    pubkey = privkey + ".pub"
-    shutil.copy2(pubkey, cdir / "etc/apk/keys")
-    privkey = Path(privkey).relative_to(cdir)
-    (keydir / "abuild.conf").write_text(f"PACKAGER_PRIVKEY=\"/{privkey}\"\n")
-
-def _fix_paths(cdir, *paths):
-    for i in paths:
-        for dirpath, _, filenames in os.walk(cdir / i):
-            dirpath = Path(dirpath)
-            dirpath.chmod(0o775)
-            shutil.chown(dirpath, group="apkfoundry")
-            for filename in filenames:
-                (dirpath / filename).chmod(0o664)
-                shutil.chown(dirpath / filename, group="apkfoundry")
-
 def _make_infodir(conf, opts):
     af_info = opts.cdir / "af/info"
     af_info.mkdir()
 
     (af_info / "branch").write_text(opts.branch.strip())
-    (af_info / "repo").write_text(conf["bootstrap_repo"].strip())
+    (af_info / "repo").write_text(conf["default_repo"].strip())
 
     if opts.setarch:
         (opts.cdir / "af/info/setarch").write_text(opts.setarch.strip())
@@ -380,35 +368,40 @@ def cont_make(args):
     opts.cdir = Path(opts.cdir)
 
     if not opts.arch:
-        opts.arch = _util.get_arch()
-
+        opts.arch = apkfoundry.DEFAULT_ARCH
     if not opts.branch:
         opts.branch = _util.get_branch(opts.aportsdir)
-
+    branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
     conf = apkfoundry.local_conf(opts.aportsdir, opts.branch)
 
     (opts.cdir / "af").mkdir(parents=True, exist_ok=True)
     shutil.chown(opts.cdir, group="apkfoundry")
     opts.cdir.chmod(0o770)
 
+    script1 = branchdir / "bootstrap-stage1"
+    script2 = branchdir / "bootstrap-stage2"
+    if not (script1.is_file() and script2.is_file()):
+        _LOGGER.error("missing bootstrap scripts")
+        return 1, None
+    shutil.copy2(script1, opts.cdir / "af")
+    shutil.copy2(script2, opts.cdir / "af")
+
     for mount in apkfoundry.MOUNTS.values():
         (opts.cdir / mount.lstrip("/")).mkdir(parents=True, exist_ok=True)
 
-    (opts.cdir / "etc/apk/keys").mkdir(parents=True, exist_ok=True)
-    (opts.cdir / "etc/apk/arch").write_text(opts.arch.strip() + "\n")
-
-    _keygen(opts.cdir)
-    _fix_paths(opts.cdir, "etc")
     _make_infodir(conf, opts)
 
     for i in ("af", "af/info"):
-        (opts.cdir / i).chmod(0o755)
+        (opts.cdir / i).chmod(0o770)
         shutil.chown(opts.cdir / i, group="apkfoundry")
 
     rc, conn = apkfoundry.socket.client_init(opts.cdir, bootstrap=True)
     if rc != 0:
         _LOGGER.error("Failed to connect to rootd")
         return rc, None
+
+    (opts.cdir / "af/bootstrap-stage1").unlink()
+    (opts.cdir / "af/bootstrap-stage2").unlink()
 
     return rc, conn
 

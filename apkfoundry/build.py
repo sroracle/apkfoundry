@@ -12,7 +12,7 @@ import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
 
-import apkfoundry           # LOCALSTATEDIR, MOUNTS, local_conf
+import apkfoundry           # DEFAULT_ARCH, LOCALSTATEDIR, MOUNTS, local_conf
 import apkfoundry.container # Container, cont_destroy, cont_make
 import apkfoundry.digraph   # generate_graph
 import apkfoundry.socket    # client_init
@@ -465,7 +465,7 @@ def buildrepo(args):
     opts = _buildrepo_args(args)
 
     if not opts.arch:
-        opts.arch = _util.get_arch()
+        opts.arch = apkfoundry.DEFAULT_ARCH
 
     if not (opts.aportsdir or opts.git_url) \
             or (opts.aportsdir and opts.git_url):

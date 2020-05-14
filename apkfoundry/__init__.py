@@ -7,12 +7,13 @@ import logging      # getLogger
 import os           # environ, pathsep
 from pathlib import Path
 
-SYSCONFDIR = Path("/etc/apkfoundry")
-LIBEXECDIR = Path(__file__).parent.parent / "libexec"
-if not LIBEXECDIR.is_dir():
-    LIBEXECDIR = Path("/usr/libexec/apkfoundry")
-LOCALSTATEDIR = Path("/var/lib/apkfoundry")
-APK_STATIC = SYSCONFDIR / "skel:bootstrap/apk.static"
+BWRAP = "bwrap.nosuid"
+DEFAULT_ARCH = "x86_64"
+_src = Path(__file__).parent.parent
+_maybe_src = lambda x, y: (_src / x) if (_src / x).is_dir() else Path(y)
+LIBEXECDIR = _maybe_src("libexec", "/usr/libexec/apkfoundry")
+LOCALSTATEDIR = _maybe_src("var", "/var/lib/apkfoundry")
+SYSCONFDIR = _maybe_src("etc", "/etc/apkfoundry")
 
 if "PATH" in os.environ:
     os.environ["PATH"] = str(LIBEXECDIR) + os.pathsep + os.environ["PATH"]
@@ -72,7 +73,7 @@ _DEFAULT_LOCAL_CONFIG = {
     "master": {
         # Required
         "repos": "",
-        "bootstrap_repo": "",
+        "default_repo": "",
         # Optional
         "deps_ignore": "",
         "deps_map": "",

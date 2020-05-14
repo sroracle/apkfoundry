@@ -66,16 +66,15 @@ container is typically reset to a reproducible state during each build.
 
 #. Bootstrap the container, if it does not already exist
 
-   #. Setup permissions of various directories and files so they can be
-      used by both ``af-root`` and the build user outside the container
-   #. Generate and install a packaging key
-   #. Copy the bootstrap skeleton into the container root
-   #. Use ``apk.static`` inside the container to install the base image
-   #. Remove the bootstrap skeleton files
+   #. Stage 1 (outside container): download and unpack rootfs, add build
+      user
+   #. Run the ``refresh`` script inside the container
+   #. Stage 2 (inside container): upgrade it, and generate and install a
+      packaging key
 
 #. Perform each build
 
-   #. Refresh the container from the non-bootstrap skeletons
+   #. Run the ``refresh`` script inside the container
    #. Run the ``build-script`` inside the container
 
 #. Re-sign ``.apk`` files outside of the container, if a re-signing key

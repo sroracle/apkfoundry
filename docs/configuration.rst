@@ -45,56 +45,6 @@ split into restricted files away from more mundane options.
     ; argument. To configure this, you would write:
     pmmx = i586
 
-Site bootstrap skeleton
-^^^^^^^^^^^^^^^^^^^^^^^
-
-The site bootstrap skeleton, located in
-``/etc/apkfoundry/skel:bootstrap``, contains files that are temporarily
-copied into the container when it is first being created. Once the
-container bootstrapping process is over, these files will be removed if
-they are not claimed by any package.
-
-Required contents are:
-
-``apk.static``
-    This is the statically linked ``apk(8)`` binary that is used to
-    bootstrap the installation of the packages inside of the container.
-
-Recommended contents for HTTPS support are:
-
-``etc/apk/ca.pem``
-    This is a certificate authority file which can contain multiple
-    certificate authority certificates. It should probably be symlinked
-    to ``/etc/ssl/certs/ca-certificates.crt`` or similar.
-
-``etc/services``
-    This is the Internet network services list ``services(5)`` file,
-    which is needed to determine the port on which HTTPS connections
-    occur. It should probably be symlinked to ``/etc/services``.
-
-Site skeleton
-^^^^^^^^^^^^^
-
-These files, located in ``/etc/apkfoundry/skel``, are copied into the
-container for each session, including during the bootstrapping process.
-Any existing files in the container will be overwritten.
-
-Recommended contents are:
-
-``etc/hosts``
-    The ``hosts(5)`` static hostname lookup file. Usually symlink to
-    ``/etc/hosts``.
-
-``etc/resolv.conf``
-    The ``resolv.conf(5)`` DNS resolution configuration file. Usually
-    symlink to ``/etc/resolv.conf``.
-
-``etc/passwd``
-    The ``passwd(5)`` user login database file.
-
-``etc/group``
-    The ``group(5)`` user group database file.
-
 abuild.conf
 ^^^^^^^^^^^
 
@@ -184,17 +134,17 @@ The mapping can also be specified in an alternate yet equivalent format:
 
 or any mix of the two formats.
 
-INI setting: bootstrap_repo
+INI setting: default_repo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The purpose of this **required** setting is to define with which what
 repository (i.e. from the ``repos`` setting) the container should be
-bootstrapped. For example:
+be initially set. For example:
 
 .. code-block:: ini
 
     [master]
-    bootstrap_repo = system
+    default_repo = system
 
 INI setting: deps_ignore
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -290,57 +240,3 @@ time to build.
 
 This setting supports both formats described in ``repos`` setting
 section.
-
-Skeletons
-^^^^^^^^^
-
-Similar to the site configuration skeleton directory, projects have
-their own skeletons that are forcibly copied into the container during
-each session. Each skeleton can be general, for a specific repository,
-for a specific architecture, or for a specific repository / architecture
-combination. The order in which the skeletons are copied into the
-container is:
-
-#. ``/etc/apkfoundry/skel``
-
-   As discussed previously.
-
-#. ``.apkfoundry/skel``
-
-   General skeleton for this branch. Recommended contents:
-
-   ``etc/apk/keys``
-       The public keys in this directory will be used by ``apk(8)`` to
-       verify packages.
-
-   ``etc/apk/world``
-       The file containing the names of packages that are to be
-       explicitly installed.
-
-#. ``.apkfoundry/branch/skel:repo``
-
-   Skeleton for this branch and repository. Recommended contents:
-
-   ``etc/apk/repositories``
-       The file containing the URLs and local paths to the repositories
-       from which to obtain packages.
-
-#. ``.apkfoundry/branch/skel::arch``
-
-   Skeleton for this branch and architecture. Recommended contents:
-
-   ``etc/abuild.conf.local``
-       The configuration file for ``abuild(1)`` itself. Usually has
-       architecture specific parameters such as ``CFLAGS``. It must end
-       in with a ``.local`` extension, as ``etc/abuild.conf`` will be
-       overridden by the site configuration as discussed previously.
-
-#. ``.apkfoundry/branch/skel:repo:arch``
-
-   Skeleton for this branch, repository, and architecture.
-
-**Note:** If the branch name contains slashes (``/``), these are
-replaced with colons (``:``).
-
-**Note:** If the ``.apkfoundry/branch`` directory doesn't exist for this
-branch, APK Foundry will fall back to using ``.apkfoundry/master``.
