@@ -32,6 +32,8 @@ def get_branchdir(gitdir=None, branch=None):
         branch = get_branch(gitdir)
     if not gitdir:
         gitdir = Path.cwd()
+    else:
+        gitdir = Path(gitdir)
     branch = branch.replace("/", ":")
     for i in (branch, "master"):
         path = gitdir / ".apkfoundry" / i
