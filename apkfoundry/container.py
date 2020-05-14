@@ -184,6 +184,13 @@ class Container:
             "APK_FETCH": "/af/libexec/af-req-root apk",
         })
 
+    def destroy(self, **kwargs):
+        args = [
+            "--bind", "/", "/",
+            "rm", "-rf", self.cdir,
+        ]
+        return self._bwrap(args, **kwargs)
+
     def refresh(self, **kwargs):
         rc = apkfoundry.socket.client_refresh(
             self.rootd_conn,
@@ -406,14 +413,8 @@ def cont_make(args):
     return rc, conn
 
 def cont_destroy(cdir):
-    cdir = Path(cdir)
-    for i in ("af/libexec", "dev", "proc"):
-        (cdir / i).mkdir(parents=True, exist_ok=True)
-
     rc, _ = apkfoundry.socket.client_init(cdir, destroy=True)
     if rc != 0:
         _LOGGER.error("Failed to connect to rootd")
-        return rc
 
-    shutil.rmtree(cdir)
-    return 0
+    return rc

@@ -23,8 +23,7 @@ LINT_TARGETS = \
 	libexec/gl-run
 
 C_TARGETS = \
-	libexec/af-req-root \
-	libexec/af-rm-container
+	libexec/af-req-root
 
 .PHONY: all
 all: libexec
