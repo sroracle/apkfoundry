@@ -8,7 +8,6 @@ import os           # close, umask, walk, write
 import selectors    # DefaultSelector, EVENT_READ
 import shutil       # copy2, move
 import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
-import subprocess   # DEVNULL, call
 import sys          # exc_info
 from pathlib import Path
 
