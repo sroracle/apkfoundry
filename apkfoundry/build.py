@@ -4,9 +4,9 @@
 import argparse   # ArgumentParser, FileType
 import enum       # Enum, IntFlag, unique
 import logging    # getLogger
+import os         # access, *_OK
 import re         # compile
 import shutil     # chown, copy2, rmtree
-import stat       # S_IMODE
 import subprocess # check_output
 import tempfile   # mkdtemp
 import textwrap   # TextWrapper
@@ -277,22 +277,12 @@ def _ensure_dir(name):
 
     if not name.is_dir():
         name.mkdir(parents=True)
-        shutil.chown(name, group="apkfoundry")
-        name.chmod(0o2775)
         return ok
 
-    if name.group() not in ("apkfoundry", "abuild"):
+    if not os.access(name, os.R_OK | os.W_OK | os.X_OK):
         ok = False
         _LOGGER.critical(
-            "%s doesn't belong to group apkfoundry or abuild",
-            name,
-        )
-
-    if stat.S_IMODE(name.stat().st_mode) != 0o2775:
-        print(name.stat().st_mode)
-        ok = False
-        _LOGGER.critical(
-            "%s doesn't have 2775 permissions",
+            "%s is not accessible",
             name,
         )
 
@@ -438,7 +428,9 @@ def _buildrepo_bootstrap(opts, cdir):
     cont_make_args = []
     if opts.repodest:
         cont_make_args += ["--repodest", opts.repodest]
-        Path(opts.repodest).mkdir(parents=True, exist_ok=True)
+        opts.repodest = Path(opts.repodest)
+        if not _ensure_dir(opts.repodest):
+            return _cleanup(1, None, opts.delete)
     if opts.srcdest:
         cont_make_args += ["--srcdest", opts.srcdest]
         opts.srcdest = Path(opts.srcdest)

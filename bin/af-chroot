@@ -23,6 +23,10 @@ opts.add_argument(
     help="enable network access",
 )
 opts.add_argument(
+    "--root", dest="root", action="store_true",
+    help="enter container as root",
+)
+opts.add_argument(
     "--no-rootd", dest="rootd", action="store_false",
     help="do not attempt to connect to rootd",
 )
@@ -67,6 +71,7 @@ cont = apkfoundry.container.Container(
 
 rc, _ = cont.run(
     opts.argv,
+    root=opts.root,
     net=opts.networking,
     repo=opts.repo,
     ro_aports=opts.ro_aports,

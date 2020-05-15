@@ -4,8 +4,6 @@
 # See LICENSE for more information.
 import argparse # ArgumentParser
 import logging  # basicConfig, critical, info
-import getpass  # getuser
-import sys      # exit
 
 import apkfoundry.root # listen
 
@@ -31,10 +29,6 @@ logging.basicConfig(
     level=opts.log_level,
     format="%(asctime)s %(levelname)s %(message)s",
 )
-
-if getpass.getuser() != "af-root":
-    logging.critical("Must be run as af-root")
-    sys.exit(1)
 
 logging.info("rootd started")
 try:

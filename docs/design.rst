@@ -37,8 +37,6 @@ container environment is setup with ``SUDO_APK``, ``ADDUSER``,
 
 In this model, the elevated privileges needed are:
 
-* Launch ``af-rootd`` as the ``af-root`` user, distinct
-  from the build user.
 * Execute ``clone(2)`` with the ``CLONE_NEWUSER`` flag (this is an
   unprivileged action in the mainline kernel, but some distributions
   require the non-standard ``kernel.unprivileged_userns_clone`` sysctl

@@ -1,5 +1,5 @@
 libexec/af-req-root
-libexec/af-rm-container
+libexec/af-su
 *.bak
 MANIFEST
 

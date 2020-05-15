@@ -2,11 +2,9 @@
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
 import argparse   # ArgumentParser, REMAINDER
-import grp        # getgrnam
 import json       # load
 import logging    # getLogger
-import os         # close, environ, fdopen, getuid, getgid, pipe, walk, write
-import pwd        # getpwuid
+import os         # close, environ, fdopen, getgid, getuid, pipe, walk, write
 import select     # select
 import shutil     # chown, copy2, rmtree
 import subprocess # call, Popen
@@ -25,20 +23,10 @@ _KEEP_ENV = (
 _SUBID = apkfoundry.site_conf().getint("container", "subid")
 
 def _idmap(cmd, pid, ent_id):
-    if cmd == "newuidmap":
-        holes = {
-            0: _util.rootid().pw_uid,
-            ent_id: ent_id,
-        }
-    else:
-        af_gid = grp.getgrnam("apkfoundry").gr_gid
-        holes = {
-            0: _util.rootid().pw_gid,
-            ent_id: ent_id,
-            af_gid: af_gid,
-        }
-
-    assert holes[0] != ent_id, "root ID cannot match user ID"
+    holes = {
+        0: _SUBID,
+        ent_id: ent_id,
+    }
 
     args = []
     for mapped, real in holes.items():
@@ -73,10 +61,8 @@ class Container:
         "cdir",
         "rootd_conn",
 
-        "_owneruid",
-        "_ownergid",
-        "_setuid",
-        "_setgid",
+        "_uid",
+        "_gid",
     )
 
     def __init__(self, cdir, *, rootd_conn=None):
@@ -84,32 +70,23 @@ class Container:
         if not self.cdir.exists():
             raise FileNotFoundError(f"'{self.cdir}' does not exist")
 
-        self._setuid = self._owneruid = os.getuid()
-        self._setgid = self._ownergid = os.getgid()
-
-        cdir_uid = self.cdir.stat().st_uid
-        if self._owneruid != cdir_uid:
-            if self._owneruid != _util.rootid().pw_uid:
-                raise PermissionError(f"'{self.cdir}' belongs to '{cdir_uid}'")
-
-            self._owneruid = cdir_uid
-            self._ownergid = pwd.getpwuid(self._owneruid).pw_gid
-            self._setuid = self._setgid = 0
+        self._uid = os.getuid()
+        self._gid = os.getgid()
 
         self.rootd_conn = rootd_conn
 
-    def _bwrap(self, args, *, net=False, setsid=True, **kwargs):
+    def _bwrap(self, args, *, net=False, root=False, setsid=True, **kwargs):
         if "env" not in kwargs:
             kwargs["env"] = {}
         kwargs["env"].update({
             name: os.environ[name] for name in _KEEP_ENV \
             if name in os.environ and name not in kwargs["env"]
         })
-        user = "root" if self._setuid == 0 else "build"
+        user = "root" if root else "build"
         kwargs["env"].update({
             "LOGNAME": user,
             "USER": user,
-            "UID": str(self._setuid),
+            "UID": str(0 if root else self._uid),
             "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
         })
 
@@ -125,8 +102,8 @@ class Container:
             "--unshare-user",
             "--userns-block-fd", str(pipe_r),
             "--info-fd", str(info_w),
-            "--uid", str(self._setuid),
-            "--gid", str(self._setgid),
+            "--uid", str(0 if root else self._uid),
+            "--gid", str(0 if root else self._gid),
         ]
 
         if net:
@@ -134,7 +111,7 @@ class Container:
         if setsid:
             args_pre.append("--new-session")
 
-        if self._setuid == 0:
+        if root:
             args_pre.extend([
                 "--cap-add", "CAP_CHOWN",
                 "--cap-add", "CAP_FOWNER",
@@ -146,8 +123,7 @@ class Container:
                 "--cap-add", "CAP_SETFCAP",
                 # Used by apk_db_run_script
                 "--cap-add", "CAP_SYS_CHROOT",
-
-                # Switch to build user
+                # Switch users (needed by af-su and bootstrap stage 2)
                 "--cap-add", "CAP_SETUID",
                 "--cap-add", "CAP_SETGID",
             ])
@@ -158,7 +134,7 @@ class Container:
         select.select([info_r], [], [])
         info = json.load(os.fdopen(info_r))
         retcodes = _userns_init(
-            info["child-pid"], self._owneruid, self._ownergid,
+            info["child-pid"], self._uid, self._gid,
         )
         os.write(pipe_w, b"\n")
         os.close(pipe_w)
@@ -192,16 +168,18 @@ class Container:
         args = [
             "--bind", "/", "/",
             "--chdir", self.cdir,
+            apkfoundry.LIBEXECDIR / "af-su",
             *cmd,
         ]
-        return self._bwrap(args, **kwargs)
+        return self._bwrap(args, **kwargs, root=True)
 
     def destroy(self, **kwargs):
         args = [
             "--bind", "/", "/",
+            apkfoundry.LIBEXECDIR / "af-su",
             "rm", "-rf", self.cdir,
         ]
-        return self._bwrap(args, **kwargs)
+        return self._bwrap(args, **kwargs, root=True)
 
     def refresh(self, **kwargs):
         rc = apkfoundry.socket.client_refresh(
@@ -275,6 +253,9 @@ class Container:
         setarch_f = self.cdir / "af/info/setarch"
         if setarch_f.is_file() and not skip_mounts:
             args.extend(["setarch", setarch_f.read_text().strip()])
+
+        if kwargs.get("root", False):
+            args.append("/af/libexec/af-su")
 
         args.extend(cmd)
         return self._bwrap(
@@ -375,7 +356,6 @@ def cont_make(args):
     conf = apkfoundry.local_conf(opts.aportsdir, opts.branch)
 
     (opts.cdir / "af").mkdir(parents=True, exist_ok=True)
-    shutil.chown(opts.cdir, group="apkfoundry")
     opts.cdir.chmod(0o770)
 
     script1 = branchdir / "bootstrap-stage1"
@@ -390,10 +370,6 @@ def cont_make(args):
         (opts.cdir / mount.lstrip("/")).mkdir(parents=True, exist_ok=True)
 
     _make_infodir(conf, opts)
-
-    for i in ("af", "af/info"):
-        (opts.cdir / i).chmod(0o770)
-        shutil.chown(opts.cdir / i, group="apkfoundry")
 
     rc, conn = apkfoundry.socket.client_init(opts.cdir, bootstrap=True)
     if rc != 0:

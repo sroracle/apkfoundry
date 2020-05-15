@@ -4,7 +4,7 @@
 import argparse     # ArgumentParser
 import errno        # EBADF
 import logging      # getLogger
-import os           # close, umask, walk, write
+import os           # close, getgid, getuid, umask, walk, write
 import selectors    # DefaultSelector, EVENT_READ
 import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
 import sys          # exc_info
@@ -306,14 +306,14 @@ _parse = {
     "abuild-adduser": ("adduser", _abuild_adduser),
 }
 
-def _cont_bootstrap(cdir, uid, gid, **kwargs):
+def _cont_bootstrap(cdir, **kwargs):
     cont = apkfoundry.container.Container(cdir)
     rc, _ = cont.run_external(
         (cdir / "af/bootstrap-stage1",), **kwargs,
         net=True, env={
             "AF_ROOTFS_CACHE": apkfoundry.LOCALSTATEDIR / "rootfs-cache",
-            "AF_BUILD_UID": str(uid),
-            "AF_BUILD_GID": str(gid),
+            "AF_BUILD_UID": str(os.getuid()),
+            "AF_BUILD_GID": str(os.getgid()),
             "AF_ARCH": "x86_64", # FIXME don't hardcode
         },
     )
@@ -324,7 +324,7 @@ def _cont_bootstrap(cdir, uid, gid, **kwargs):
 
     rc, _ = cont.run(
         ("/af/bootstrap-stage2",), **kwargs,
-        net=True, ro_root=False,
+        root=True, net=True, ro_root=False,
     )
 
     return rc
@@ -354,7 +354,7 @@ class RootConn(socketserver.StreamRequestHandler):
         super().setup()
         self.cdir = None
         self.fds = [-1, -1, -1]
-        self.pid = self.uid = self.gid = -1
+        self.pid = -1
 
     def handle(self):
         announced = False
@@ -364,18 +364,18 @@ class RootConn(socketserver.StreamRequestHandler):
 
             try:
                 argv, fds = apkfoundry.socket.recv_fds(self.request)
-                self.pid, self.uid, self.gid = apkfoundry.socket.get_creds(
+                self.pid, _, _ = apkfoundry.socket.get_creds(
                     self.request
                 )
             except ConnectionError:
-                _LOGGER.info("[%d:%d] Disconnected", self.uid, self.pid)
+                _LOGGER.info("[%d] Disconnected", self.pid)
                 break
             if not argv:
-                _LOGGER.info("[%d:%d] Disconnected", self.uid, self.pid)
+                _LOGGER.info("[%d] Disconnected", self.pid)
                 break
 
             if not announced:
-                _LOGGER.info("[%d:%d] Connected", self.uid, self.pid)
+                _LOGGER.info("[%d] Connected", self.pid)
                 announced = True
 
             if not fds:
@@ -411,8 +411,8 @@ class RootConn(socketserver.StreamRequestHandler):
                 continue
 
             _LOGGER.info(
-                "[%d:%d] Received command: %s",
-                self.uid, self.pid, " ".join(argv),
+                "[%d] Received command: %s",
+                self.pid, " ".join(argv),
             )
 
             try:
@@ -426,7 +426,7 @@ class RootConn(socketserver.StreamRequestHandler):
                 cont = apkfoundry.container.Container(self.cdir)
                 rc, _ = cont.run(
                     argv,
-                    net=True, ro_root=False,
+                    root=True, net=True, ro_root=False,
                     stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
                 )
 
@@ -480,11 +480,6 @@ class RootConn(socketserver.StreamRequestHandler):
             self._err("Nonexistent container: %s", opts.cdir)
             return
 
-        owner = opts.cdir.stat().st_uid
-        if self.uid != owner and self.uid != _util.rootid().pw_uid:
-            self._err("%s belongs to %s", opts.cdir, owner)
-            return
-
         if opts.bootstrap and opts.destroy:
             self._err("cannot bootstrap and destroy at the same time")
             return
@@ -495,8 +490,6 @@ class RootConn(socketserver.StreamRequestHandler):
         if opts.bootstrap:
             rc = _cont_bootstrap(
                 self.cdir,
-                self.uid,
-                self.gid,
                 stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
             )
 
@@ -521,7 +514,7 @@ class RootConn(socketserver.StreamRequestHandler):
         except ConnectionError:
             pass
 
-        _LOGGER.error("[%d:%d] " + fmt, self.uid, self.pid, *args)
+        _LOGGER.error("[%d] " + fmt, self.pid, *args)
 
 class RootServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     def __init__(self, sel):
