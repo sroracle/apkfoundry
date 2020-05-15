@@ -176,13 +176,13 @@ class Container:
         ]
         return self._bwrap(args, **kwargs, root=True)
 
-    def bootstrap(self):
+    def bootstrap(self, arch):
         rc, _ = self.run_external(
             (self.cdir / "af/bootstrap-stage1",),
             net=True,
             env={
                 "AF_ROOTFS_CACHE": apkfoundry.LOCALSTATEDIR / "rootfs-cache",
-                "AF_ARCH": "x86_64", # FIXME don't hardcode
+                "AF_ARCH": arch,
             },
         )
         if rc:
@@ -403,7 +403,7 @@ def cont_make(args):
     _make_infodir(conf, opts)
 
     cont = Container(opts.cdir)
-    rc = cont.bootstrap()
+    rc = cont.bootstrap(opts.arch)
     if rc:
         return None
 
