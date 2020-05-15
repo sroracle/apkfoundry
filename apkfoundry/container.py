@@ -34,7 +34,7 @@ def _idmap(cmd, pid, ent_id):
 
     gaps = list(holes.keys())
     gaps = list(zip(gaps[:-1], gaps[1:]))
-    gaps.append((max(holes.keys()), 65535))
+    gaps.append((max(holes.keys()), 65536))
 
     for map0, map1 in gaps:
         if not map0 - map1 or not map1 - (map0 + 1):

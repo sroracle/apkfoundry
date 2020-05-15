@@ -7,13 +7,8 @@ base="${1:-100000}"
 
 user="$(id -un)"
 uid="$(id -u)"
-uid_root="$(getent passwd af-root | cut -d : -f 3)"
 
 cat <<-EOF
-af-root:$uid_root:1
-af-root:$uid:1
-af-root:$base:65535
 $user:$uid:1
-$user:$uid_root:1
-$user:$base:65535
+$user:$base:65536
 EOF
