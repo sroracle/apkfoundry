@@ -5,14 +5,12 @@ import argparse     # ArgumentParser
 import errno        # EBADF
 import logging      # getLogger
 import os           # close, getgid, getuid, umask, walk, write
-import selectors    # DefaultSelector, EVENT_READ
-import socketserver # ThreadingMixIn, StreamRequestHandler, UnixStreamServer
-import sys          # exc_info
+import socketserver # StreamRequestHandler
 from pathlib import Path
 
 import apkfoundry           # LOCALSTATEDIR
 import apkfoundry.container # Container
-import apkfoundry.socket    # SOCK_PATH, get_creds, recv_fds, send_retcode
+import apkfoundry.socket    # recv_fds, send_retcode
 import apkfoundry._util as _util
 
 _LOGGER = logging.getLogger(__name__)
@@ -349,15 +347,11 @@ def _cont_refresh(cdir, **kwargs):
         net=True,
     )
 
-class RootExc(Exception):
-    pass
-
 class RootConn(socketserver.StreamRequestHandler):
     def setup(self):
         super().setup()
         self.cdir = None
         self.fds = [-1, -1, -1]
-        self.pid = -1
 
     def handle(self):
         announced = False
@@ -367,18 +361,15 @@ class RootConn(socketserver.StreamRequestHandler):
 
             try:
                 argv, fds = apkfoundry.socket.recv_fds(self.request)
-                self.pid, _, _ = apkfoundry.socket.get_creds(
-                    self.request
-                )
             except ConnectionError:
-                _LOGGER.info("[%d] Disconnected", self.pid)
+                _LOGGER.debug("Disconnected")
                 break
             if not argv:
-                _LOGGER.info("[%d] Disconnected", self.pid)
+                _LOGGER.debug("Disconnected")
                 break
 
             if not announced:
-                _LOGGER.info("[%d] Connected", self.pid)
+                _LOGGER.debug("Connected")
                 announced = True
 
             if not fds:
@@ -413,10 +404,7 @@ class RootConn(socketserver.StreamRequestHandler):
                 self._err("Command not allowed: %s", cmd)
                 continue
 
-            _LOGGER.info(
-                "[%d] Received command: %s",
-                self.pid, " ".join(argv),
-            )
+            _LOGGER.debug("Received command: %s", " ".join(argv))
 
             try:
                 _parse[cmd][1](argv[1:])
@@ -517,38 +505,4 @@ class RootConn(socketserver.StreamRequestHandler):
         except ConnectionError:
             pass
 
-        _LOGGER.error("[%d] " + fmt, self.pid, *args)
-
-class RootServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
-    def __init__(self, sel):
-        self.sel = sel
-
-        try:
-            apkfoundry.socket.SOCK_PATH.unlink()
-        except FileNotFoundError:
-            pass
-        oldmask = os.umask(0o007)
-        super().__init__(str(apkfoundry.socket.SOCK_PATH), RootConn)
-        os.umask(oldmask)
-
-    def handle_error(self, request, _):
-        _, exc, _ = sys.exc_info()
-        _LOGGER.exception("%s", exc)
-
-        try:
-            apkfoundry.socket.send_retcode(request, 1)
-        except ConnectionError:
-            pass
-
-def listen():
-    sel = selectors.DefaultSelector()
-    sock = RootServer(sel)
-
-    sel.register(
-        sock.fileno(), selectors.EVENT_READ,
-        (sock.handle_request,)
-    )
-
-    while True:
-        for key, _ in sel.select():
-            key.data[0](*key.data[1:])
+        _LOGGER.error(fmt, *args)

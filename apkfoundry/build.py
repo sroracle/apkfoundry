@@ -15,7 +15,6 @@ from pathlib import Path
 import apkfoundry           # DEFAULT_ARCH, LOCALSTATEDIR, MOUNTS, local_conf
 import apkfoundry.container # Container, cont_destroy, cont_make
 import apkfoundry.digraph   # generate_graph
-import apkfoundry.socket    # client_init
 import apkfoundry._log as _log
 import apkfoundry._util as _util
 

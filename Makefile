@@ -21,7 +21,6 @@ LINT_TARGETS = \
 	bin/af-depgraph \
 	bin/af-mkchroot \
 	bin/af-rmchroot \
-	bin/af-rootd \
 	libexec/gl-run
 
 C_TARGETS = \

@@ -2,11 +2,13 @@
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
 import logging      # getLogger
-import socket       # socket, various constants
+import socket       # socketpair, various constants
 import struct       # calcsize, pack, Struct, unpack
 import sys          # std*
+import threading    # Thread
 
-import apkfoundry   # LOCALSTATEDIR
+import apkfoundry      # LOCALSTATEDIR
+import apkfoundry.root # RootServer
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,8 +17,6 @@ _PASSFD_FMT = _NUM_FDS * "i"
 _PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(_PASSFD_FMT))
 _RC_FMT = "i"
 _BUF_SIZE = 4096
-
-SOCK_PATH = apkfoundry.LOCALSTATEDIR / "root.sock"
 
 def send_fds(conn, msg, fds):
     assert len(fds) == _NUM_FDS
@@ -46,17 +46,6 @@ def recv_fds(conn):
 
     return (msg, fds)
 
-def get_creds(conn):
-    # pid_t, uid_t, gid_t
-    creds = struct.Struct("iII")
-    return creds.unpack(
-        conn.getsockopt(
-            socket.SOL_SOCKET,
-            socket.SO_PEERCRED,
-            creds.size,
-        ),
-    )
-
 def send_retcode(conn, rc):
     conn.send(struct.pack(_RC_FMT, rc))
 
@@ -75,8 +64,12 @@ def client_init(
     ):
     assert not (bootstrap and destroy)
 
-    conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    conn.connect(str(SOCK_PATH))
+    server, client = socket.socketpair()
+    root_thread = threading.Thread(
+        target=apkfoundry.root.RootConn,
+        args=(server, None, None),
+        daemon=True,
+    )
 
     if stdin is None:
         stdin = sys.stdin
@@ -93,8 +86,9 @@ def client_init(
     msg.append(str(cdir))
     msg = "\0".join(msg).encode("utf-8")
 
+    root_thread.start()
     send_fds(
-        conn,
+        client,
         msg,
         [
             stdin.fileno(),
@@ -103,8 +97,8 @@ def client_init(
         ],
     )
 
-    rc = recv_retcode(conn)
-    return (rc, conn)
+    rc = recv_retcode(client)
+    return (rc, client)
 
 def client_refresh(conn, stdin=None, stdout=None, stderr=None):
     if stdin is None:
