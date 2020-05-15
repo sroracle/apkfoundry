@@ -10,9 +10,9 @@ import shutil     # chown, copy2, rmtree
 import subprocess # call, Popen
 from pathlib import Path
 
-import apkfoundry        # BWRAP, DEFAULT_ARCH, LIBEXECDIR, LOCALSTATEDIR,
-                         # MOUNTS, local_conf, site_conf
-import apkfoundry.socket # client_init
+import apkfoundry         # BWRAP, DEFAULT_ARCH, LIBEXECDIR, LOCALSTATEDIR,
+                          # MOUNTS, local_conf, site_conf
+import apkfoundry._root as _root
 import apkfoundry._util as _util
 
 _LOGGER = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ class Container:
         self._gid = os.getgid()
 
         if rootd:
-            self.rootd_conn = apkfoundry.socket.client_init(self.cdir)
+            self.rootd_conn = _root.client_init(self.cdir)
         else:
             self.rootd_conn = None
 

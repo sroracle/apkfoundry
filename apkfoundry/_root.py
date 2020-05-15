@@ -5,13 +5,21 @@ import argparse     # ArgumentParser
 import errno        # EBADF
 import logging      # getLogger
 import os           # close, write
+import socket       # CMSG_SPACE, SOL_SOCKET, SCM_RIGHTS, socketpair
 import socketserver # StreamRequestHandler
+import struct       # calcsize, pack, unpack
+import threading    # Thread
 from pathlib import Path
 
 import apkfoundry.container # Container
-import apkfoundry.socket    # recv_fds, send_retcode
 
 _LOGGER = logging.getLogger(__name__)
+
+_NUM_FDS = 3
+_PASSFD_FMT = _NUM_FDS * "i"
+_PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(_PASSFD_FMT))
+_RC_FMT = "i"
+_BUF_SIZE = 4096
 
 class _ParseOrRaise(argparse.ArgumentParser):
     class Error(Exception):
@@ -302,6 +310,35 @@ _parse = {
     "abuild-adduser": ("adduser", _abuild_adduser),
 }
 
+def recv_fds(conn):
+    msg, anc, _, _ = conn.recvmsg(
+        _BUF_SIZE, _PASSFD_SIZE
+    )
+
+    if anc:
+        anc = anc[0]
+        assert anc[0] == socket.SOL_SOCKET
+        assert anc[1] == socket.SCM_RIGHTS
+        fds = struct.unpack(_PASSFD_FMT, anc[2])
+    else:
+        fds = tuple()
+
+    return (msg, fds)
+
+def send_retcode(conn, rc):
+    conn.send(struct.pack(_RC_FMT, rc))
+
+def client_init(cdir):
+    server, client = socket.socketpair()
+    root_thread = threading.Thread(
+        target=RootConn,
+        args=(server, cdir),
+        daemon=True,
+    )
+
+    root_thread.start()
+    return client
+
 class RootConn(socketserver.StreamRequestHandler):
     def __init__(self, sock, cdir):
         self.cdir = Path(cdir)
@@ -318,7 +355,7 @@ class RootConn(socketserver.StreamRequestHandler):
             self._close_fds()
 
             try:
-                argv, fds = apkfoundry.socket.recv_fds(self.request)
+                argv, fds = recv_fds(self.request)
             except ConnectionError:
                 _LOGGER.debug("Disconnected")
                 break
@@ -360,7 +397,7 @@ class RootConn(socketserver.StreamRequestHandler):
                     stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
                 )
 
-                apkfoundry.socket.send_retcode(self.request, rc)
+                send_retcode(self.request, rc)
             except ConnectionError:
                 pass
 
@@ -387,7 +424,7 @@ class RootConn(socketserver.StreamRequestHandler):
             pass
 
         try:
-            apkfoundry.socket.send_retcode(self.request, 1)
+            send_retcode(self.request, 1)
         except ConnectionError:
             pass
 
