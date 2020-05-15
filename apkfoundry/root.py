@@ -310,10 +310,9 @@ def _cont_bootstrap(cdir, **kwargs):
     cont = apkfoundry.container.Container(cdir)
     rc, _ = cont.run_external(
         (cdir / "af/bootstrap-stage1",), **kwargs,
-        net=True, env={
+        net=True,
+        env={
             "AF_ROOTFS_CACHE": apkfoundry.LOCALSTATEDIR / "rootfs-cache",
-            "AF_BUILD_UID": str(os.getuid()),
-            "AF_BUILD_GID": str(os.getgid()),
             "AF_ARCH": "x86_64", # FIXME don't hardcode
         },
     )
@@ -325,6 +324,10 @@ def _cont_bootstrap(cdir, **kwargs):
     rc, _ = cont.run(
         ("/af/bootstrap-stage2",), **kwargs,
         root=True, net=True, ro_root=False,
+        env={
+            "AF_BUILD_UID": str(os.getuid()),
+            "AF_BUILD_GID": str(os.getgid()),
+        },
     )
 
     return rc
