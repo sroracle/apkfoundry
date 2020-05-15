@@ -6,7 +6,6 @@
 
 * Immediate implementation wishlist
 
-  * Integrate af-rootd into main process
   * Project configuration - uploading
   * Perhaps loosen the restrictions on the usage of $SUDO_APK - or
     otherwise document what they are. In general, add documentation
