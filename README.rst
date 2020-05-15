@@ -16,7 +16,8 @@ Dependencies
 * Python 3.6+
 * `bubblewrap <https://github.com/containers/bubblewrap>`_ (installed as
   non-setuid)
-* Linux kernel with unprivileged user namespace support
+* Linux kernel with unprivileged user namespace support (preferably >=
+  4.15 because < 4.15 has limited ID mapping)
 * `shadow-uidmap <https://github.com/shadow-maint/shadow>`_
 
 * GitLab runner (optional - supported integration)
