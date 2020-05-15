@@ -202,13 +202,13 @@ class Container:
         )
         return rc
 
-    def destroy(self, **kwargs):
+    def destroy(self):
         args = [
             "--bind", "/", "/",
             apkfoundry.LIBEXECDIR / "af-su",
             "rm", "-rf", self.cdir,
         ]
-        return self._bwrap(args, **kwargs, root=True)
+        return self._bwrap(args, root=True)
 
     def refresh(self, setsid=False):
         branch = (self.cdir / "af/info/branch").read_text().strip()
