@@ -14,8 +14,6 @@ Dependencies
 ------------
 
 * Python 3.6+
-* `apk-tools <https://gitlab.alpinelinux.org/alpine/apk-tools>`_
-  (``apk.static`` only)
 * `bubblewrap <https://github.com/containers/bubblewrap>`_ (installed as
   non-setuid)
 * Linux kernel with unprivileged user namespace support
