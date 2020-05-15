@@ -11,7 +11,7 @@ import subprocess # call, Popen
 from pathlib import Path
 
 import apkfoundry         # BWRAP, DEFAULT_ARCH, LIBEXECDIR, LOCALSTATEDIR,
-                          # MOUNTS, local_conf, site_conf
+                          # MOUNTS, SYSCONFDIR, local_conf, site_conf
 import apkfoundry._root as _root
 import apkfoundry._util as _util
 
@@ -181,8 +181,9 @@ class Container:
             (self.cdir / "af/bootstrap-stage1",),
             net=True,
             env={
-                "AF_ROOTFS_CACHE": apkfoundry.LOCALSTATEDIR / "rootfs-cache",
                 "AF_ARCH": arch,
+                "AF_ROOTFS_CACHE": apkfoundry.LOCALSTATEDIR / "rootfs-cache",
+                "AF_SYSCONFDIR": apkfoundry.SYSCONFDIR,
             },
         )
         if rc:
@@ -221,7 +222,13 @@ class Container:
             _LOGGER.warning("No refresh script found")
             return 0
 
-        rc, _ = self.run_external((script,), setsid=setsid, net=True)
+        rc, _ = self.run_external(
+            (script,),
+            setsid=setsid, net=True,
+            env={
+                "AF_SYSCONFDIR": apkfoundry.SYSCONFDIR,
+            },
+        )
         return rc
 
     def run(self,
