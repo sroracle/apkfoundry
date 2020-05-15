@@ -42,21 +42,23 @@ install: all configure
 	$(SETUP.PY) install \
 		--root="$(DESTDIR)" \
 		--prefix="/$(PREFIX)"
-	chmod 750 "$(DESTDIR)/$(SYSCONFDIR)"
+	chmod 2755 "$(DESTDIR)/$(SYSCONFDIR)"
 	-chgrp apkfoundry "$(DESTDIR)/$(SYSCONFDIR)"
 	mkdir -p "$(DESTDIR)/$(LOCALSTATEDIR)"
 	chmod 2770 "$(DESTDIR)/$(LOCALSTATEDIR)"
-	-chown af-root:apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)"
+	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)"
 	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/build"
 	chmod 770 "$(DESTDIR)/$(LOCALSTATEDIR)/build"
-	chmod g-s "$(DESTDIR)/$(LOCALSTATEDIR)/build"
-	-chown af-root:apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/build"
+	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/build"
 	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/apk-cache"
 	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/apk-cache"
+	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/apk-cache"
 	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/rootfs-cache"
 	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/rootfs-cache"
+	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/rootfs-cache"
 	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
 	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
+	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
 
 .PHONY: configure
 configure: apkfoundry/__init__.py
