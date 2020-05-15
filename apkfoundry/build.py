@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
-import argparse   # ArgumentParser, FileType
+import argparse   # ArgumentParser
 import enum       # Enum, IntFlag, unique
 import logging    # getLogger
 import os         # access, *_OK
@@ -13,7 +13,7 @@ import textwrap   # TextWrapper
 from pathlib import Path
 
 import apkfoundry           # DEFAULT_ARCH, LOCALSTATEDIR, MOUNTS, local_conf
-import apkfoundry.container # Container, cont_destroy, cont_make
+import apkfoundry.container # cont_make
 import apkfoundry.digraph   # generate_graph
 import apkfoundry._log as _log
 import apkfoundry._util as _util
@@ -263,10 +263,10 @@ def resignapk(cdir, privkey, pubkey):
     ))
     _log.section_end(_LOGGER)
 
-def _cleanup(rc, cdir, delete):
-    if cdir and (delete == "always" or (delete == "on-success" and rc == 0)):
+def _cleanup(rc, cont, delete):
+    if cont and (delete == "always" or (delete == "on-success" and rc == 0)):
         _LOGGER.info("Deleting container...")
-        rc2 = apkfoundry.container.cont_destroy(cdir)
+        rc2, _ = cont.destroy()
         rc = rc2 if rc == 0 else rc
 
     return rc
@@ -448,9 +448,9 @@ def _buildrepo_bootstrap(opts, cdir):
         "--branch", opts.branch,
         "--", str(cdir), str(opts.aportsdir),
     ]
-    rc, conn = apkfoundry.container.cont_make(cont_make_args)
+    cont = apkfoundry.container.cont_make(cont_make_args)
     _log.section_end(_LOGGER)
-    return rc, conn
+    return cont
 
 def buildrepo(args):
     opts = _buildrepo_args(args)
@@ -506,17 +506,15 @@ def buildrepo(args):
         _LOGGER.info("No packages to build!")
         return _cleanup(0, None, opts.delete)
 
-    rc, conn = _buildrepo_bootstrap(opts, cdir)
-    if rc != 0:
+    cont = _buildrepo_bootstrap(opts, cdir)
+    if not cont:
         _LOGGER.error("Failed to bootstrap container")
-        return _cleanup(rc, cdir, opts.delete)
+        return _cleanup(1, cont, opts.delete)
 
     shutil.copy2(
         branchdir / "build-script",
         cdir / "af/build-script",
     )
-
-    cont = apkfoundry.container.Container(cdir, rootd_conn=conn)
     rc = run_job(cont, conf, opts.startdirs)
 
     if opts.key:
@@ -524,4 +522,4 @@ def buildrepo(args):
             opts.pubkey = Path(opts.key).name + ".pub"
         resignapk(cdir, opts.key, opts.pubkey)
 
-    return _cleanup(rc, cdir, opts.delete)
+    return _cleanup(rc, cont, opts.delete)

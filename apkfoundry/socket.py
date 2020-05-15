@@ -2,12 +2,10 @@
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
 import logging      # getLogger
-import socket       # socketpair, various constants
-import struct       # calcsize, pack, Struct, unpack
-import sys          # std*
+import socket       # CMSG_SPACE, SOL_SOCKET, SCM_RIGHTS, socketpair
+import struct       # calcsize, pack, unpack
 import threading    # Thread
 
-import apkfoundry      # LOCALSTATEDIR
 import apkfoundry.root # RootServer
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,19 +15,6 @@ _PASSFD_FMT = _NUM_FDS * "i"
 _PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(_PASSFD_FMT))
 _RC_FMT = "i"
 _BUF_SIZE = 4096
-
-def send_fds(conn, msg, fds):
-    assert len(fds) == _NUM_FDS
-    assert len(msg) <= _BUF_SIZE
-
-    conn.sendmsg(
-        [msg],
-        [(
-            socket.SOL_SOCKET,
-            socket.SCM_RIGHTS,
-            struct.pack(_PASSFD_FMT, *fds),
-        )],
-    )
 
 def recv_fds(conn):
     msg, anc, _, _ = conn.recvmsg(
@@ -49,74 +34,13 @@ def recv_fds(conn):
 def send_retcode(conn, rc):
     conn.send(struct.pack(_RC_FMT, rc))
 
-def recv_retcode(conn):
-    rc = conn.recv(_BUF_SIZE)
-    (rc,) = struct.unpack(_RC_FMT, rc)
-    return rc
-
-def client_init(
-        cdir,
-        bootstrap=False,
-        destroy=False,
-        stdin=None,
-        stdout=None,
-        stderr=None,
-    ):
-    assert not (bootstrap and destroy)
-
+def client_init(cdir):
     server, client = socket.socketpair()
     root_thread = threading.Thread(
         target=apkfoundry.root.RootConn,
-        args=(server, None, None),
+        args=(server, cdir),
         daemon=True,
     )
 
-    if stdin is None:
-        stdin = sys.stdin
-    if stdout is None:
-        stdout = sys.stdout
-    if stderr is None:
-        stderr = sys.stderr
-
-    msg = ["af-init"]
-    if bootstrap:
-        msg.append("--bootstrap")
-    elif destroy:
-        msg.append("--destroy")
-    msg.append(str(cdir))
-    msg = "\0".join(msg).encode("utf-8")
-
     root_thread.start()
-    send_fds(
-        client,
-        msg,
-        [
-            stdin.fileno(),
-            stdout.fileno(),
-            stderr.fileno(),
-        ],
-    )
-
-    rc = recv_retcode(client)
-    return (rc, client)
-
-def client_refresh(conn, stdin=None, stdout=None, stderr=None):
-    if stdin is None:
-        stdin = sys.stdin
-    if stdout is None:
-        stdout = sys.stdout
-    if stderr is None:
-        stderr = sys.stderr
-
-    send_fds(
-        conn,
-        b"af-refresh",
-        [
-            stdin.fileno(),
-            stdout.fileno(),
-            stderr.fileno(),
-        ],
-    )
-
-    rc = recv_retcode(conn)
-    return rc
+    return client

@@ -12,5 +12,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-rc, _ = apkfoundry.container.cont_make(sys.argv[1:])
-sys.exit(rc)
+cont = apkfoundry.container.cont_make(sys.argv[1:])
+if not cont:
+    sys.exit(1)

@@ -5,7 +5,7 @@
 # See LICENSE for more information.
 import base64     # b64decode
 import logging    # info, error
-import os         # environ
+import os         # chdir, environ
 import shutil     # copy2, rmtree
 import subprocess # check_output
 import sys        # argv, exit
@@ -210,11 +210,7 @@ def after_script(script, env):
     shutil.copy2(script, env.cdir / "af/after-script")
     sanitize_script(env.cdir / "af/after-script")
 
-    rc, conn = apkfoundry.socket.client_init(env.cdir)
-    if rc != 0:
-        logging.error("Failed to connect to rootd")
-        return rc
-
+    conn = apkfoundry.socket.client_init(env.cdir)
     cont = apkfoundry.container.Container(env.cdir, rootd_conn=conn)
     return cont.run(["/af/after-script"])[0]
 

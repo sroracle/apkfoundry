@@ -4,7 +4,7 @@
 # Based on py-dag 3.0.1
 # https://github.com/thieman/py-dag
 # See LICENSE.MIT for more information.
-import collections # defaultdict, deque, OrderedDict
+import collections # OrderedDict, defaultdict, deque
 import logging     # getLogger
 import subprocess  # PIPE, run
 

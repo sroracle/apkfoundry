@@ -1,18 +1,18 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
-import argparse   # ArgumentParser, REMAINDER
+import argparse   # ArgumentParser
 import json       # load
 import logging    # getLogger
-import os         # close, environ, fdopen, getgid, getuid, pipe, walk, write
+import os         # close, environ, fdopen, getgid, getuid, pipe, write
 import select     # select
 import shutil     # chown, copy2, rmtree
 import subprocess # call, Popen
 from pathlib import Path
 
-import apkfoundry        # BWRAP, DEFAULT_ARCH, LIBEXECDIR, MOUNTS, local_conf,
-                         # site_conf
-import apkfoundry.socket # client_init, client_refresh
+import apkfoundry        # BWRAP, DEFAULT_ARCH, LIBEXECDIR, LOCALSTATEDIR,
+                         # MOUNTS, local_conf, site_conf
+import apkfoundry.socket # client_init
 import apkfoundry._util as _util
 
 _LOGGER = logging.getLogger(__name__)
@@ -173,6 +173,32 @@ class Container:
         ]
         return self._bwrap(args, **kwargs, root=True)
 
+    def bootstrap(self):
+        rc, _ = self.run_external(
+            (self.cdir / "af/bootstrap-stage1",),
+            net=True,
+            env={
+                "AF_ROOTFS_CACHE": apkfoundry.LOCALSTATEDIR / "rootfs-cache",
+                "AF_ARCH": "x86_64", # FIXME don't hardcode
+            },
+        )
+        if rc:
+            return rc
+
+        rc = self.refresh()
+        if rc:
+            return rc
+
+        rc, _ = self.run(
+            ("/af/bootstrap-stage2",),
+            root=True, net=True, ro_root=False,
+            env={
+                "AF_BUILD_UID": str(os.getuid()),
+                "AF_BUILD_GID": str(os.getgid()),
+            },
+        )
+        return rc
+
     def destroy(self, **kwargs):
         args = [
             "--bind", "/", "/",
@@ -181,16 +207,18 @@ class Container:
         ]
         return self._bwrap(args, **kwargs, root=True)
 
-    def refresh(self, **kwargs):
-        rc = apkfoundry.socket.client_refresh(
-            self.rootd_conn,
-            **{
-                k: v for k, v in kwargs.items() \
-                if k in ("stdin", "stdout", "stderr")
-            },
+    def refresh(self, setsid=False):
+        branch = (self.cdir / "af/info/branch").read_text().strip()
+        branchdir = _util.get_branchdir(
+            self.cdir / "af/info/aportsdir", branch
         )
-        if rc != 0:
-            _LOGGER.error("failed to refresh container")
+
+        script = branchdir / "refresh"
+        if not script.is_file():
+            _LOGGER.warning("No refresh script found")
+            return 0
+
+        rc, _ = self.run_external((script,), setsid=setsid, net=True)
         return rc
 
     def run(self,
@@ -241,7 +269,7 @@ class Container:
                 (self.cdir / "af/info/repo").write_text(repo.strip())
 
         if self.rootd_conn and not skip_rootd:
-            if self.refresh(**kwargs):
+            if self.refresh():
                 return 1, None
             if "pass_fds" not in kwargs:
                 kwargs["pass_fds"] = []
@@ -362,7 +390,7 @@ def cont_make(args):
     script2 = branchdir / "bootstrap-stage2"
     if not (script1.is_file() and script2.is_file()):
         _LOGGER.error("missing bootstrap scripts")
-        return 1, None
+        return None
     shutil.copy2(script1, opts.cdir / "af")
     shutil.copy2(script2, opts.cdir / "af")
 
@@ -371,19 +399,13 @@ def cont_make(args):
 
     _make_infodir(conf, opts)
 
-    rc, conn = apkfoundry.socket.client_init(opts.cdir, bootstrap=True)
-    if rc != 0:
-        _LOGGER.error("Failed to connect to rootd")
-        return rc, None
+    conn = apkfoundry.socket.client_init(opts.cdir)
+    cont = Container(opts.cdir, rootd_conn=conn)
+    rc = cont.bootstrap()
+    if rc:
+        return None
 
     (opts.cdir / "af/bootstrap-stage1").unlink()
     (opts.cdir / "af/bootstrap-stage2").unlink()
 
-    return rc, conn
-
-def cont_destroy(cdir):
-    rc, _ = apkfoundry.socket.client_init(cdir, destroy=True)
-    if rc != 0:
-        _LOGGER.error("Failed to connect to rootd")
-
-    return rc
+    return cont

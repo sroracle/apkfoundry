@@ -4,14 +4,12 @@
 import argparse     # ArgumentParser
 import errno        # EBADF
 import logging      # getLogger
-import os           # close, getgid, getuid, umask, walk, write
+import os           # close, write
 import socketserver # StreamRequestHandler
 from pathlib import Path
 
-import apkfoundry           # LOCALSTATEDIR
 import apkfoundry.container # Container
 import apkfoundry.socket    # recv_fds, send_retcode
-import apkfoundry._util as _util
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -304,53 +302,13 @@ _parse = {
     "abuild-adduser": ("adduser", _abuild_adduser),
 }
 
-def _cont_bootstrap(cdir, **kwargs):
-    cont = apkfoundry.container.Container(cdir)
-    rc, _ = cont.run_external(
-        (cdir / "af/bootstrap-stage1",), **kwargs,
-        net=True,
-        env={
-            "AF_ROOTFS_CACHE": apkfoundry.LOCALSTATEDIR / "rootfs-cache",
-            "AF_ARCH": "x86_64", # FIXME don't hardcode
-        },
-    )
-    if rc:
-        return rc
-
-    _cont_refresh(cont.cdir, **kwargs)
-
-    rc, _ = cont.run(
-        ("/af/bootstrap-stage2",), **kwargs,
-        root=True, net=True, ro_root=False,
-        env={
-            "AF_BUILD_UID": str(os.getuid()),
-            "AF_BUILD_GID": str(os.getgid()),
-        },
-    )
-
-    return rc
-
-def _cont_refresh(cdir, **kwargs):
-    cont = apkfoundry.container.Container(cdir)
-    branch = (cont.cdir / "af/info/branch").read_text().strip()
-    branchdir = _util.get_branchdir(
-        cont.cdir / "af/info/aportsdir", branch
-    )
-
-    script = branchdir / "refresh"
-    if not script.is_file():
-        _LOGGER.warning("No refresh script found")
-        return
-
-    cont.run_external(
-        (script,), **kwargs,
-        net=True,
-    )
-
 class RootConn(socketserver.StreamRequestHandler):
+    def __init__(self, sock, cdir):
+        self.cdir = Path(cdir)
+        super().__init__(sock, None, None)
+
     def setup(self):
         super().setup()
-        self.cdir = None
         self.fds = [-1, -1, -1]
 
     def handle(self):
@@ -380,25 +338,6 @@ class RootConn(socketserver.StreamRequestHandler):
             argv = argv.decode("utf-8")
             argv = argv.split("\0")
             cmd = argv[0]
-
-            if cmd == "af-init":
-                if not self.cdir:
-                    argv = argv[1:]
-                    self._init(argv)
-                    continue
-                else:
-                    self._err("Already initialized")
-                    continue
-            if not self.cdir:
-                self._err("Must call af-init first")
-                continue
-            if cmd == "af-refresh":
-                _cont_refresh(
-                    self.cdir,
-                    stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
-                )
-                apkfoundry.socket.send_retcode(self.request, 0)
-                continue
 
             if cmd not in _parse:
                 self._err("Command not allowed: %s", cmd)
@@ -438,59 +377,6 @@ class RootConn(socketserver.StreamRequestHandler):
                 if e.errno != errno.EBADF:
                     raise
             self.fds[i] = -1
-
-    def _init(self, argv):
-        opts = _ParseOrRaise(
-            allow_abbrev=False,
-            add_help=False,
-        )
-        opts.add_argument(
-            "--bootstrap",
-            action="store_true",
-        )
-        opts.add_argument(
-            "--destroy",
-            action="store_true",
-        )
-        opts.add_argument(
-            "cdir", metavar="CDIR",
-        )
-        try:
-            opts = opts.parse_args(argv)
-        except _ParseOrRaise.Error as e:
-            self._err("%s", e)
-            return
-
-        opts.cdir = Path(opts.cdir) # pylint: disable=attribute-defined-outside-init
-
-        if not opts.cdir.is_absolute():
-            self._err("Relative path: %s", opts.cdir)
-            return
-
-        if not opts.cdir.is_dir():
-            self._err("Nonexistent container: %s", opts.cdir)
-            return
-
-        if opts.bootstrap and opts.destroy:
-            self._err("cannot bootstrap and destroy at the same time")
-            return
-
-        self.cdir = opts.cdir # pylint: disable=attribute-defined-outside-init
-        rc = 0
-
-        if opts.bootstrap:
-            rc = _cont_bootstrap(
-                self.cdir,
-                stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
-            )
-
-        if opts.destroy:
-            cont = apkfoundry.container.Container(self.cdir)
-            rc, _ = cont.destroy(
-                stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
-            )
-
-        apkfoundry.socket.send_retcode(self.request, rc)
 
     def _err(self, fmt, *args):
         msg = fmt % args

@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
-import pwd          # getpwnam
 import subprocess   # check_call, check_output
 import sys          # stderr, stdout
 from pathlib import Path
@@ -35,6 +34,3 @@ def get_branchdir(gitdir=None, branch=None):
     raise FileNotFoundError(
         f"could not find .apkfoundry/{branch} or .apkfoundry/master"
     )
-
-def rootid():
-    return pwd.getpwnam("af-root")
