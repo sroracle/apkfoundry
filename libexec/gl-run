@@ -15,7 +15,6 @@ from pathlib import Path
 import apkfoundry           # LOCALSTATEDIR, MOUNTS, SYSCONFDIR, site_conf
 import apkfoundry.build     # buildrepo
 import apkfoundry.container # Container
-import apkfoundry.socket    # client_init
 import apkfoundry._log as _log
 import apkfoundry._util as _util
 
@@ -210,8 +209,7 @@ def after_script(script, env):
     shutil.copy2(script, env.cdir / "af/after-script")
     sanitize_script(env.cdir / "af/after-script")
 
-    conn = apkfoundry.socket.client_init(env.cdir)
-    cont = apkfoundry.container.Container(env.cdir, rootd_conn=conn)
+    cont = apkfoundry.container.Container(env.cdir, rootd=True)
     return cont.run(["/af/after-script"])[0]
 
 env = CI_Env()

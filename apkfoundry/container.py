@@ -65,7 +65,7 @@ class Container:
         "_gid",
     )
 
-    def __init__(self, cdir, *, rootd_conn=None):
+    def __init__(self, cdir, *, rootd=False):
         self.cdir = Path(cdir)
         if not self.cdir.exists():
             raise FileNotFoundError(f"'{self.cdir}' does not exist")
@@ -73,7 +73,10 @@ class Container:
         self._uid = os.getuid()
         self._gid = os.getgid()
 
-        self.rootd_conn = rootd_conn
+        if rootd:
+            self.rootd_conn = apkfoundry.socket.client_init(self.cdir)
+        else:
+            self.rootd_conn = None
 
     def _bwrap(self, args, *, net=False, root=False, setsid=True, **kwargs):
         if "env" not in kwargs:
@@ -399,8 +402,7 @@ def cont_make(args):
 
     _make_infodir(conf, opts)
 
-    conn = apkfoundry.socket.client_init(opts.cdir)
-    cont = Container(opts.cdir, rootd_conn=conn)
+    cont = Container(opts.cdir)
     rc = cont.bootstrap()
     if rc:
         return None
