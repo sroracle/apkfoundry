@@ -56,8 +56,8 @@ opts.add_argument(
     help="just check for cycles and exit",
 )
 opts.add_argument(
-    "-c", "--chroot",
-    help="chroot to CHROOT first",
+    "-c", "--container", metavar="CDIR",
+    help="execute inside container CDIR",
 )
 opts.add_argument(
     "-g", "--graphviz", action="store_true",
@@ -100,8 +100,8 @@ opts = opts.parse_args()
 
 conf = apkfoundry.local_conf(None, _util.get_branch())
 
-if opts.chroot:
-    cont = apkfoundry.container.Container(opts.chroot, rootd=False)
+if opts.container:
+    cont = apkfoundry.container.Container(opts.container, rootd=False)
 else:
     cont = None
 

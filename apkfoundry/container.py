@@ -347,7 +347,8 @@ def _cont_make_args(args):
     )
     opts.add_argument(
         "-A", "--arch",
-        help="APK architecture name (default: output of apk --print-arch)",
+        help=f"""APK architecture name (default:
+        {apkfoundry.DEFAULT_ARCH})""",
     )
     opts.add_argument(
         "--branch",
@@ -373,12 +374,12 @@ def _cont_make_args(args):
         /af/distfiles)""",
     )
     opts.add_argument(
-        "cdir", metavar="DIR",
+        "cdir", metavar="CDIR",
         help="container directory",
     )
     opts.add_argument(
         "aportsdir", metavar="APORTSDIR",
-        help="project checkout directory",
+        help="project git directory",
     )
     return opts.parse_args(args)
 

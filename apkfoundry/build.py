@@ -355,7 +355,8 @@ def _buildrepo_args(args):
     )
     cont.add_argument(
         "-A", "--arch",
-        help="APK architecture name (default: output of apk --print-arch)",
+        help=f"""APK architecture name (default:
+        {apkfoundry.DEFAULT_ARCH})""",
     )
     cont.add_argument(
         "-c", "--cache",
@@ -363,8 +364,8 @@ def _buildrepo_args(args):
     )
     cont.add_argument(
         "--directory", metavar="DIR",
-        help="""Use DIR as the container root. If this does not match
-        "/var/tmp/abuild.*", -D will have no effect.""",
+        help=f"""use DIR as the container root (default: temporary
+        directory in {apkfoundry.LOCALSTATEDIR / "build"})""",
     )
     cont.add_argument(
         "-S", "--setarch",
