@@ -36,8 +36,14 @@ libexec/%: src/%.c
 
 libexec: $(C_TARGETS)
 
+.PHONY: quickstart
+quickstart: configure libexec
+	mkdir var
+	mkdir var/build
+	mkdir var/apk-cache var/rootfs-cache var/src-cache
+
 .PHONY: install
-install: all configure
+install: configure paths all
 	$(SETUP.PY) install \
 		--root="$(DESTDIR)" \
 		--prefix="/$(PREFIX)"
@@ -60,10 +66,15 @@ install: all configure
 	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
 
 .PHONY: configure
-configure: apkfoundry/__init__.py
+configure:
 	sed -i \
 		-e '/^BWRAP = /s@= .*@= "$(BWRAP)"@' \
 		-e '/^DEFAULT_ARCH = /s@= .*@= "$(DEFAULT_ARCH)"@' \
+		apkfoundry/__init__.py
+
+.PHONY: paths
+paths:
+	sed -i \
 		-e '/^LIBEXECDIR = /s@= .*@= "/$(LIBEXECDIR)"@' \
 		-e '/^LOCALSTATEDIR = /s@= .*@= "/$(LOCALSTATEDIR)"@' \
 		-e '/^SYSCONFDIR = /s@= .*@= "/$(SYSCONFDIR)"@' \
