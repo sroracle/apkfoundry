@@ -66,9 +66,7 @@ class Container:
     )
 
     def __init__(self, cdir, *, rootd=True):
-        self.cdir = Path(cdir)
-        if not self.cdir.exists():
-            raise FileNotFoundError(f"'{self.cdir}' does not exist")
+        self.cdir = Path(cdir).resolve(strict=True)
 
         self._uid = os.getuid()
         self._gid = os.getgid()
@@ -260,8 +258,8 @@ class Container:
             mounts = apkfoundry.MOUNTS.copy()
             for mount in mounts:
                 mounts[mount] = self.cdir / "af/info" / mount
-                if not mounts[mount].is_symlink():
-                    raise FileNotFoundError(mounts[mount])
+                assert mounts[mount].is_symlink()
+                mounts[mount] = mounts[mount].resolve(strict=True)
             args += [
                 "--bind", self.cdir / "tmp", "/tmp",
                 "--bind", self.cdir / "var/tmp", "/var/tmp",
@@ -329,7 +327,7 @@ def _make_infodir(conf, opts):
         (opts.cdir / "af/info" / mount).symlink_to(mounts[mount])
 
     for mount in apkfoundry.MOUNTS:
-        if mount in mounts and mounts[mount]:
+        if mounts.get(mount, None):
             continue
 
         (opts.cdir / "af/info" / mount).symlink_to(

@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 
 testdir = Path(os.environ["AF_TESTDIR"])
-cdir = (testdir / "af-su").resolve()
+cdir = testdir / "af-su"
 cdir.mkdir()
 
 script = """
@@ -27,7 +27,7 @@ pwd
 
 expect = f"""root
 root
-{cdir}
+{cdir.resolve()}
 """
 
 cont = apkfoundry.container.Container(cdir, rootd=False)
