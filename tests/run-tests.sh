@@ -24,6 +24,11 @@ log() {
 
 failures=0
 for test; do
+	if ! [ -x "$test" ]; then
+		log 'XXXX %s: no such test\n' "${test##*/}"
+		failures=$((failures + 1))
+		continue
+	fi
 	log 'TEST %s\n' "${test##*/}"
 	if ! "$test" >&3 2>&4; then
 		log 'FAIL %s\n' "${test##*/}"
