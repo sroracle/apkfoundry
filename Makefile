@@ -30,6 +30,16 @@ C_TARGETS = \
 TEST_TARGETS = \
 	tests/*.test
 
+CLEAN_TARGETS = \
+	$(C_TARGETS) \
+	MANIFEST \
+	apkfoundry.egg-info \
+	build \
+	dist \
+	target \
+	tests/tmp \
+	var
+
 .PHONY: all
 all: libexec
 	$(SETUP.PY) build
@@ -100,5 +110,4 @@ lint: $(LINT_TARGETS)
 
 .PHONY: clean
 clean:
-	rm -rf MANIFEST apkfoundry.egg-info build dist target tests/tmp var
-	rm -f $(C_TARGETS)
+	rm -rf $(CLEAN_TARGETS)
