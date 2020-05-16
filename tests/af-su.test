@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2020 Max Rees
+# See LICENSE for more information.
+import logging    # basicConfig
+import os         # environ
+import subprocess # PIPE
+import sys        # exit
+from pathlib import Path
+
+import apkfoundry.container # Container
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(levelname)s %(message)s",
+)
+
+testdir = Path(os.environ["AF_TESTDIR"])
+cdir = (testdir / "af-su").resolve()
+cdir.mkdir()
+
+script = """
+id -nru
+id -nrg
+pwd
+"""
+
+expect = f"""root
+root
+{cdir}
+"""
+
+cont = apkfoundry.container.Container(cdir, rootd=False)
+rc, proc = cont.run_external(
+    ["sh", "-exc", script],
+    stdout=subprocess.PIPE,
+    encoding="utf-8",
+)
+
+if rc or proc.stdout != expect:
+    print(proc.stdout)
+    sys.exit(1)
