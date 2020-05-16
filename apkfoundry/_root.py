@@ -390,7 +390,7 @@ class RootConn(socketserver.StreamRequestHandler):
             argv[0] = _parse[cmd][0]
 
             try:
-                cont = apkfoundry.container.Container(self.cdir)
+                cont = apkfoundry.container.Container(self.cdir, rootd=False)
                 rc, _ = cont.run(
                     argv,
                     root=True, net=True, ro_root=False,

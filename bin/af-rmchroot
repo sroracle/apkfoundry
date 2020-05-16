@@ -16,5 +16,5 @@ if len(sys.argv) != 2:
     print("usage: af-rmchroot CDIR", file=sys.stderr)
     sys.exit(1)
 
-rc, _ = apkfoundry.container.Container(sys.argv[1]).destroy()
+rc, _ = apkfoundry.container.Container(sys.argv[1], rootd=False).destroy()
 sys.exit(rc)

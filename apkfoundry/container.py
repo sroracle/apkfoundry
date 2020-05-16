@@ -65,7 +65,7 @@ class Container:
         "_gid",
     )
 
-    def __init__(self, cdir, *, rootd=False):
+    def __init__(self, cdir, *, rootd=True):
         self.cdir = Path(cdir)
         if not self.cdir.exists():
             raise FileNotFoundError(f"'{self.cdir}' does not exist")

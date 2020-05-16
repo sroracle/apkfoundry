@@ -209,7 +209,7 @@ def after_script(script, env):
     shutil.copy2(script, env.cdir / "af/after-script")
     sanitize_script(env.cdir / "af/after-script")
 
-    cont = apkfoundry.container.Container(env.cdir, rootd=True)
+    cont = apkfoundry.container.Container(env.cdir)
     return cont.run(["/af/after-script"])[0]
 
 env = CI_Env()

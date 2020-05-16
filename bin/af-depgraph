@@ -101,7 +101,7 @@ opts = opts.parse_args()
 conf = apkfoundry.local_conf(None, _util.get_branch())
 
 if opts.chroot:
-    cont = apkfoundry.container.Container(opts.chroot)
+    cont = apkfoundry.container.Container(opts.chroot, rootd=False)
 else:
     cont = None
 
