@@ -14,15 +14,6 @@ PYTHON = python3
 PYLINT = pylint
 SETUP.PY = $(PYTHON) src/setup.py
 
-LINT_TARGETS = \
-	apkfoundry \
-	bin/af-buildrepo \
-	bin/af-chroot \
-	bin/af-depgraph \
-	bin/af-mkchroot \
-	bin/af-rmchroot \
-	libexec/gl-run
-
 C_TARGETS = \
 	libexec/af-req-root \
 	libexec/af-su
@@ -40,6 +31,15 @@ CLEAN_TARGETS = \
 	tests/tmp \
 	var
 
+LINT_TARGETS = \
+	apkfoundry \
+	bin/af-buildrepo \
+	bin/af-chroot \
+	bin/af-depgraph \
+	bin/af-mkchroot \
+	bin/af-rmchroot \
+	libexec/gl-run
+
 .PHONY: all
 all: libexec
 	$(SETUP.PY) build
@@ -48,6 +48,15 @@ libexec/%: src/%.c
 	$(CC) $(CFLAGS) -Wall -Wextra -fPIE -static-pie $(LDFLAGS) -o $@ $<
 
 libexec: $(C_TARGETS)
+
+.PHONY: configure
+configure:
+	@printf 'CONF: BWRAP = "%s"\n' '$(BWRAP)'
+	@printf 'CONF: DEFAULT_ARCH = "%s"\n' '$(DEFAULT_ARCH)'
+	@sed -i \
+		-e '/^BWRAP = /s@= .*@= "$(BWRAP)"@' \
+		-e '/^DEFAULT_ARCH = /s@= .*@= "$(DEFAULT_ARCH)"@' \
+		apkfoundry/__init__.py
 
 .PHONY: quickstart
 quickstart: configure libexec
@@ -58,8 +67,19 @@ quickstart: configure libexec
 check: quickstart
 	@tests/run-tests.sh -q $(TEST_TARGETS)
 
+.PHONY: paths
+paths: configure
+	@printf 'PATH: LIBEXECDIR = "%s"\n' '$(LIBEXECDIR)'
+	@printf 'PATH: LOCALSTATEDIR = "%s"\n' '$(LOCALSTATEDIR)'
+	@printf 'PATH: SYSCONFDIR = "%s"\n' '$(SYSCONFDIR)'
+	@sed -i \
+		-e '/^LIBEXECDIR = /s@= .*@= "/$(LIBEXECDIR)"@' \
+		-e '/^LOCALSTATEDIR = /s@= .*@= "/$(LOCALSTATEDIR)"@' \
+		-e '/^SYSCONFDIR = /s@= .*@= "/$(SYSCONFDIR)"@' \
+		apkfoundry/__init__.py
+
 .PHONY: install
-install: configure paths all
+install: paths all
 	$(SETUP.PY) install \
 		--root="$(DESTDIR)" \
 		--prefix="/$(PREFIX)"
@@ -81,38 +101,18 @@ install: configure paths all
 	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
 	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
 
-.PHONY: configure
-configure:
-	@printf 'CONF: BWRAP = "%s"\n' '$(BWRAP)'
-	@printf 'CONF: DEFAULT_ARCH = "%s"\n' '$(DEFAULT_ARCH)'
-	@sed -i \
-		-e '/^BWRAP = /s@= .*@= "$(BWRAP)"@' \
-		-e '/^DEFAULT_ARCH = /s@= .*@= "$(DEFAULT_ARCH)"@' \
-		apkfoundry/__init__.py
-
-.PHONY: paths
-paths:
-	@printf 'PATH: LIBEXECDIR = "%s"\n' '$(LIBEXECDIR)'
-	@printf 'PATH: LOCALSTATEDIR = "%s"\n' '$(LOCALSTATEDIR)'
-	@printf 'PATH: SYSCONFDIR = "%s"\n' '$(SYSCONFDIR)'
-	@sed -i \
-		-e '/^LIBEXECDIR = /s@= .*@= "/$(LIBEXECDIR)"@' \
-		-e '/^LOCALSTATEDIR = /s@= .*@= "/$(LOCALSTATEDIR)"@' \
-		-e '/^SYSCONFDIR = /s@= .*@= "/$(SYSCONFDIR)"@' \
-		apkfoundry/__init__.py
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_TARGETS)
 
 .PHONY: dist
 dist: clean
 	$(SETUP.PY) sdist -u root -g root -t src/MANIFEST.in
 
-.PHONY: setup
-setup:
-	@$(SETUP.PY) $(SETUP_ARGS)
-
 .PHONY: lint
 lint: $(LINT_TARGETS)
 	-$(PYLINT) --rcfile src/pylintrc $?
 
-.PHONY: clean
-clean:
-	rm -rf $(CLEAN_TARGETS)
+.PHONY: setup
+setup:
+	@$(SETUP.PY) $(SETUP_ARGS)
