@@ -1,0 +1,56 @@
+stages:
+  - af-builds
+
+.af-build:
+  stage: af-builds
+
+  variables:
+    GIT_CLONE_PATH: $CI_BUILDS_DIR/af/aports
+
+  script:
+    - /af/build-script "$@"
+
+  artifacts:
+    paths:
+      - .gl-repos/*/*/APKINDEX.tar.gz
+      - .gl-repos/*/*/*.apk
+      # See notes in the example build-script about logging.
+      # - .gl-repos/*/*/logs/*.log
+
+.af-x86_64-build:
+  extends: .af-build
+  variables:
+    AF_ARCH: x86_64
+  tags:
+    - af-x86_64
+
+.af-pmmx-build:
+  extends: .af-build
+  variables:
+    AF_ARCH: pmmx
+  tags:
+    - af-pmmx
+
+master-x86_64-build:
+  extends: .af-x86_64-build
+  only:
+    - master
+
+master-pmmx-build:
+  extends: .af-pmmx-build
+  only:
+    - master
+
+MR-x86_64-build:
+  extends: .af-x86_64-build
+  only:
+    - merge_requests
+  artifacts:
+    when: always
+
+MR-pmmx-build:
+  extends: .af-pmmx-build
+  only:
+    - merge_requests
+  artifacts:
+    when: always

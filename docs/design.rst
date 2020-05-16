@@ -62,7 +62,7 @@ container is typically reset to a reproducible state during each build.
 #. Generate a dependency graph in order to perform a topological sort of
    the packages to-be-built with respect to their dependencies
 
-#. Bootstrap the container, if it does not already exist
+#. Bootstrap the container as "root", if it does not already exist
 
    #. Stage 1 (outside container): download and unpack rootfs, add build
       user
@@ -72,9 +72,9 @@ container is typically reset to a reproducible state during each build.
 
 #. Perform each build
 
-   #. Run the ``refresh`` script inside the container
-   #. Run the ``build-script`` inside the container
+   #. Run the ``refresh`` script inside the container as "root"
+   #. Run the ``build-script`` inside the container as "build"
 
 #. Re-sign ``.apk`` files outside of the container, if a re-signing key
    is given
-#. Destroy the container
+#. Optionally, destroy the container
