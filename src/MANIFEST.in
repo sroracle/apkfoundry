@@ -1,5 +1,4 @@
 include Makefile
-graft etc
 graft src
 graft tests
 prune tests/tmp
