@@ -35,7 +35,7 @@ if [ "$failures" -ne 0 ]; then
 	cat >&2 <<-EOF
 
 	Re-run failed tests:
-	tests/run-tests.sh TEST1 [TEST2 ...]
+	tests/run-tests.sh [-q] tests/TEST1 [tests/TEST2 ...]
 
 	Output is in tests/tmp/log
 EOF
