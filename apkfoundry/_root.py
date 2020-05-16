@@ -315,11 +315,11 @@ def recv_fds(conn):
         _BUF_SIZE, _PASSFD_SIZE
     )
 
-    if anc:
-        anc = anc[0]
-        assert anc[0] == socket.SOL_SOCKET
-        assert anc[1] == socket.SCM_RIGHTS
-        fds = struct.unpack(_PASSFD_FMT, anc[2])
+    for cmsg in anc:
+        if cmsg[0:2] != (socket.SOL_SOCKET, socket.SCM_RIGHTS):
+            continue
+        fds = struct.unpack(_PASSFD_FMT, cmsg[2])
+        break
     else:
         fds = tuple()
 

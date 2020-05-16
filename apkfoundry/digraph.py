@@ -248,7 +248,9 @@ def generate_graph(conf, skip_check=False, cont=None):
         line = line.strip().split(maxsplit=2)
         if not line:
             continue
-        assert len(line) == 3
+        if len(line) != 3:
+            _LOGGER.error("invalid af-deps output: %r", line)
+            return None
 
         if line[0] == "o":
             name = line[1]

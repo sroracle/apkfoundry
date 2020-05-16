@@ -41,7 +41,8 @@ def _idmap(cmd, pid, ent_id):
             continue
         args += [map0 + 1, _SUBID + map0 + 1, map1 - (map0 + 1)]
 
-    assert len(args) % 3 == 0, "map must have 3 entries per line"
+    if len(args) % 3 != 0:
+        raise ValueError("map must have 3 entries per line")
 
     args = [str(i) for i in args]
     return subprocess.call((cmd, str(pid), *args))
@@ -258,7 +259,8 @@ class Container:
             mounts = apkfoundry.MOUNTS.copy()
             for mount in mounts:
                 mounts[mount] = self.cdir / "af/info" / mount
-                assert mounts[mount].is_symlink()
+                if not mounts[mount].is_symlink():
+                    raise RuntimeError(f"af/info/{mount} isn't a symlink")
                 mounts[mount] = mounts[mount].resolve(strict=True)
             args += [
                 "--bind", self.cdir / "tmp", "/tmp",
