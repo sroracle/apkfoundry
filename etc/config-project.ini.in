@@ -1,0 +1,139 @@
+; The settings for the "master" branch act as defaults for all other
+; branches. You can override any or all of the settings for another
+; branch by specifying them in a new section with the name of the branch
+; as its title.
+
+[master]
+; Required: repos
+;
+; Describes which APK repositories should be built and for which
+; architectures. Each line should contain a single repository name,
+; followed by the architectures that the repository supports. For
+; example, if the is set to the following:
+;
+;repos = system ppc ppc64 pmmx x86_64
+;        user ppc64 x86_64
+;
+; Then, for APKBUILDs on the "master" branch:
+;
+; * If the APKBUILD is in the "system" repository, then jobs will be
+;   executed for the "ppc", "ppc64", "pmmx", and "x86_64" architectures.
+; * If the APKBUILD is in the "user" repository, then jobs will be
+;   executed for the "ppc64" and "x86_64" architectures.
+; * Any other architectures will have their jobs skip APKBUILDs changed
+;   in these repositories.
+; * The ordering of lines in the setting is not significant. The
+;   dependency resolution engine always considers APKBUILDs from every
+;   available repository. In order to prevent one repository from
+;   depending on another, change the "etc/apk/repositories" file as
+;   appropriate.
+;
+; If an architecture is not listed in this setting, then no builds will
+; occur for that architecture, even if changed APKBUILDs have
+; "arch=all", "arch=noarch", or even specifically name that
+; architecture.
+;
+; If a repository is not listed in this setting, then no builds will
+; occur for that repository.
+;
+; The mapping can also be specified in an alternate yet equivalent format:
+;
+;repos = system ppc
+;        system ppc64
+;        system pmmx
+;        system x86_64
+;        user ppc64
+;        user x86_64
+;
+; or any mix of the two formats.
+
+
+; Required: default_repo
+; Sets the default APK repository for new containers, i.e. what
+; repository will be considered active during bootstrapping.
+;
+;default_repo = system
+
+
+; Optional: deps_ignore
+; Tell the dependency resolution engine to ignore dependencies between
+; certain packages when calculating the build order. This is useful for
+; breaking cyclic dependencies. For example:
+;
+;deps_ignore = system/python3 system/easy-kernel
+;              system/attr system/libtool
+;
+; This tells the engine to ignore "system/python3"'s dependency on
+; "system/easy-kernel" as well as "system/attr"'s dependency on
+; "system/libtool".
+;
+; Note: abuild will still install such dependencies. This setting only
+; affects APK Foundry's build order solver, the primary utility being to
+; break dependency cycles. If you wish to prevent a package from ever
+; being installed, add "!pkgname" to your world file.
+;
+; Additionally, if a package has a build-time dependency ("makedepends")
+; on its own subpackage, you will need to install that yourself before
+; the build since abuild skips such dependencies. A future version of
+; APK Foundry may provide a configuration setting for this purpose.
+; Alternatively, you can perform a sort of trick by depending on
+; something the package "provides", since abuild does not check for
+; cycles there.
+;
+; This setting supports both formats described in "repos" setting
+; section.
+
+
+; Optional: deps_map
+; Map subpackage providers to their respective origins. Due to the
+; nature of the shell scripting language, it is not possible to easily
+; extract the "provides" that the split function of a subpackage
+; specifies. If other packages depend on this name, APK Foundry will not
+; know to which APKBUILD the name belongs and will ignore it unless it
+; is specified here. Each line should consist of the "provides" name
+; followed by the startdir of its origin. For example, if the
+; "system/musl" package provides "libc-dev" and "libc-utils" in its
+; subpackages:
+;
+;deps_map = libc-dev system/musl
+;           libc-utils system/musl
+
+
+; Optional: on_failure
+; Specify the action to take when a package fails to build.
+;
+; * "stop" (default): Immediately stop the job.
+; * "recalculate": Rebuild the dependency graph by removing the failed
+;   build and all of its reverse dependencies, then continue with the
+;   next build in the new topologically sorted build order.
+; * "ignore": Ignore the failure temporarily and continue building as
+;   much as possible.
+;
+; Note that regardless of the setting, if any of the builds failed the
+; job will still exit with a nonzero exit status.
+;
+;on_failure = stop
+
+
+; Optional: skip
+; Skip packages on certain architectures, for example if they take too
+; long to build on CI without proper coordination and scheduling. For
+; example:
+;
+;skip = user/libreoffice aarch64 ppc
+;
+; This would skip the "user/libreoffice" package on the "aarch64" and
+; "ppc" architectures.
+;
+; Note: It is preferable to change the "arch" option of the APKBUILD if
+; the package is simply broken on that architecture. This setting is for
+; dealing with problems that arise when the package is built under CI,
+; such as incompatibilities with the CI environment or needing excessive
+; time to build.
+;
+; Note: at the time of this writing, APK Foundry will refuse to build a
+; package on an architecture mentioned here even if manually told to do
+; so. This will be corrected in a future version.
+;
+; This setting supports both formats described in "repos" setting
+; section.

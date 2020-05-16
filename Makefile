@@ -83,5 +83,5 @@ lint: $(LINT_TARGETS)
 
 .PHONY: clean
 clean:
-	rm -rf MANIFEST apkfoundry.egg-info build dist etc target
+	rm -rf MANIFEST apkfoundry.egg-info build dist target
 	rm -f $(C_TARGETS)

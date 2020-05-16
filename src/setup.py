@@ -40,7 +40,7 @@ distutils.core.setup(
     data_files=[
         (
             str(sysconfdir),
-            ["docs/abuild.conf"],
+            glob.glob("etc/*"),
         ),
         (
             str(libexecdir),

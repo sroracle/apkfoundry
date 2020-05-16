@@ -21,53 +21,27 @@ Site configuration
 INI files
 ^^^^^^^^^
 
-The main configuration files are stored in ``/etc/apkfoundry/*.ini``.
-The files can be named whatever one chooses; any files matching this
-glob will be read in collation order. Thus sensitive details can be
-split into restricted files away from more mundane options.
+The main configuration files are stored in ``SYSCONFDIR/*.ini``. The
+files can be named whatever one chooses; any files matching this glob
+will be read in collation order. Thus sensitive details can be split
+into restricted files away from more mundane options.
 
-.. code-block:: ini
-
-    [container]
-    ; Base sub-id for containers.
-    subid = 100000
-
-    [setarch]
-    ; For each architecture flavor, list here what needs to be passed to
-    ; setarch(8) (if anything).
-    ;
-    ; For example, on an x86_64 machine you would typically build x86_64
-    ; packages (duh). For any architecture flavor that needs no call to
-    ; setarch(8), no configuration is needed here.
-    ;
-    ; However, you may also want to build packages for a 32-bit variant such
-    ; as Pentium MMX. For that, we need to call setarch(8) with "i586" as an
-    ; argument. To configure this, you would write:
-    pmmx = i586
+See `<etc/config-global.ini.in>`_ for an annotated example configuration
+file.
 
 abuild.conf
 ^^^^^^^^^^^
 
 In order to accommodate settings from both the builder operator and the
-individual projects, handling of the ``/etc/abuild.conf`` file is
-separate from the skeletons. The site configuration is located in
-``/etc/apkfoundry/abuild.conf``, with the following recommended minimum
-requirements:
+individual projects, the handling of the ``/etc/abuild.conf`` file
+should be done with care. The builder operator should install a template
+at ``SYSCONFDIR/abuild.conf`` which specifies things like the
+``$JOBS`` variable and includes projects' configurations from
+``etc/abuild.conf.local`` inside the container. Projects should copy
+``SYSCONFDIR/abuild.conf`` to ``etc/abuild.conf`` and their own abuild
+settings to ``etc/abuild.conf.local`` during bootstrapping.
 
-.. code-block:: shell
-
-    # Include project-local abuild settings
-    if [ -e /etc/abuild.conf.local ]; then
-        . /etc/abuild.conf.local
-    fi
-
-Typically, after including the project-local settings, the site-local
-configuration will set things such as ``$JOBS``:
-
-.. code-block:: shell
-
-    export JOBS=4
-    export MAKEFLAGS="$MAKEFLAGS -j$JOBS"
+An example template can be found at `<etc/abuild.conf>`_.
 
 Project-local configuration
 ---------------------------
@@ -77,166 +51,14 @@ contains APK Foundry's configuration files. It consists of INI files at
 the top level, and a directory for each branch. This branch is checked
 out as a git worktree as ``.apkfoundry`` in the git repository's root.
 
+INI files
+^^^^^^^^^
+
 The INI files are loaded according to the ``.apkfoundry/*.ini`` glob in
 collation order, similar to the site configuration. The sections in
 these INI files are named for the branches to which they apply. The
 settings in the ``master`` section are used as a fallback for missing
 settings.
 
-INI setting: repos
-^^^^^^^^^^^^^^^^^^
-
-The purpose of this **required** setting is to define which
-architectures the special ``arch`` values ``"all"`` and ``"noarch"``
-should correspond to for each APK repository. Each line should contain a
-single repository name, followed by the architectures that the
-repository supports. For example, if the is set to the following:
-
-.. code-block:: ini
-
-    [master]
-    repos = system ppc ppc64 pmmx x86_64
-            user ppc64 x86_64
-
-Then, for APKBUILDs on the ``master`` branch:
-
-* If the APKBUILD is in the ``system`` repository, then jobs will be
-  executed for the ``ppc``, ``ppc64``, ``pmmx``, and ``x86_64``
-  architectures.
-* If the APKBUILD is in the ``user`` repository, then jobs will be
-  executed for the ``ppc64`` and ``x86_64`` architectures.
-* Any other architectures will have their jobs skip these APKBUILDs.
-* The ordering of lines in the setting is not significant. The
-  dependency resolution engine always considers APKBUILDs from every
-  available repository. In order to prevent one repository from
-  depending on another, change the ``repositories`` file in its skeleton
-  as appropriate.
-
-If an architecture is not listed in this setting, then no builds will
-occur for that architecture, even if changed APKBUILDs have
-``arch="all"``, ``arch="noarch"``, or even specifically name that
-architecture.
-
-If a repository is not listed in this setting, then no builds will occur
-for that repository.
-
-The mapping can also be specified in an alternate yet equivalent format:
-
-.. code-block:: ini
-
-    [master]
-    repos = system ppc
-            system ppc64
-            system pmmx
-            system x86_64
-            user ppc64
-            user x86_64
-
-or any mix of the two formats.
-
-INI setting: default_repo
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The purpose of this **required** setting is to define with which what
-repository (i.e. from the ``repos`` setting) the container should be
-be initially set. For example:
-
-.. code-block:: ini
-
-    [master]
-    default_repo = system
-
-INI setting: deps_ignore
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-This **optional** setting is used by the runners to ignore cyclic
-dependencies when calculating the build order. Each line should contain
-a pair of startdirs. For example, if it contains the following:
-
-.. code-block:: ini
-
-    [master]
-    deps_ignore = system/python3 system/easy-kernel
-                  system/attr system/libtool
-
-Then the build order calculation will ignore ``system/python3``'s
-dependency on ``system/easy-kernel`` as well as ``system/attr``'s
-dependency on ``system/libtool``.
-
-**Note:** ``abuild`` will still install such dependencies. This setting
-only affects APK Foundry's build order solver, the primary utility being
-to break dependency cycles. If you wish to prevent a package from ever
-being installed, add ``!pkgname`` to your world file.
-
-Additionally, if a package has a build-time dependency (``makedepends``)
-on its own subpackage, you will need to install that yourself before the
-build since ``abuild`` skips such dependencies. A future version of APK
-Foundry may provide a configuration setting for this purpose.
-Alternatively, you can perform a sort of trick by depending on something
-the package ``provides``, since abuild does not check for cycles here.
-
-This setting supports both formats described in ``repos`` setting
-section.
-
-INI setting: deps_map
-^^^^^^^^^^^^^^^^^^^^^
-
-This **optional** setting is used by the runners to map subpackage
-providers to their respective origins. Due to the nature of the shell
-scripting language, it is not possible to easily extract the
-``provides`` that the split function of a subpackage specifies. If other
-packages depend on this name, APK Foundry will not know to which
-APKBUILD the name belongs and will ignore it unless it is specified
-here. Each line should consist of the ``provides`` name followed by the
-startdir of its origin. For example, if the ``system/musl`` package
-provides ``libc-dev`` and ``libc-utils`` in its subpackages:
-
-.. code-block:: ini
-
-   [master]
-   deps_map = libc-dev system/musl
-              libc-utils system/musl
-
-INI setting: on_failure
-^^^^^^^^^^^^^^^^^^^^^^^
-
-This **optional** setting is used by the runner to determine the next
-step when a build fails. It can take one of three possible values:
-
-``stop``
-    Immediately stop the job. This is the default value. Exit with a
-    nonzero exit status.
-
-``recalculate``
-    Rebuild the dependency graph by removing the failed build and all of
-    its reverse dependencies, then continue with the next build in the
-    new topologically sorted build order. The process will still exit
-    with a nonzero exit status.
-
-``ignore``
-    Ignore the failure temporarily and continue building as much as
-    possible. The process will still exit with a nonzero exit status.
-
-INI setting: skip
-^^^^^^^^^^^^^^^^^
-
-This **optional** setting can be used to skip packages on certain
-architectures, if for example they would take too much time to normally
-build. For example:
-
-.. code-block:: ini
-
-   [master]
-   skip = user/libreoffice aarch64 ppc
-
-This would skip the ``user/libreoffice`` package on the ``aarch64`` and
-``ppc`` architectures.
-
-**Note**: It is preferable to change the ``arch`` option of the APKBUILD
-if the package is simply broken on that architecture. This setting is
-for dealing with problems that arise when the package is built under CI,
-such as incompatibilities with the CI environment or needing excessive
-time to build.
-
-This setting supports both formats described in ``repos`` setting
-section.
+See `<etc/config-project.ini.in>`_ for an annotated example
+configuration file.

@@ -1,0 +1,16 @@
+[container]
+; Base sub-id for containers.
+;subid = 100000
+
+[setarch]
+; For each architecture flavor, list here what needs to be passed to
+; setarch(8) (if anything).
+;
+; For example, on an x86_64 machine you would typically build x86_64
+; packages of course. For any architecture flavor that needs no call to
+; setarch(8), no configuration is needed here.
+;
+; However, you may also want to build packages for a 32-bit variant such
+; as Pentium MMX. For that, we need to call setarch(8) with "i586" as an
+; argument. To configure this, you would write:
+;pmmx = i586
