@@ -474,8 +474,6 @@ def buildrepo(args):
         cdir = Path(opts.directory)
     else:
         cdir = Path(tempfile.mkdtemp(dir=apkfoundry.LOCALSTATEDIR / "build"))
-    shutil.chown(cdir, group="apkfoundry")
-    cdir.chmod(0o2770)
 
     if opts.git_url:
         if not opts.branch:
