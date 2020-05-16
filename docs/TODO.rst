@@ -12,6 +12,7 @@
     about the internal environment
   * Reusing containers - detect if CDIR passed to buildrepo is already
     bootstrapped
+  * CLI utilities need to make paths absolute in most cases
 
 * Long-term implementation wishlist
 
