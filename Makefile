@@ -45,7 +45,7 @@ all: libexec
 	$(SETUP.PY) build
 
 libexec/%: src/%.c
-	$(CC) $(CFLAGS) -Wall -Wextra -fPIE -static-pie $(LDFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -Wall -Wextra -fPIE $(LDFLAGS) -static-pie -o $@ $<
 
 libexec: $(C_TARGETS)
 
