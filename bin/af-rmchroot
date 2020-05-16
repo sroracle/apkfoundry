@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2020 Max Rees
 # See LICENSE for more information.
+import argparse # ArgumentParser
 import logging  # basicConfig
 import sys      # argv, exit
+from pathlib import Path
 
 import apkfoundry.container # Container
 
@@ -12,9 +14,28 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-if len(sys.argv) != 2:
-    print("usage: af-rmchroot CDIR", file=sys.stderr)
+opts = argparse.ArgumentParser(
+    usage="af-rmchroot [-f] CDIR",
+)
+opts.add_argument(
+    "--force", action="store_true",
+    help="""force deletion even if CDIR doesn't appear to be a container
+    (use with care!)""",
+)
+opts.add_argument(
+    "cdir", metavar="CDIR", nargs=1,
+    help="Container directory",
+)
+opts = opts.parse_args()
+opts.cdir = Path(opts.cdir[0])
+
+if not opts.cdir.is_dir():
+    sys.exit(0)
+if not ((opts.cdir / "af").is_dir() or opts.force):
+    logging.error("CDIR doesn't appear to be a container")
+    logging.error("Use --force if you're absolutely sure")
     sys.exit(1)
 
-rc, _ = apkfoundry.container.Container(sys.argv[1], rootd=False).destroy()
+cont = apkfoundry.container.Container(opts.cdir, rootd=False)
+rc, _ = cont.destroy()
 sys.exit(rc)
