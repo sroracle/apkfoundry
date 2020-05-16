@@ -22,18 +22,17 @@ The traditional ``abuild`` workflow uses a setuid binary
 symlinked to ``abuild-sudo``) to accomplish this for users in the
 ``abuild`` group. Since ``bwrap`` sets the ``PR_SET_NO_NEW_PRIVS``
 ``prctl(2)`` option, setuid binaries do not work inside the container.
-Instead, the ``af-root`` user (distinct from the build user) is
-designated to map to UID zero inside the container and listens on a UNIX
-domain socket for privileged commands to execute. This includes not only
+Instead, the first sub-UID (distinct from the build user) is designated
+to map to UID zero inside the container and listens over an internal
+socketpair for privileged commands to execute. This includes not only
 the functionality of ``abuild-apk``, ``abuild-adduser``, and
 ``abuild-addgroup``, but also ``abuild-fetch`` and ``apk fetch`` (needed
-when network isolation is in effect). The ``af-rootd`` daemon is
-responsible for handling these requests and validating their
-authorization. The ``af-req-root`` client is executed by the build user
-to initiate these requests inside the container. By default, the
-container environment is setup with ``SUDO_APK``, ``ADDUSER``,
-``ADDGROUP``, ``ABUILD_FETCH``, and ``APK_FETCH`` to use
-``af-req-root``.
+when network isolation is in effect). An internal daemon is responsible
+for handling these requests and validating their authorization. The
+``af-req-root`` client is executed by the build user to initiate these
+requests inside the container. By default, the container environment is
+setup with ``SUDO_APK``, ``ADDUSER``, ``ADDGROUP``, ``ABUILD_FETCH``,
+and ``APK_FETCH`` to use ``af-req-root``.
 
 In this model, the elevated privileges needed are:
 
