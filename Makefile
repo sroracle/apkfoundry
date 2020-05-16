@@ -83,14 +83,19 @@ install: configure paths all
 
 .PHONY: configure
 configure:
-	sed -i \
+	@printf 'CONF: BWRAP = "%s"\n' '$(BWRAP)'
+	@printf 'CONF: DEFAULT_ARCH = "%s"\n' '$(DEFAULT_ARCH)'
+	@sed -i \
 		-e '/^BWRAP = /s@= .*@= "$(BWRAP)"@' \
 		-e '/^DEFAULT_ARCH = /s@= .*@= "$(DEFAULT_ARCH)"@' \
 		apkfoundry/__init__.py
 
 .PHONY: paths
 paths:
-	sed -i \
+	@printf 'PATH: LIBEXECDIR = "%s"\n' '$(LIBEXECDIR)'
+	@printf 'PATH: LOCALSTATEDIR = "%s"\n' '$(LOCALSTATEDIR)'
+	@printf 'PATH: SYSCONFDIR = "%s"\n' '$(SYSCONFDIR)'
+	@sed -i \
 		-e '/^LIBEXECDIR = /s@= .*@= "/$(LIBEXECDIR)"@' \
 		-e '/^LOCALSTATEDIR = /s@= .*@= "/$(LOCALSTATEDIR)"@' \
 		-e '/^SYSCONFDIR = /s@= .*@= "/$(SYSCONFDIR)"@' \
