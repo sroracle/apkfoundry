@@ -17,17 +17,19 @@ else
 	exec 3>&1 4>&2
 fi
 
+log() {
+	printf "$@" >&2
+	[ -z "$quiet" ] || printf "$@" >&4
+}
+
 failures=0
 for test; do
-	printf 'TEST %s\n' "${test##*/}" >&2
-	[ -z "$quiet" ] || printf 'TEST %s\n' "${test##*/}" >&4
+	log 'TEST %s\n' "${test##*/}"
 	if ! "$test" >&3 2>&4; then
-		printf 'FAIL %s\n' "${test##*/}" >&2
-		[ -z "$quiet" ] || printf 'FAIL %s\n' "${test##*/}" >&4
+		log 'FAIL %s\n' "${test##*/}"
 		failures=$((failures + 1))
 	else
-		printf 'PASS %s\n' "${test##*/}" >&2
-		[ -z "$quiet" ] || printf 'PASS %s\n' "${test##*/}" >&4
+		log 'PASS %s\n' "${test##*/}"
 	fi
 done
 
