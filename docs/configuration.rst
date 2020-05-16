@@ -26,7 +26,7 @@ files can be named whatever one chooses; any files matching this glob
 will be read in collation order. Thus sensitive details can be split
 into restricted files away from more mundane options.
 
-See `<etc/config-global.ini.in>`_ for an annotated example configuration
+See `<etc/config-global.ini>`_ for an annotated example configuration
 file.
 
 abuild.conf
@@ -60,5 +60,5 @@ these INI files are named for the branches to which they apply. The
 settings in the ``master`` section are used as a fallback for missing
 settings.
 
-See `<etc/config-project.ini.in>`_ for an annotated example
-configuration file.
+See `<docs/config-project.ini>`_ for an annotated example configuration
+file.

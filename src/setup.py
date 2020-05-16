@@ -49,7 +49,7 @@ distutils.core.setup(
         (
             str(docdir),
             [
-                *glob.glob("docs/*.rst"),
+                *glob.glob("docs/*"),
                 *glob.glob("LICENSE*"),
                 "README.rst",
             ],
