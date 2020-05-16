@@ -1,0 +1,22 @@
+#!/bin/sh -ex
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2020 Max Rees
+# See LICENSE for more information.
+
+# Incorrect number of args
+! af-rmchroot
+! af-rmchroot a b
+
+# Exits 0 if directory doesn't exist
+af-rmchroot "$AF_TESTDIR/not-a-directory"
+
+mkdir -p "$AF_TESTDIR/not-a-container"
+! af-rmchroot "$AF_TESTDIR/not-a-container"
+[ -d "$AF_TESTDIR/not-a-container" ]
+
+af-rmchroot --force "$AF_TESTDIR/not-a-container"
+! [ -d "$AF_TESTDIR/not-a-container" ]
+
+mkdir -p "$AF_TESTDIR/container/af"
+af-rmchroot "$AF_TESTDIR/container"
+! [ -d "$AF_TESTDIR/container" ]

@@ -1,5 +1,7 @@
 libexec/af-req-root
 libexec/af-su
+var
+tests/tmp
 *.bak
 MANIFEST
 

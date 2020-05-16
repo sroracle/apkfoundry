@@ -27,6 +27,9 @@ C_TARGETS = \
 	libexec/af-req-root \
 	libexec/af-su
 
+TEST_TARGETS = \
+	tests/*.test
+
 .PHONY: all
 all: libexec
 	$(SETUP.PY) build
@@ -38,9 +41,12 @@ libexec: $(C_TARGETS)
 
 .PHONY: quickstart
 quickstart: configure libexec
-	mkdir var
-	mkdir var/build
-	mkdir var/apk-cache var/rootfs-cache var/src-cache
+	mkdir -p var/build
+	mkdir -p var/apk-cache var/rootfs-cache var/src-cache
+
+.PHONY: check
+check: quickstart
+	@tests/run-tests.sh -q $(TEST_TARGETS)
 
 .PHONY: install
 install: configure paths all
@@ -94,5 +100,5 @@ lint: $(LINT_TARGETS)
 
 .PHONY: clean
 clean:
-	rm -rf MANIFEST apkfoundry.egg-info build dist target
+	rm -rf MANIFEST apkfoundry.egg-info build dist target tests/tmp var
 	rm -f $(C_TARGETS)
