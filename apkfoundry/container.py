@@ -343,7 +343,7 @@ def _make_infodir(conf, opts):
 
 def _cont_make_args(args):
     opts = argparse.ArgumentParser(
-        usage="af-mkchroot [options ...] DIR APORTSDIR",
+        usage="af-mkchroot [options ...] CDIR APORTSDIR",
     )
     opts.add_argument(
         "-A", "--arch",
