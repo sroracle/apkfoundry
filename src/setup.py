@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+import distutils.core  # setup
 import glob            # glob
 import os              # environ
-import distutils.core  # setup
 from pathlib import Path
 
 def get_path(name):

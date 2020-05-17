@@ -9,10 +9,16 @@ export AF_TESTDIR="tests/tmp"
 rm -rf "$AF_TESTDIR"
 mkdir -p "$AF_TESTDIR"
 
-if [ "$1" = "-q" ]; then
-	quiet=1
+while getopts nq opt; do
+case "$opt" in
+n) no_network=1;;
+q) quiet=1;;
+esac
+done
+shift "$((OPTIND - 1))"
+
+if [ -n "$quiet" ]; then
 	exec 3>"$AF_TESTDIR/log" 4>&3
-	shift
 else
 	exec 3>&1 4>&2
 fi
@@ -26,13 +32,29 @@ failures=0
 for test; do
 	if ! [ -x "$test" ]; then
 		log 'XXXX %s: no such test\n' "${test##*/}"
-		failures=$((failures + 1))
+		failures="$((failures + 1))"
 		continue
 	fi
+	case "$test" in
+	*.net.test)
+		if [ -n "$no_network" ]; then
+			log 'SKIP %s\n' "${test##*/}"
+			continue
+		fi
+		;;
+	*.test)
+		;;
+	*)
+		log 'XXXX %s: not a test\n' "${test##*/}"
+		failures="$((failures + 1))"
+		continue
+		;;
+	esac
+
 	log 'TEST %s\n' "${test##*/}"
 	if ! "$test" >&3 2>&4; then
 		log 'FAIL %s\n' "${test##*/}"
-		failures=$((failures + 1))
+		failures="$((failures + 1))"
 	else
 		log 'PASS %s\n' "${test##*/}"
 	fi
@@ -42,7 +64,7 @@ if [ "$failures" -ne 0 ]; then
 	cat >&2 <<-EOF
 
 	Re-run failed tests:
-	tests/run-tests.sh [-q] tests/TEST1 [tests/TEST2 ...]
+	tests/run-tests.sh [-nq] tests/TEST1 [tests/TEST2 ...]
 
 	Output is in tests/tmp/log
 EOF

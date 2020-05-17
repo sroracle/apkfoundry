@@ -18,6 +18,7 @@ C_TARGETS = \
 	libexec/af-req-root \
 	libexec/af-su
 
+TEST_ARGS = -q
 TEST_TARGETS = \
 	tests/*.test
 
@@ -65,7 +66,7 @@ quickstart: configure libexec
 
 .PHONY: check
 check: quickstart
-	@tests/run-tests.sh -q $(TEST_TARGETS)
+	@tests/run-tests.sh $(TEST_ARGS) $(TEST_TARGETS)
 
 .PHONY: paths
 paths: configure
