@@ -12,7 +12,7 @@ import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-import apkfoundry           # LOCALSTATEDIR, MOUNTS, SYSCONFDIR, site_conf
+import apkfoundry           # CACHEDIR, MOUNTS, SYSCONFDIR, site_conf
 import apkfoundry.build     # buildrepo
 import apkfoundry.container # Container
 import apkfoundry._log as _log
@@ -62,10 +62,10 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
             self.mr = None
             self.target_url = None
 
-        self.cache = apkfoundry.LOCALSTATEDIR / "apk-cache" / \
+        self.cache = apkfoundry.CACHEDIR / "apk" / \
             f"{self['CI_PROJECT_PATH_SLUG']}.{self.ref}.{self.arch}"
 
-        self.srcdest = apkfoundry.LOCALSTATEDIR / "src-cache" / \
+        self.srcdest = apkfoundry.CACHEDIR / "src" / \
             f"{self['CI_PROJECT_PATH_SLUG']}"
 
     def __getitem__(self, key):

@@ -4,7 +4,11 @@
 # See LICENSE for more information.
 export PATH="$PWD/bin:$PATH"
 export PYTHONPATH="$PWD:$PYTHONPATH"
+
 export AF_TESTDIR="tests/tmp"
+export AF_CONFIG="$AF_TESTDIR/config"
+export AF_LOCAL="$AF_TESTDIR/local"
+export AF_CACHE="$AF_TESTDIR/cache"
 
 rm -rf "$AF_TESTDIR"
 mkdir -p "$AF_TESTDIR"

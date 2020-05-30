@@ -3,9 +3,7 @@ DESTDIR = target
 PREFIX = usr
 DOCDIR = $(PREFIX)/share/doc/apkfoundry
 LIBEXECDIR = $(PREFIX)/libexec/apkfoundry
-LOCALSTATEDIR = var/lib/apkfoundry
-SYSCONFDIR = etc/apkfoundry
-export DOCDIR LIBEXECDIR SYSCONFDIR
+export DOCDIR LIBEXECDIR
 
 BWRAP = bwrap.nosuid
 DEFAULT_ARCH = $(shell apk --print-arch)
@@ -61,8 +59,6 @@ configure:
 
 .PHONY: quickstart
 quickstart: configure libexec
-	mkdir -p var/build
-	mkdir -p var/apk-cache var/rootfs-cache var/src-cache
 
 .PHONY: check
 check: quickstart
@@ -71,12 +67,8 @@ check: quickstart
 .PHONY: paths
 paths: configure
 	@printf 'PATH: LIBEXECDIR = "%s"\n' '$(LIBEXECDIR)'
-	@printf 'PATH: LOCALSTATEDIR = "%s"\n' '$(LOCALSTATEDIR)'
-	@printf 'PATH: SYSCONFDIR = "%s"\n' '$(SYSCONFDIR)'
 	@sed -i \
 		-e '/^LIBEXECDIR = /s@= .*@= "/$(LIBEXECDIR)"@' \
-		-e '/^LOCALSTATEDIR = /s@= .*@= "/$(LOCALSTATEDIR)"@' \
-		-e '/^SYSCONFDIR = /s@= .*@= "/$(SYSCONFDIR)"@' \
 		apkfoundry/__init__.py
 
 .PHONY: install
@@ -84,23 +76,6 @@ install: paths all
 	$(SETUP.PY) install \
 		--root="$(DESTDIR)" \
 		--prefix="/$(PREFIX)"
-	chmod 2755 "$(DESTDIR)/$(SYSCONFDIR)"
-	-chgrp apkfoundry "$(DESTDIR)/$(SYSCONFDIR)"
-	mkdir -p "$(DESTDIR)/$(LOCALSTATEDIR)"
-	chmod 2770 "$(DESTDIR)/$(LOCALSTATEDIR)"
-	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)"
-	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/build"
-	chmod 770 "$(DESTDIR)/$(LOCALSTATEDIR)/build"
-	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/build"
-	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/apk-cache"
-	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/apk-cache"
-	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/apk-cache"
-	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/rootfs-cache"
-	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/rootfs-cache"
-	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/rootfs-cache"
-	mkdir "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
-	chmod 775 "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
-	-chgrp apkfoundry "$(DESTDIR)/$(LOCALSTATEDIR)/src-cache"
 
 .PHONY: clean
 clean:

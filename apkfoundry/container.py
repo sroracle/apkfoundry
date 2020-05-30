@@ -10,7 +10,7 @@ import shutil     # chown, copy2, rmtree
 import subprocess # call, Popen
 from pathlib import Path
 
-import apkfoundry         # BWRAP, DEFAULT_ARCH, LIBEXECDIR, LOCALSTATEDIR,
+import apkfoundry         # BWRAP, CACHEDIR, DEFAULT_ARCH, LIBEXECDIR,
                           # MOUNTS, SYSCONFDIR, local_conf, site_conf
 import apkfoundry._root as _root
 import apkfoundry._util as _util
@@ -21,7 +21,7 @@ _KEEP_ENV = (
     "TERM",
 )
 _SUBID = apkfoundry.site_conf().getint("container", "subid")
-_ROOTFS_CACHE = apkfoundry.LOCALSTATEDIR / "rootfs-cache"
+_ROOTFS_CACHE = apkfoundry.CACHEDIR / "rootfs"
 
 def _idmap(cmd, pid, ent_id):
     holes = {
@@ -168,6 +168,8 @@ class Container:
         })
 
     def run_external(self, cmd, **kwargs):
+        _ROOTFS_CACHE.mkdir(parents=True, exist_ok=True)
+
         args = [
             "--ro-bind", "/", "/",
             "--dev-bind", "/dev", "/dev",
@@ -186,7 +188,7 @@ class Container:
             env={
                 "AF_ARCH": arch,
                 "AF_ROOTFS_CACHE": _ROOTFS_CACHE,
-                "AF_SYSCONFDIR": apkfoundry.SYSCONFDIR,
+                "AF_CONFIG": apkfoundry.SYSCONFDIR,
             },
             cwd=self.cdir,
         )
@@ -234,7 +236,7 @@ class Container:
             (script,),
             setsid=setsid, net=True,
             env={
-                "AF_SYSCONFDIR": apkfoundry.SYSCONFDIR,
+                "AF_CONFIG": apkfoundry.SYSCONFDIR,
             },
             cwd=self.cdir,
         )

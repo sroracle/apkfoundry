@@ -7,7 +7,6 @@ from pathlib import Path
 def get_path(name):
     return Path("/" + os.environ[name].strip("/"))
 
-sysconfdir = get_path("SYSCONFDIR")
 libexecdir = get_path("LIBEXECDIR")
 docdir = get_path("DOCDIR")
 
@@ -38,10 +37,6 @@ distutils.core.setup(
 
     scripts=glob.glob("bin/*"),
     data_files=[
-        (
-            str(sysconfdir),
-            glob.glob("etc/*"),
-        ),
         (
             str(libexecdir),
             glob.glob("libexec/*"),

@@ -9,16 +9,26 @@ from pathlib import Path
 
 BWRAP = "bwrap.nosuid"
 DEFAULT_ARCH = "x86_64"
+
 _src = Path(__file__).parent.parent
 _maybe_src = lambda x, y: (_src / x) if (_src / x).is_dir() else Path(y)
 LIBEXECDIR = _maybe_src("libexec", "/usr/libexec/apkfoundry")
-LOCALSTATEDIR = _maybe_src("var", "/var/lib/apkfoundry")
-SYSCONFDIR = _maybe_src("etc", "/etc/apkfoundry")
+_path = os.environ.get("PATH", None)
+os.environ["PATH"] = str(LIBEXECDIR) + (os.pathsep + _path if _path else "")
 
-if "PATH" in os.environ:
-    os.environ["PATH"] = str(LIBEXECDIR) + os.pathsep + os.environ["PATH"]
-else:
-    os.environ["PATH"] = str(LIBEXECDIR)
+HOME = Path(os.environ["HOME"])
+SYSCONFDIR = Path(os.environ.get(
+    "AF_CONFIG",
+    Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config")) / "apkfoundry",
+)).resolve(strict=False)
+LOCALSTATEDIR = Path(os.environ.get(
+    "AF_LOCAL",
+    Path(os.environ.get("XDG_DATA_HOME", HOME / ".local/share")) / "apkfoundry",
+)).resolve(strict=False)
+CACHEDIR = Path(os.environ.get(
+    "AF_CACHE",
+    Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / "apkfoundry",
+)).resolve(strict=False)
 
 MOUNTS = {
     "aportsdir": "/af/aports",

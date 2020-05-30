@@ -364,7 +364,7 @@ def _buildrepo_args(args):
     cont.add_argument(
         "--directory", metavar="DIR",
         help=f"""use DIR as the container root (default: temporary
-        directory in {apkfoundry.LOCALSTATEDIR / "build"})""",
+        directory in {apkfoundry.LOCALSTATEDIR})""",
     )
     cont.add_argument(
         "-S", "--setarch",
@@ -473,7 +473,8 @@ def buildrepo(args):
     if opts.directory:
         cdir = Path(opts.directory)
     else:
-        cdir = Path(tempfile.mkdtemp(dir=apkfoundry.LOCALSTATEDIR / "build"))
+        apkfoundry.LOCALSTATEDIR.mkdir(parents=True, exist_ok=True)
+        cdir = Path(tempfile.mkdtemp(dir=apkfoundry.LOCALSTATEDIR))
 
     if opts.git_url:
         if not opts.branch:
