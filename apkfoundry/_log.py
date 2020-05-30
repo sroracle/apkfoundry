@@ -61,8 +61,8 @@ class _AbuildLogFormatter(logging.Formatter):
             record.msg = sectionfmt
             if msg.strip():
                 record.msg += "\n" if record.levelno == 27 else ""
-                record.msg += f"{_Colors.NORMAL}{_Colors.STRONG}>>>"
-                record.msg += f" {_Colors.BLUE}{msg}{_Colors.NORMAL}"
+                record.msg += f"{_Colors.MAGENTA}{_Colors.STRONG}>>>"
+                record.msg += f" {msg}{_Colors.NORMAL}"
         else:
             record.prettylevel = f">>> {record.levelname}: "
 
