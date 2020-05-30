@@ -64,20 +64,66 @@ class Container:
         "cdir",
         "rootd_conn",
 
+        "_branch",
+        "_branchdir",
+        "_repo",
+        "_arch",
+
         "_uid",
         "_gid",
     )
 
     def __init__(self, cdir, *, rootd=True):
         self.cdir = Path(cdir).resolve(strict=True)
-
-        self._uid = os.getuid()
-        self._gid = os.getgid()
-
         if rootd:
             self.rootd_conn = _root.client_init(self.cdir)
         else:
             self.rootd_conn = None
+
+        self._branch = None
+        self._branchdir = None
+        self._repo = None
+        self._arch = None
+
+        self._uid = os.getuid()
+        self._gid = os.getgid()
+
+    def _read_info(self, name):
+        f = self.cdir / name
+        if f.is_file():
+            return f.read_text().strip()
+        return None
+
+    @property
+    def branch(self):
+        if not self._branch:
+            self._branch = self._read_info("af/info/branch")
+        return self._branch
+
+    @property
+    def branchdir(self):
+        if self.branch and not self._branchdir:
+            self._branchdir = _util.get_branchdir(
+                self.cdir / "af/info/aportsdir", self.branch
+            )
+        return self._branchdir
+
+    @property
+    def repo(self):
+        if not self._repo:
+            self._repo = self._read_info("af/info/repo")
+        return self._repo
+
+    @repo.setter
+    def repo(self, value):
+        self._repo = value
+        (self.cdir / "af/info/repo").write_text(value.strip())
+
+    @property
+    def arch(self):
+        if not self._arch:
+            self._arch = self._read_info("etc/apk/arch")
+        return self._arch
 
     def _bwrap(self, args, *, net=False, root=False, setsid=True, **kwargs):
         if "env" not in kwargs:
@@ -150,8 +196,12 @@ class Container:
             _LOGGER.debug("container failed with status %r!", retcodes)
         return (max(abs(i) for i in retcodes), proc)
 
-    @staticmethod
-    def _run_env(kwargs):
+    def _run_env(self, kwargs):
+        if self.branchdir:
+            branchdir = "/" + str(self.branchdir.relative_to(self.cdir))
+        else:
+            branchdir = ""
+
         if "env" not in kwargs:
             kwargs["env"] = {}
         kwargs["env"].update({
@@ -166,10 +216,37 @@ class Container:
             "ADDUSER": "/af/libexec/af-req-root abuild-adduser",
             "SUDO_APK": "/af/libexec/af-req-root abuild-apk",
             "APK_FETCH": "/af/libexec/af-req-root apk",
+
+            "AF_BUILD_UID": str(self._uid),
+            "AF_BUILD_GID": str(self._gid),
+
+            "AF_BRANCH": self.branch or "",
+            "AF_BRANCHDIR": branchdir,
+            "AF_REPO": self.repo or "",
+            "AF_ARCH": self.arch or "",
+
+            "AF_LIBEXEC": "/af/libexec",
+        })
+
+    def _ext_env(self, kwargs):
+        if "env" not in kwargs:
+            kwargs["env"] = {}
+        kwargs["env"].update({
+            "AF_BUILD_UID": str(self._uid),
+            "AF_BUILD_GID": str(self._gid),
+
+            "AF_BRANCH": self.branch or "",
+            "AF_BRANCHDIR": self.branchdir or "",
+            "AF_REPO": self.repo or "",
+            "AF_ARCH": self.arch or "",
+
+            "AF_LIBEXEC": apkfoundry.LIBEXECDIR,
+            "AF_ROOTFS_CACHE": _ROOTFS_CACHE,
         })
 
     def run_external(self, cmd, **kwargs):
         _ROOTFS_CACHE.mkdir(parents=True, exist_ok=True)
+        self._ext_env(kwargs)
 
         args = [
             "--ro-bind", "/", "/",
@@ -183,14 +260,11 @@ class Container:
         return self._bwrap(args, **kwargs, root=True)
 
     def bootstrap(self, arch):
+        self._arch = arch
+
         rc, _ = self.run_external(
             (self.cdir / "af/bootstrap-stage1",),
             net=True,
-            env={
-                "AF_ARCH": arch,
-                "AF_ROOTFS_CACHE": _ROOTFS_CACHE,
-                "AF_CONFIG": apkfoundry.SYSCONFDIR,
-            },
             cwd=self.cdir,
         )
         if rc:
@@ -210,10 +284,6 @@ class Container:
         rc, _ = self.run(
             ("/af/bootstrap-stage2",),
             root=True, net=True, ro_root=False,
-            env={
-                "AF_BUILD_UID": str(os.getuid()),
-                "AF_BUILD_GID": str(os.getgid()),
-            },
         )
         return rc
 
@@ -230,12 +300,7 @@ class Container:
         return 0
 
     def refresh(self, setsid=False):
-        branch = (self.cdir / "af/info/branch").read_text().strip()
-        branchdir = _util.get_branchdir(
-            self.cdir / "af/info/aportsdir", branch
-        )
-
-        script = branchdir / "refresh"
+        script = self.branchdir / "refresh"
         if not script.is_file():
             _LOGGER.warning("No refresh script found")
             return 0
@@ -243,9 +308,6 @@ class Container:
         rc, _ = self.run_external(
             (script,),
             setsid=setsid, net=True,
-            env={
-                "AF_CONFIG": apkfoundry.SYSCONFDIR,
-            },
             cwd=self.cdir,
         )
         return rc
@@ -296,7 +358,7 @@ class Container:
                     "--bind", self.cdir / "af/info/cache", "/etc/apk/cache",
                 ]
             if repo:
-                (self.cdir / "af/info/repo").write_text(repo.strip())
+                self.repo = repo
 
         if self.rootd_conn and not skip_rootd:
             if self.refresh():
