@@ -21,7 +21,7 @@ system/gcc) $SUDO_APK add -t .makedepends-gcc-self gcc-gnat;;
 esac
 
 printf "${STRONG}>>> abuild -r${NORMAL}\n" >&2
-abuild -r
+af_abuild
 
 printf "${STRONG}>>> checkapk${NORMAL}\n" >&2
 "$AF_LIBEXEC/checkapk"
