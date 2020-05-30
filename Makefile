@@ -82,7 +82,7 @@ check: quickstart
 paths: configure
 	@printf 'PATH: LIBEXECDIR = "%s"\n' '$(LIBEXECDIR)'
 	@sed -i \
-		-e '/^LIBEXECDIR = /s@= .*@= "/$(LIBEXECDIR)"@' \
+		-e '/^LIBEXECDIR = /s@= .*@= Path("/$(LIBEXECDIR)")@' \
 		apkfoundry/__init__.py
 
 .PHONY: install
