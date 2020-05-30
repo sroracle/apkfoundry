@@ -37,5 +37,4 @@ if not ((opts.cdir / "af").is_dir() or opts.force):
     sys.exit(1)
 
 cont = apkfoundry.container.Container(opts.cdir, rootd=False)
-rc, _ = cont.destroy()
-sys.exit(rc)
+sys.exit(cont.destroy())

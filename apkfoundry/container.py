@@ -4,7 +4,7 @@
 import argparse   # ArgumentParser
 import json       # load
 import logging    # getLogger
-import os         # close, environ, fdopen, getgid, getuid, pipe, write
+import os         # close, environ, fdopen, getgid, getuid, listdir, pipe, write
 import select     # select
 import shutil     # chown, copy2, rmtree
 import subprocess # call, Popen
@@ -21,6 +21,7 @@ _KEEP_ENV = (
     "TERM",
 )
 _SUBID = apkfoundry.site_conf().getint("container", "subid")
+_ROOTFS_CACHE = apkfoundry.LOCALSTATEDIR / "rootfs-cache"
 
 def _idmap(cmd, pid, ent_id):
     holes = {
@@ -168,8 +169,11 @@ class Container:
 
     def run_external(self, cmd, **kwargs):
         args = [
-            "--bind", "/", "/",
-            "--chdir", self.cdir,
+            "--ro-bind", "/", "/",
+            "--dev-bind", "/dev", "/dev",
+            "--proc", "/proc",
+            "--bind", self.cdir, self.cdir,
+            "--bind", _ROOTFS_CACHE, _ROOTFS_CACHE,
             apkfoundry.LIBEXECDIR / "af-su",
             *cmd,
         ]
@@ -181,9 +185,10 @@ class Container:
             net=True,
             env={
                 "AF_ARCH": arch,
-                "AF_ROOTFS_CACHE": apkfoundry.LOCALSTATEDIR / "rootfs-cache",
+                "AF_ROOTFS_CACHE": _ROOTFS_CACHE,
                 "AF_SYSCONFDIR": apkfoundry.SYSCONFDIR,
             },
+            cwd=self.cdir,
         )
         if rc:
             return rc
@@ -203,12 +208,16 @@ class Container:
         return rc
 
     def destroy(self):
-        args = [
-            "--bind", "/", "/",
-            apkfoundry.LIBEXECDIR / "af-su",
-            "rm", "-rf", self.cdir,
-        ]
-        return self._bwrap(args, root=True)
+        children = os.listdir(self.cdir)
+        if children:
+            rc, _ = self.run_external(
+                (apkfoundry.LIBEXECDIR / "af-su", "rm", "-rf", *children),
+                cwd=self.cdir,
+            )
+            if rc:
+                return rc
+        self.cdir.rmdir()
+        return 0
 
     def refresh(self, setsid=False):
         branch = (self.cdir / "af/info/branch").read_text().strip()
@@ -227,6 +236,7 @@ class Container:
             env={
                 "AF_SYSCONFDIR": apkfoundry.SYSCONFDIR,
             },
+            cwd=self.cdir,
         )
         return rc
 

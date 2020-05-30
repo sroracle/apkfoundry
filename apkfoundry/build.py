@@ -266,8 +266,7 @@ def resignapk(cdir, privkey, pubkey):
 def _cleanup(rc, cont, delete):
     if cont and (delete == "always" or (delete == "on-success" and rc == 0)):
         _LOGGER.info("Deleting container...")
-        rc2, _ = cont.destroy()
-        rc = rc2 if rc == 0 else rc
+        rc = max(cont.destroy(), rc)
 
     return rc
 

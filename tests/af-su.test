@@ -27,7 +27,7 @@ pwd
 
 expect = f"""root
 root
-{cdir.resolve()}
+{Path.cwd()}
 """
 
 cont = apkfoundry.container.Container(cdir, rootd=False)
