@@ -88,6 +88,7 @@ af_userconf() (
 # -t        tee to original standard output
 af_loginit() {
 	local append both opt
+	OPTIND=1
 	while getopts at opt; do
 	case "$opt" in
 	a) append=-a;;
@@ -121,4 +122,53 @@ af_loginit() {
 	else
 		exec >/af/build/log 2>&1
 	fi
+}
+
+# Usage: af_abuild_unpriv [abuild options...] [abuild phases...]
+# A wrapper that completely drops APK Foundry privileges before
+# executing abuild.
+af_abuild_unpriv() (
+	set -e
+	eval "exec $AF_ROOT_FD>&-"
+	export ABUILD_FETCH=
+	export ADDGROUP=
+	export ADDUSER=
+	export SUDO_APK=
+	export APK_FETCH=
+	export AF_ROOT_FD=
+	exec abuild "$@"
+)
+
+# Usage: af_abuild [-cDfkKmPqsv]
+# A wrapper for abuild that performs privileged actions first, then
+# executes the rest of the build using af_abuild_unpriv. It is
+# equivalent to "abuild -r".
+#
+# No phases may be given.
+#
+# Only a subset of abuild options are supported.
+af_abuild() {
+	local force opt
+	OPTIND=1
+	while getopts cD:fkKmP:qs:v opt; do
+	case "$opt" in
+	# up2date doesn't respect -f so we need to check for it ourselves
+	f) force=1;;
+	esac
+	done
+	if [ "$OPTIND" -le "$#" ]; then
+		die "invalid usage"
+	fi
+
+	if [ -z "$force" ] && abuild "$@" up2date >/dev/null 2>&1; then
+		msg "Package is up2date or disabled on $CARCH or $CLIBC"
+		return 0
+	fi
+
+	# builddeps is normally run before fetch, but fetch errors are more
+	# common and especially annoying if you get one after waiting for
+	# hundreds of dependencies to be installed first
+	abuild "$@" -r sanitycheck fetch builddeps mkusers
+	# -d allows us to skip running builddeps twice
+	af_abuild_unpriv "$@" -d build_abuildrepo
 }
