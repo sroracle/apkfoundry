@@ -10,6 +10,7 @@ DEFAULT_ARCH = $(shell apk --print-arch)
 
 PYTHON = python3
 PYLINT = pylint
+CHECKBASHISMS = checkbashisms
 SETUP.PY = $(PYTHON) src/setup.py
 
 C_TARGETS = \
@@ -30,7 +31,7 @@ CLEAN_TARGETS = \
 	tests/tmp \
 	var
 
-LINT_TARGETS = \
+PYLINT_TARGETS = \
 	apkfoundry \
 	bin/af-buildrepo \
 	bin/af-chroot \
@@ -38,6 +39,19 @@ LINT_TARGETS = \
 	bin/af-mkchroot \
 	bin/af-rmchroot \
 	libexec/gl-run
+
+SHLINT_TARGETS = \
+	docs/build-script.sh \
+	bin/af-mkuidmap \
+	bin/af-mkgidmap \
+	libexec/gl-config \
+	libexec/af-deps \
+	libexec/resignapk \
+	libexec/checkapk \
+	libexec/af-functions \
+	libexec/gl-cleanup \
+	tests/run-tests.sh \
+	tests/af-rmchroot.test
 
 .PHONY: all
 all: libexec
@@ -86,8 +100,9 @@ dist: clean
 	$(SETUP.PY) sdist -u root -g root -t src/MANIFEST.in
 
 .PHONY: lint
-lint: $(LINT_TARGETS)
-	-$(PYLINT) --rcfile src/pylintrc $?
+lint:
+	-$(PYLINT) --rcfile src/pylintrc $(PYLINT_TARGETS)
+	-$(CHECKBASHISMS) -px $(SHLINT_TARGETS)
 
 .PHONY: setup
 setup:
