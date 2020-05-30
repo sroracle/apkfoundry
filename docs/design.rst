@@ -66,8 +66,10 @@ container is typically reset to a reproducible state during each build.
    #. Stage 1 (outside container): download and unpack rootfs, add build
       user
    #. Run the ``refresh`` script inside the container
-   #. Stage 2 (inside container): upgrade it, and generate and install a
-      packaging key
+   #. Copy ``$AF_CONFIG/abuild`` to ``$ABUILD_USERDIR`` inside the
+      container, if it exists
+   #. Stage 2 (inside container): upgrade it, add ``build`` user, and
+      generate and install a packaging key if necessary
 
 #. Perform each build
 

@@ -21,12 +21,12 @@ Site configuration
 INI files
 ^^^^^^^^^
 
-The main configuration files are stored in ``SYSCONFDIR/*.ini``. The
+The main configuration files are stored in ``$AF_CONFIG/*.ini``. The
 files can be named whatever one chooses; any files matching this glob
 will be read in collation order. Thus sensitive details can be split
 into restricted files away from more mundane options.
 
-See `<etc/config-global.ini>`_ for an annotated example configuration
+See `<doc/config-global.ini>`_ for an annotated example configuration
 file.
 
 abuild.conf
@@ -35,13 +35,21 @@ abuild.conf
 In order to accommodate settings from both the builder operator and the
 individual projects, the handling of the ``/etc/abuild.conf`` file
 should be done with care. The builder operator should install a template
-at ``SYSCONFDIR/abuild.conf`` which specifies things like the
-``$JOBS`` variable and includes projects' configurations from
-``etc/abuild.conf.local`` inside the container. Projects should copy
-``SYSCONFDIR/abuild.conf`` to ``etc/abuild.conf`` and their own abuild
-settings to ``etc/abuild.conf.local`` during bootstrapping.
+at ``$AF_CONFIG/abuild/abuild.conf`` to specify things like the
+``$JOBS`` variable and possibly a packaging key. The contents of
+``$AF_CONFIG/abuild`` will be installed to ``$ABUILD_USERDIR`` in the
+container automatically during bootstrapping. If this ``abuild.conf``
+specifies a ``$PACKAGER_PRIVKEY``, it should be relative to
+``$ABUILD_USERDIR``, exist in the same directory, and have its
+corresponding public key accessible at ``$PACKAGER_PRIVKEY.pub``.
 
-An example template can be found at `<etc/abuild.conf>`_.
+If ``$PACKAGER_PRIVKEY`` is not specified here then it is up to the
+project's bootstrap scripts to generate and install a key. The
+``$ABUILD_USERDIR`` directory is guaranteed to exist before stage 2 of
+bootstrapping, but not necessarily an ``abuild.conf`` within it.
+
+Projects should copy their own abuild settings to ``etc/abuild.conf`` in
+their refresh script.
 
 Project-local configuration
 ---------------------------

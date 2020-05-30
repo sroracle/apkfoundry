@@ -6,7 +6,7 @@ import json       # load
 import logging    # getLogger
 import os         # close, environ, fdopen, getgid, getuid, listdir, pipe, write
 import select     # select
-import shutil     # chown, copy2, rmtree
+import shutil     # chown, copy2, copytree, rmtree
 import subprocess # call, Popen
 from pathlib import Path
 
@@ -22,6 +22,7 @@ _KEEP_ENV = (
 )
 _SUBID = apkfoundry.site_conf().getint("container", "subid")
 _ROOTFS_CACHE = apkfoundry.CACHEDIR / "rootfs"
+_ABUILD_USERDIR = "af/abuild"
 
 def _idmap(cmd, pid, ent_id):
     holes = {
@@ -154,11 +155,11 @@ class Container:
         if "env" not in kwargs:
             kwargs["env"] = {}
         kwargs["env"].update({
-            "PACKAGER": "APK Foundry",
             "SRCDEST": apkfoundry.MOUNTS["srcdest"],
             "APORTSDIR": apkfoundry.MOUNTS["aportsdir"],
             "REPODEST": apkfoundry.MOUNTS["repodest"],
-            "ABUILD_USERDIR": "/af/key",
+            "ABUILD_USERDIR": "/" + _ABUILD_USERDIR,
+            "ABUILD_USERCONF": "/" + _ABUILD_USERDIR + "/abuild.conf",
             "ABUILD_GIT": "git -C " + apkfoundry.MOUNTS["aportsdir"],
             "ABUILD_FETCH": "/af/libexec/af-req-root abuild-fetch",
             "ADDGROUP": "/af/libexec/af-req-root abuild-addgroup",
@@ -198,6 +199,13 @@ class Container:
         rc = self.refresh()
         if rc:
             return rc
+
+        userdir_template = apkfoundry.SYSCONFDIR / "abuild"
+        userdir_cdir = self.cdir / _ABUILD_USERDIR
+        if userdir_template.is_dir():
+            shutil.copytree(userdir_template, userdir_cdir)
+        else:
+            userdir_cdir.mkdir(parents=True)
 
         rc, _ = self.run(
             ("/af/bootstrap-stage2",),
