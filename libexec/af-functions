@@ -1,0 +1,124 @@
+#!/bin/sh
+
+# Usage: af_fetch URL FILENAME SHA256SUMS [curl options...]
+# Fetch FILENAME from URL if it doesn't already exist. Verify its SHA256
+# checksum from SHA256SUMS. If the checksum does not match, it will be
+# deleted.
+#
+# Default curl options: --fail --location
+af_fetch() (
+	url="$1"; shift
+	file="$1"; shift
+	csums="$1"; shift
+	set -e
+
+	if ! [ -e "$file" ]; then
+	  echo ">>> Fetching ${file##*/}" >&2
+	  curl -fLo "$@" "$file" "$url"
+	fi
+
+	set -- $csums
+	cd "$AF_ROOTFS_CACHE"
+	IFS="
+"
+	for csum in $csums; do
+		shift; name="$1"; shift
+		[ "$name" = "${file##*/}" ] || continue
+
+		if ! printf '%s' "$csum" | sha256sum -c; then
+		  rm -f "$file"
+		  exit 1
+		fi
+	done
+)
+
+# Usage: af_untar FILENAME [tar options...]
+# Unpack FILENAME to the current working directory and fixup its
+# permissions.
+#
+# Default tar options: none
+af_untar() {
+	file="$1"; shift
+	tar -xf "$file" "$@"
+	chown "$AF_BUILD_UID:0" .
+}
+
+# Usage: af_mkuser
+# Create the "build" user and group with the correct IDs.
+af_mkuser() {
+	groupadd -g "$AF_BUILD_GID" build
+	useradd -g build -u "$AF_BUILD_UID" -d /af -s /bin/sh build
+}
+
+# Usage: af_userconf
+# Set up the $ABUILD_USERCONF file. Generate a $PACKAGER_PRIVKEY if
+# necessary, and install its corresponding public key to /etc/apk/keys.
+af_userconf() (
+	set -e
+
+	if ! [ -e "$ABUILD_USERCONF" ]; then
+		touch "$ABUILD_USERCONF"
+		chown build:build "$ABUILD_USERCONF"
+	fi
+
+	. "$ABUILD_USERCONF"
+	if [ -z "$PACKAGER_PRIVKEY" ]; then
+		cd "$APORTSDIR"
+		USER=build abuild-keygen -anq
+		cd "$OLDPWD"
+		. "$ABUILD_USERCONF"
+		chown build:build "$PACKAGER_PRIVKEY" "$PACKAGER_PRIVKEY.pub"
+	fi
+	cp "$PACKAGER_PRIVKEY.pub" /etc/apk/keys
+
+	if [ -z "$PACKAGER" ]; then
+		cat >> "$ABUILD_USERCONF" <<-EOF
+		PACKAGER="APK Foundry"
+		EOF
+	fi
+)
+
+# Usage: af_loginit [-ab]
+# Redirect standard output and standard error to a log file named
+# $REPODEST/$repo/$CARCH/logs/$pkgname-$pkgver-r$pkgrel.log depending on
+# the APKBUILD in the current working directory. A symlink named
+# /af/build/log will also point to this log file.
+#
+# -a        append to .log file instead of overwriting
+# -t        tee to original standard output
+af_loginit() {
+	local append both opt
+	while getopts at opt; do
+	case "$opt" in
+	a) append=-a;;
+	t) tee=1;;
+	esac
+	done
+	shift "$((OPTIND - 1))"
+
+	(
+		set -e
+		repo="${PWD%/*}"
+		repo="${repo##*/}"
+		logdir="$REPODEST/$repo/$CARCH/logs"
+		mkdir -p "$logdir"
+		rm -f /af/build/log
+		. ./APKBUILD
+		ln -sr "$logdir/$pkgname-$pkgver-r$pkgrel.log" /af/build/log
+	)
+
+	if [ -n "$tee" ]; then
+		pipe="$(mktemp)"
+		rm -f "$pipe"
+		mkfifo -m 600 "$pipe"
+		(
+			tee $append /af/build/log < "$pipe" || :
+			rm -f "$pipe"
+		) &
+		exec >"$pipe" 2>&1
+	elif [ -n "$append" ]; then
+		exec >>/af/build/log 2>&1
+	else
+		exec >/af/build/log 2>&1
+	fi
+}
