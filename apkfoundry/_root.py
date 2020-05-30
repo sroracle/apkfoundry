@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
-import argparse     # ArgumentParser
 import errno        # EBADF
 import logging      # getLogger
 import os           # close, write
@@ -15,310 +14,55 @@ import apkfoundry.container # Container
 
 _LOGGER = logging.getLogger(__name__)
 
-_NUM_FDS = 3
-_PASSFD_FMT = _NUM_FDS * "i"
-_PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(_PASSFD_FMT))
-_RC_FMT = "i"
-_BUF_SIZE = 4096
+NUM_FDS = 3
+PASSFD_FMT = NUM_FDS * "i"
+PASSFD_SIZE = socket.CMSG_SPACE(struct.calcsize(PASSFD_FMT))
+RC_FMT = "i"
+BUF_SIZE = 4096
 
-class _ParseOrRaise(argparse.ArgumentParser):
-    class Error(Exception):
-        pass
-
-    def error(self, message):
-        raise self.Error(message)
-
-    def exit(self, status=0, message=None):
-        raise self.Error(status, message)
-
-def _abuild_fetch(argv):
-    getopts = _ParseOrRaise(
-        allow_abbrev=False,
-        add_help=False,
+def abuild_fetch(argv):
+    expected_argv = (
+        "-d",
+        "/af/distfiles",
+        ...,
     )
 
-    getopts.add_argument(
-        "-d"
+    if len(argv) != len(expected_argv):
+        raise ValueError("apkfoundry: abuild-fetch: invalid usage")
+
+    for arg, expected in zip(argv, expected_argv):
+        if expected not in (..., arg):
+            raise ValueError(
+                "apkfoundry: abuild-fetch: %s: invalid argument" % arg,
+            )
+
+def apk(argv):
+    invalid_opts = (
+        "--allow-untrusted",
+        "--keys-dir",
     )
 
-    getopts.add_argument(
-        "url", metavar="URL",
-        nargs=1,
-    )
+    for i in invalid_opts:
+        if i in argv:
+            raise ValueError("apkfoundry: apk: %s: not allowed option" % i)
 
-    getopts.parse_args(argv)
-
-def _abuild_addgroup(argv):
-    getopts = _ParseOrRaise(
-        allow_abbrev=False,
-        add_help=False,
-    )
-
-    getopts.add_argument(
-        "-S", action="store_true",
-        required=True,
-    )
-    getopts.add_argument(
-        "group",
-    )
-
-    getopts.parse_args(argv)
-
-def _abuild_adduser(argv):
-    getopts = _ParseOrRaise(
-        allow_abbrev=False,
-        add_help=False,
-    )
-
-    getopts.add_argument(
-        "-D", action="store_true",
-        required=True,
-    )
-    getopts.add_argument(
-        "-G",
-    )
-    getopts.add_argument(
-        "-H", action="store_true",
-        required=True,
-    )
-    getopts.add_argument(
-        "-S", action="store_true",
-        required=True,
-    )
-    getopts.add_argument(
-        "user",
-    )
-
-    getopts.parse_args(argv)
-
-def _apk_fetch(argv):
-    getopts = _ParseOrRaise(
-        allow_abbrev=False,
-        add_help=False,
-    )
-
-    getopts.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-    )
-    getopts.add_argument(
-        "--repositories-file",
-    )
-    getopts.add_argument(
-        "--simulate", "-s",
-        action="store_true",
-    )
-    getopts.add_argument(
-        "--stdout",
-        action="store_true",
-    )
-
-    applets = getopts.add_subparsers(
-        dest="applet",
-    )
-
-    fetch = applets.add_parser("fetch")
-    fetch.add_argument(
-        "--stdout",
-        action="store_true",
-    )
-    fetch.add_argument(
-        "packages", metavar="PACKAGE",
-        nargs="+",
-    )
-    fetch.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-    )
-    fetch.add_argument(
-        "--repositories-file",
-    )
-    fetch.add_argument(
-        "--simulate", "-s",
-        action="store_true",
-    )
-
-    getopts.parse_args(argv)
-
-def _abuild_apk(argv):
-    getopts = _ParseOrRaise(
-        allow_abbrev=False,
-        add_help=False,
-    )
-
-    getopts.add_argument(
-        "--print-arch",
-        action="store_true",
-    )
-    getopts.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-    )
-    getopts.add_argument(
-        "--repository", "-X",
-    )
-    getopts.add_argument(
-        "--simulate", "-s",
-        action="store_true",
-    )
-    getopts.add_argument(
-        "--wait",
-        type=int,
-    )
-
-    applets = getopts.add_subparsers(
-        dest="applet",
-    )
-
-    add = applets.add_parser("add")
-    add.add_argument(
-        "--virtual", "-t",
-        required=True,
-    )
-    add.add_argument(
-        "--latest", "-l",
-        action="store_true",
-    )
-    add.add_argument(
-        "--upgrade", "-u",
-        action="store_true",
-    )
-    add.add_argument(
-        "packages", metavar="PACKAGE",
-        nargs="*",
-    )
-    add.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-    )
-    add.add_argument(
-        "--repository", "-X",
-    )
-    add.add_argument(
-        "--simulate", "-s",
-        action="store_true",
-    )
-    add.add_argument(
-        "--wait",
-        type=int,
-    )
-
-    dele = applets.add_parser("del")
-    dele.add_argument(
-        "packages", metavar="PACKAGE",
-        nargs="+",
-    )
-    dele.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-    )
-    dele.add_argument(
-        "--repository", "-X",
-    )
-    dele.add_argument(
-        "--simulate", "-s",
-        action="store_true",
-    )
-    dele.add_argument(
-        "--wait",
-        type=int,
-    )
-
-    fix = applets.add_parser("fix")
-    fix.add_argument(
-        "--depends", "-d",
-        action="store_true",
-    )
-    fix.add_argument(
-        "--reinstall", "-r",
-        action="store_true",
-    )
-    fix.add_argument(
-        "--xattr", "-x",
-        action="store_true",
-    )
-    fix.add_argument(
-        "--directory-permissions",
-        action="store_true",
-    )
-    fix.add_argument(
-        "--upgrade", "-u",
-        action="store_true",
-    )
-    fix.add_argument(
-        "packages", metavar="PACKAGE",
-        nargs="*",
-    )
-    fix.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-    )
-    fix.add_argument(
-        "--repository", "-X",
-    )
-    fix.add_argument(
-        "--simulate", "-s",
-        action="store_true",
-    )
-    fix.add_argument(
-        "--wait",
-        type=int,
-    )
-
-    # No arguments or options
-    applets.add_parser("update")
-
-    upgrade = applets.add_parser("upgrade")
-    upgrade.add_argument(
-        "--available", "-a",
-        action="store_true",
-    )
-    upgrade.add_argument(
-        "--latest", "-l",
-        action="store_true",
-    )
-    upgrade.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-    )
-    upgrade.add_argument(
-        "--repository", "-X",
-    )
-    upgrade.add_argument(
-        "--simulate", "-s",
-        action="store_true",
-    )
-    upgrade.add_argument(
-        "--wait",
-        type=int,
-    )
-
-    opts = getopts.parse_args(argv)
-    if opts.applet == "add":
-        if not opts.virtual.startswith(".makedepends-"):
-            getopts.error(f"invalid virtual name: {opts.virtual}")
-
-    elif opts.applet == "del":
-        if any(not i.startswith(".makedepends-") for i in opts.packages):
-            getopts.error("can only remove makedepends virtual packages")
-
-_parse = {
-    "apk": ("apk", _apk_fetch),
-    "abuild-apk": ("apk", _abuild_apk),
-    "abuild-fetch": ("abuild-fetch", _abuild_fetch),
-    "abuild-addgroup": ("addgroup", _abuild_addgroup),
-    "abuild-adduser": ("adduser", _abuild_adduser),
+COMMANDS = {
+    "apk": ("/sbin/apk", apk),
+    "abuild-apk": ("/sbin/apk", apk),
+    "abuild-fetch": ("/usr/bin/abuild-fetch", abuild_fetch),
+    "abuild-addgroup": ("/usr/sbin/addgroup", lambda _: ...),
+    "abuild-adduser": ("/usr/sbin/adduser", lambda _: ...),
 }
 
 def recv_fds(conn):
     msg, anc, _, _ = conn.recvmsg(
-        _BUF_SIZE, _PASSFD_SIZE
+        BUF_SIZE, PASSFD_SIZE
     )
 
     for cmsg in anc:
         if cmsg[0:2] != (socket.SOL_SOCKET, socket.SCM_RIGHTS):
             continue
-        fds = struct.unpack(_PASSFD_FMT, cmsg[2])
+        fds = struct.unpack(PASSFD_FMT, cmsg[2])
         break
     else:
         fds = tuple()
@@ -326,7 +70,7 @@ def recv_fds(conn):
     return (msg, fds)
 
 def send_retcode(conn, rc):
-    conn.send(struct.pack(_RC_FMT, rc))
+    conn.send(struct.pack(RC_FMT, rc))
 
 def client_init(cdir):
     server, client = socket.socketpair()
@@ -376,18 +120,18 @@ class RootConn(socketserver.StreamRequestHandler):
             argv = argv.split("\0")
             cmd = argv[0]
 
-            if cmd not in _parse:
+            if cmd not in COMMANDS:
                 self._err("Command not allowed: %s", cmd)
                 continue
 
             _LOGGER.debug("Received command: %s", " ".join(argv))
 
             try:
-                _parse[cmd][1](argv[1:])
-            except _ParseOrRaise.Error as e:
+                COMMANDS[cmd][1](argv[1:])
+            except ValueError as e:
                 self._err("%s", e)
                 continue
-            argv[0] = _parse[cmd][0]
+            argv[0] = COMMANDS[cmd][0]
 
             try:
                 cont = apkfoundry.container.Container(self.cdir, rootd=False)

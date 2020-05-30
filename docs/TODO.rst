@@ -7,12 +7,9 @@
 * Immediate implementation wishlist
 
   * Project configuration - uploading
-  * Perhaps loosen the restrictions on the usage of $SUDO_APK - or
-    otherwise document what they are. In general, add documentation
-    about the internal environment
+  * Add documentation about the internal environment and scripting
   * Reusing containers - detect if CDIR passed to buildrepo is already
     bootstrapped
-  * CLI utilities need to make paths absolute in most cases
 
 * Long-term implementation wishlist
 
