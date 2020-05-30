@@ -7,6 +7,12 @@ import datetime     # datetime
 import os           # environ, isatty
 import sys          # stderr
 
+# Custom log levels
+# Always use the wrapper functions!
+_MSG2 = 25
+_SECTION_START = 26
+_SECTION_END = 27
+
 class _Colors(enum.Enum):
     NORMAL = "\033[1;0m"
     STRONG = "\033[1;1m"
@@ -53,14 +59,14 @@ class _AbuildLogFormatter(logging.Formatter):
 
         if record.levelname == "INFO":
             record.prettylevel = ">>> "
-        elif record.levelno == 25:
+        elif record.levelno == _MSG2:
             record.prettylevel = "\t"
-        elif record.levelno in (26, 27):
+        elif record.levelno in (_SECTION_START, _SECTION_END):
             record.prettylevel = ""
             msg = record.msg
             record.msg = sectionfmt
             if msg.strip():
-                record.msg += "\n" if record.levelno == 27 else ""
+                record.msg += "\n" if record.levelno == _SECTION_END else ""
                 record.msg += f"{_Colors.MAGENTA}{_Colors.STRONG}>>>"
                 record.msg += f" {msg}{_Colors.NORMAL}"
         else:
@@ -86,10 +92,10 @@ def msg2(logger, s, *args, **kwargs):
     if not logger or isinstance(logger, str):
         logger = logging.getLogger(logger)
     if isinstance(s, str):
-        logger.log(25, s, *args, **kwargs)
+        logger.log(_MSG2, s, *args, **kwargs)
     else:
         for i in s:
-            logger.log(25, i, *args, **kwargs)
+            logger.log(_MSG2, i, *args, **kwargs)
 
 _SECTIONS = []
 def section_start(logger, name, *args, **kwargs):
@@ -99,7 +105,7 @@ def section_start(logger, name, *args, **kwargs):
     ts = str(int(datetime.datetime.now().timestamp()))
     _SECTIONS.append((ts, name))
 
-    logger.log(26, args[0], "start", ts, name, *args[1:], **kwargs)
+    logger.log(_SECTION_START, args[0], "start", ts, name, *args[1:], **kwargs)
 
 def section_end(logger, *args, **kwargs):
     if not logger or isinstance(logger, str):
@@ -109,4 +115,4 @@ def section_end(logger, *args, **kwargs):
         args = [""]
 
     ts, name = _SECTIONS.pop()
-    logger.log(27, args[0], "end", ts, name, *args[1:], **kwargs)
+    logger.log(_SECTION_END, args[0], "end", ts, name, *args[1:], **kwargs)
