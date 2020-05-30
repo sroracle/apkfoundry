@@ -3,16 +3,13 @@
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
 import argparse # ArgumentParser, REMAINDER
-import logging  # basicConfig
 import sys      # exit
 from pathlib import Path
 
 import apkfoundry.container # Container
+import apkfoundry._log as _log
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
+_log.init()
 
 opts = argparse.ArgumentParser(
     usage="af-chroot [options ...] CDIR REPO COMMAND ...",

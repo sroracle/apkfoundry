@@ -3,13 +3,15 @@
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
 import argparse # ArgumentParser
-import logging  # basicConfig
 import sys      # exit
 
 import apkfoundry           # local_conf
 import apkfoundry.container # Container
 import apkfoundry.digraph   # generate_graph
+import apkfoundry._log as _log
 import apkfoundry._util as _util
+
+_log.init()
 
 def print_list(startdirs, func, sep):
     for startdir in startdirs:
@@ -42,11 +44,6 @@ def tsort(opts, graph):
     if opts.startdirs:
         order = [i for i in order if i in opts.startdirs]
     print("\n".join(order))
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
 
 opts = argparse.ArgumentParser(
     usage="af-depgraph [options ...] [STARTDIR ...]",

@@ -21,9 +21,9 @@ import apkfoundry._util as _util
 FAKE_BEFORE = "0000000000000000000000000000000000000000"
 
 SETARCH = apkfoundry.site_conf("setarch")
-os.environ["USE_COLORS"] = "force"
 
-_log.init(None, color=True, sections=True)
+os.environ["USE_COLORS"] = "force"
+_log.init(color=True, sections=True)
 
 class CI_Env: # pylint: disable=too-many-instance-attributes
     prefix = "CUSTOM_ENV_"

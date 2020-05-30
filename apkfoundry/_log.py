@@ -4,6 +4,8 @@
 import enum         # Enum
 import logging      # Formatter, getLogger, StreamHandler
 import datetime     # datetime
+import os           # environ, isatty
+import sys          # stderr
 
 class _Colors(enum.Enum):
     NORMAL = "\033[1;0m"
@@ -66,7 +68,12 @@ class _AbuildLogFormatter(logging.Formatter):
 
         return super().format(record)
 
-def init(name, level="INFO", color=False, sections=False):
+def init(name=None, *, level=None, color=None, sections=False):
+    if level is None:
+        level = os.environ.get("AF_LOGLEVEL", "INFO")
+    if color is None:
+        color = os.isatty(sys.stderr.fileno())
+
     logger = logging.getLogger(name)
     logger.setLevel(level)
     handler = logging.StreamHandler()

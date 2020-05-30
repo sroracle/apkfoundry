@@ -3,16 +3,14 @@
 # Copyright (c) 2020 Max Rees
 # See LICENSE for more information.
 import argparse # ArgumentParser
-import logging  # basicConfig
+import logging  # error
 import sys      # argv, exit
 from pathlib import Path
 
 import apkfoundry.container # Container
+import apkfoundry._log as _log
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
+_log.init()
 
 opts = argparse.ArgumentParser(
     usage="af-rmchroot [-f] CDIR",
