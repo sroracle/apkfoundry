@@ -304,9 +304,7 @@ class Container:
             if "pass_fds" not in kwargs:
                 kwargs["pass_fds"] = []
             kwargs["pass_fds"].append(self.rootd_conn.fileno())
-            args.extend((
-                "--setenv", "AF_ROOT_FD", str(self.rootd_conn.fileno()),
-            ))
+            kwargs["env"]["AF_ROOT_FD"] = str(self.rootd_conn.fileno())
 
         setarch_f = self.cdir / "af/info/setarch"
         if setarch_f.is_file() and not skip_mounts:
