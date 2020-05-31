@@ -26,7 +26,7 @@ files can be named whatever one chooses; any files matching this glob
 will be read in collation order. Thus sensitive details can be split
 into restricted files away from more mundane options.
 
-See `<docs/config-global.ini>`_ for an annotated example configuration
+See `<docs/config-site.ini>`_ for an annotated example configuration
 file.
 
 abuild.conf
@@ -51,8 +51,8 @@ bootstrapping, but not necessarily an ``abuild.conf`` within it.
 Projects should copy their own abuild settings to ``etc/abuild.conf`` in
 their refresh script.
 
-Project-local configuration
----------------------------
+Project configuration
+---------------------
 
 Each project's git repository should have an ``apkfoundry`` branch which
 contains APK Foundry's configuration files. It consists of INI files at

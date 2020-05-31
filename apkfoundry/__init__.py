@@ -104,7 +104,7 @@ def site_conf(section=None):
 
     return config
 
-def local_conf(gitdir=None, section=None):
+def proj_conf(gitdir=None, section=None):
     if gitdir is None:
         gitdir = Path.cwd()
     files = sorted((Path(gitdir) / ".apkfoundry").glob("*.ini"))

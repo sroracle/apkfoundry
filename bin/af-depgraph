@@ -5,7 +5,7 @@
 import argparse # ArgumentParser
 import sys      # exit
 
-import apkfoundry           # local_conf
+import apkfoundry           # proj_conf
 import apkfoundry.container # Container
 import apkfoundry.digraph   # generate_graph
 import apkfoundry._log as _log
@@ -95,7 +95,7 @@ opts.add_argument(
 )
 opts = opts.parse_args()
 
-conf = apkfoundry.local_conf(None, _util.get_branch())
+conf = apkfoundry.proj_conf(None, _util.get_branch())
 
 if opts.container:
     cont = apkfoundry.container.Container(opts.container, sudo=False)

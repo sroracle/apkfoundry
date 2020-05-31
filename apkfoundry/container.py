@@ -11,7 +11,7 @@ import subprocess # call, Popen
 from pathlib import Path
 
 import apkfoundry         # BWRAP, CACHEDIR, DEFAULT_ARCH, HOME, LIBEXECDIR,
-                          # MOUNTS, SYSCONFDIR, local_conf, site_conf
+                          # MOUNTS, SYSCONFDIR, proj_conf, site_conf
 import apkfoundry._sudo as _sudo
 import apkfoundry._util as _util
 
@@ -526,7 +526,7 @@ def cont_make(args):
     if not opts.branch:
         opts.branch = _util.get_branch(opts.aportsdir)
     branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
-    conf = apkfoundry.local_conf(opts.aportsdir, opts.branch)
+    conf = apkfoundry.proj_conf(opts.aportsdir, opts.branch)
 
     (opts.cdir / "af").mkdir(parents=True, exist_ok=True)
     opts.cdir.chmod(0o770)

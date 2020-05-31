@@ -12,7 +12,7 @@ import tempfile   # mkdtemp
 import textwrap   # TextWrapper
 from pathlib import Path
 
-import apkfoundry           # DEFAULT_ARCH, LOCALSTATEDIR, MOUNTS, local_conf
+import apkfoundry           # DEFAULT_ARCH, LOCALSTATEDIR, MOUNTS, proj_conf
 import apkfoundry.container # cont_make
 import apkfoundry.digraph   # generate_graph
 import apkfoundry._log as _log
@@ -498,7 +498,7 @@ def buildrepo(args):
         _log.section_end(_LOGGER)
 
     branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
-    conf = apkfoundry.local_conf(opts.aportsdir, opts.branch)
+    conf = apkfoundry.proj_conf(opts.aportsdir, opts.branch)
 
     _build_list(opts)
     _filter_list(conf, opts)
