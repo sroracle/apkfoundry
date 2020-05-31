@@ -26,7 +26,7 @@ files can be named whatever one chooses; any files matching this glob
 will be read in collation order. Thus sensitive details can be split
 into restricted files away from more mundane options.
 
-See `<doc/config-global.ini>`_ for an annotated example configuration
+See `<docs/config-global.ini>`_ for an annotated example configuration
 file.
 
 abuild.conf

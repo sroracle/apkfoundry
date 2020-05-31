@@ -51,4 +51,4 @@ Example configuration files:
 
 * `GitLab Runner (TOML) <docs/gitlab-runner-config.toml>`_
 * `GitLab CI (YAML) <docs/gitlab-ci-config.yaml>`_
-* `Build script (shell) <docs/build-script.sh>`_
+* `Build script (shell) <docs/build-script>`_

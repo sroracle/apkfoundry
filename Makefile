@@ -103,12 +103,19 @@ dist: clean
 pylint:
 	-$(PYLINT) --rcfile src/pylintrc $(PYLINT_TARGETS)
 
+.PHONY: rstlint
+rstlint:
+	@grep -ho '[<][^>]*[>]' *.rst docs/*.rst \
+		| tr -d '<>' | grep -v http \
+		| while read -r i; do [ -e "$$i" ] \
+		|| echo "RST: link '$$i' does not exist"; done
+
 .PHONY: shlint
 shlint:
 	-$(CHECKBASHISMS) -px $(SHLINT_TARGETS)
 
 .PHONY: lint
-lint: pylint shlint
+lint: pylint shlint rstlint
 
 .PHONY: setup
 setup:
