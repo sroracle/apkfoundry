@@ -220,11 +220,6 @@ class Container:
             "ABUILD_USERDIR": "/" + _ABUILD_USERDIR,
             "ABUILD_USERCONF": "/" + _ABUILD_USERDIR + "/abuild.conf",
             "ABUILD_GIT": "git -C " + apkfoundry.MOUNTS["aportsdir"],
-            "ABUILD_FETCH": "/af/libexec/af-sudo abuild-fetch",
-            "ADDGROUP": "/af/libexec/af-sudo abuild-addgroup",
-            "ADDUSER": "/af/libexec/af-sudo abuild-adduser",
-            "SUDO_APK": "/af/libexec/af-sudo abuild-apk",
-            "APK_FETCH": "/af/libexec/af-sudo apk",
 
             "AF_BUILD_UID": str(self._uid),
             "AF_BUILD_GID": str(self._gid),
@@ -406,7 +401,22 @@ class Container:
             if "pass_fds" not in kwargs:
                 kwargs["pass_fds"] = []
             kwargs["pass_fds"].append(self.sudo_conn.fileno())
-            kwargs["env"]["AF_SUDO_FD"] = str(self.sudo_conn.fileno())
+            kwargs["env"].update({
+                "AF_SUDO_FD": str(self.sudo_conn.fileno()),
+                "ABUILD_FETCH": "/af/libexec/af-sudo abuild-fetch",
+                "ADDGROUP": "/af/libexec/af-sudo abuild-addgroup",
+                "ADDUSER": "/af/libexec/af-sudo abuild-adduser",
+                "SUDO_APK": "/af/libexec/af-sudo abuild-apk",
+                "APK_FETCH": "/af/libexec/af-sudo apk",
+            })
+        else:
+            kwargs["env"].update({
+                "ABUILD_FETCH": "abuild-fetch",
+                "ADDGROUP": "abuild-addgroup",
+                "ADDUSER": "abuild-adduser",
+                "SUDO_APK": "abuild-apk",
+                "APK_FETCH": "apk",
+            })
 
         setarch_f = self.cdir / "af/info/setarch"
         if setarch_f.is_file() and not skip_mounts:
