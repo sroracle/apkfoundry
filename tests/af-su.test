@@ -10,11 +10,9 @@ from pathlib import Path
 
 import apkfoundry           # HOME
 import apkfoundry.container # Container
+import apkfoundry._log as _log
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(levelname)s %(message)s",
-)
+_log.init()
 
 testdir = Path(os.environ["AF_TESTDIR"])
 cdir = testdir / "af-su"

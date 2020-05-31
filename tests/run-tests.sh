@@ -9,6 +9,7 @@ export AF_TESTDIR="tests/tmp"
 export AF_CONFIG="$AF_TESTDIR/config"
 export AF_LOCAL="$AF_TESTDIR/local"
 export AF_CACHE="$AF_TESTDIR/cache"
+export AF_LOGLEVEL="DEBUG"
 
 rm -rf "$AF_TESTDIR"
 mkdir -p "$AF_TESTDIR"
