@@ -41,7 +41,7 @@ PYLINT_TARGETS = \
 	libexec/gl-run
 
 SHLINT_TARGETS = \
-	docs/build-script.sh \
+	docs/build-script \
 	bin/af-mkuidmap \
 	bin/af-mkgidmap \
 	libexec/gl-config \
