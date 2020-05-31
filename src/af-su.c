@@ -24,6 +24,6 @@ int main(int argc, char *argv[]) {
 
 	argv++;
 	if (execvp(argv[0], argv))
-		err(2, "execvp");
+		err(2, "execvp: %s", argv[0]);
 	return 1;
 }
