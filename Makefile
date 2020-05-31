@@ -99,10 +99,16 @@ clean:
 dist: clean
 	$(SETUP.PY) sdist -u root -g root -t src/MANIFEST.in
 
-.PHONY: lint
-lint:
+.PHONY: pylint
+pylint:
 	-$(PYLINT) --rcfile src/pylintrc $(PYLINT_TARGETS)
+
+.PHONY: shlint
+shlint:
 	-$(CHECKBASHISMS) -px $(SHLINT_TARGETS)
+
+.PHONY: lint
+lint: pylint shlint
 
 .PHONY: setup
 setup:
