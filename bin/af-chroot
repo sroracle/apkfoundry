@@ -12,46 +12,49 @@ import apkfoundry._log as _log
 _log.init()
 
 opts = argparse.ArgumentParser(
-    usage="af-chroot [options ...] CDIR REPO COMMAND ...",
+    usage="af-chroot [options ...] CDIR [COMMAND ...]",
+    description="""Enter the APK Foundry container located at CDIR.""",
 )
 opts.add_argument(
     "-n", "--networking", action="store_true",
     help="enable network access",
 )
 opts.add_argument(
-    "--root", dest="root", action="store_true",
-    help="enter container as root",
+    "--new-session", dest="setsid", action="store_true",
+    help="start a new session for the container",
 )
 opts.add_argument(
-    "--no-rootd", dest="rootd", action="store_false",
-    help="do not attempt to connect to rootd",
+    "--no-sudo", dest="rootd", action="store_false",
+    help="disable use of af-sudo",
+)
+opts.add_argument(
+    "-r", "--repo",
+    help="change repository to REPO",
+)
+opts.add_argument(
+    "--ro-aports", dest="ro_aports", action="store_true",
+    help="mount APORTSDIR as read-only",
 )
 opts.add_argument(
     "--rw-root", dest="ro_root", action="store_false",
     help="mount container root as read/write",
 )
 opts.add_argument(
-    "--rw-aports", dest="ro_aports", action="store_false",
-    help="mount APORTSDIR as read/write",
-)
-opts.add_argument(
-    "--new-session", dest="setsid", action="store_true",
-    help="start a new session for the container",
+    "--su", dest="root", action="store_true",
+    help="enter container as root",
 )
 opts.add_argument(
     "cdir", metavar="CDIR",
     help="container directory",
 )
 opts.add_argument(
-    "repo", metavar="REPO",
-    help="repository for this container session",
-)
-opts.add_argument(
     "argv", metavar="COMMAND", nargs=argparse.REMAINDER,
-    help="command to execute",
+    help="command to execute (default: sh -)",
 )
 opts = opts.parse_args()
 opts.cdir = Path(opts.cdir).resolve(strict=False)
+if not opts.argv:
+    opts.argv = ["sh", "-"]
 
 cont = apkfoundry.container.Container(
     opts.cdir,
