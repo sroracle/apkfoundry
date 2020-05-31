@@ -43,8 +43,8 @@ In this model, the elevated privileges needed are:
 * Use the ``newuidmap`` and ``newgidmap`` setuid binaries (as provided
   by ``shadow-uidmap`` package) in order to setup a full mapping of user
   and group IDs inside the namespace, i.e. mapping the build user's
-  IDs to themselves, the ``af-root`` user's IDs to zero, and all other
-  IDs in the range [1, 65534] to unused IDs.
+  IDs to themselves, the fake ``root`` IDs to zero, and all other
+  IDs in the range [1, 65535] to unused IDs.
 
 The job lifecycle
 -----------------
