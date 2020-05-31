@@ -22,15 +22,23 @@ esac
 done
 shift "$((OPTIND - 1))"
 
+exec 3>&2
 if [ -n "$quiet" ]; then
-	exec 3>"$AF_TESTDIR/log" 4>&3
+	exec >"$AF_TESTDIR/log" 2>&1
 else
-	exec 3>&1 4>&2
+	pipe="$(mktemp)"
+	rm -f "$pipe"
+	mkfifo -m 600 "$pipe"
+	(
+		tee "$AF_TESTDIR/log" < "$pipe"
+		rm -f "$pipe"
+	) &
+	exec >"$pipe" 2>&1
 fi
 
 log() {
 	printf "$@" >&2
-	[ -z "$quiet" ] || printf "$@" >&4
+	[ -z "$quiet" ] || printf "$@" >&3
 }
 
 failures=0
@@ -57,7 +65,7 @@ for test; do
 	esac
 
 	log 'TEST %s\n' "${test##*/}"
-	if ! "$test" >&3 2>&4; then
+	if ! "$test"; then
 		log 'FAIL %s\n' "${test##*/}"
 		failures="$((failures + 1))"
 	else
@@ -66,7 +74,7 @@ for test; do
 done
 
 if [ "$failures" -ne 0 ]; then
-	cat >&2 <<-EOF
+	cat >&3 <<-EOF
 
 	Re-run failed tests:
 	tests/run-tests.sh [-nq] tests/TEST1 [tests/TEST2 ...]
