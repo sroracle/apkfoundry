@@ -4,8 +4,8 @@
   token = "YOUR-TOKEN-HERE"
   executor = "custom"
   # These are required but not used
-  builds_dir = "/var/lib/apkfoundry/build"
-  cache_dir = "/var/lib/apkfoundry/cache"
+  builds_dir = "/var/empty"
+  cache_dir = "/var/empty"
   shell = "sh"
   # Build log size in KiB, e.g. 25 MiB is:
   output_limit = 25600
