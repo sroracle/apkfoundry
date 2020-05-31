@@ -293,8 +293,7 @@ class Container:
         children = os.listdir(self.cdir)
         if children:
             rc, _ = self.run_external(
-                (apkfoundry.LIBEXECDIR / "af-su", "rm", "-rf", *children),
-                cwd=self.cdir,
+                ("rm", "-rf", *children),
             )
             if rc:
                 return rc
