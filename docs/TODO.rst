@@ -6,6 +6,7 @@
 
 * Immediate implementation wishlist
 
+  * resignapk should only re-sign new .apks
   * Project configuration - uploading
   * Add documentation about the internal environment and scripting
   * Reusing containers - detect if CDIR passed to buildrepo is already
