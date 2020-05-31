@@ -29,10 +29,10 @@ the functionality of ``abuild-apk``, ``abuild-adduser``, and
 ``abuild-addgroup``, but also ``abuild-fetch`` and ``apk fetch`` (needed
 when network isolation is in effect). An internal daemon is responsible
 for handling these requests and validating their authorization. The
-``af-req-root`` client is executed by the build user to initiate these
+``af-sudo`` client is executed by the build user to initiate these
 requests inside the container. By default, the container environment is
 setup with ``SUDO_APK``, ``ADDUSER``, ``ADDGROUP``, ``ABUILD_FETCH``,
-and ``APK_FETCH`` to use ``af-req-root``.
+and ``APK_FETCH`` to use ``af-sudo``.
 
 In this model, the elevated privileges needed are:
 

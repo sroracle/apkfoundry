@@ -3,7 +3,7 @@
  * Copyright (c) 2019-2020 Max Rees
  * See LICENSE for more information.
  */
-#define PROG "af-req-root"
+#define PROG "af-sudo"
 #define USAGE PROG " COMMAND [ARGS ...]"
 #define BUF_SIZE 4096
 #define NUM_FDS 3

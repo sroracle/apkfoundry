@@ -14,8 +14,8 @@ CHECKBASHISMS = checkbashisms
 SETUP.PY = $(PYTHON) src/setup.py
 
 C_TARGETS = \
-	libexec/af-req-root \
-	libexec/af-su
+	libexec/af-su \
+	libexec/af-sudo
 
 TEST_ARGS = -q
 TEST_TARGETS = \

@@ -1,5 +1,5 @@
-libexec/af-req-root
 libexec/af-su
+libexec/af-sudo
 var
 tests/tmp
 *.bak
