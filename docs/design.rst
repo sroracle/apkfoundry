@@ -49,12 +49,6 @@ In this model, the elevated privileges needed are:
 The job lifecycle
 -----------------
 
-Part of the `configuration<configuration.rst>`_ involves "skeletons" of
-files. Each entry into the container refreshes the container's contents
-from these skeletons. There is also a special "bootstrap skeleton" that
-is used only when first building the container. This means that
-container is typically reset to a reproducible state during each build.
-
 #. Receive a list of packages to build, or determine what to build based
    on a git revision range
 
