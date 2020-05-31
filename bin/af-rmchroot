@@ -34,5 +34,5 @@ if not ((opts.cdir / "af").is_dir() or opts.force):
     logging.error("Use --force if you're absolutely sure")
     sys.exit(1)
 
-cont = apkfoundry.container.Container(opts.cdir, rootd=False)
+cont = apkfoundry.container.Container(opts.cdir, sudo=False)
 sys.exit(cont.destroy())

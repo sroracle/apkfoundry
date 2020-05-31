@@ -16,7 +16,7 @@ opts = argparse.ArgumentParser(
     description="""Enter the APK Foundry container located at CDIR.""",
 )
 opts.add_argument(
-    "-n", "--networking", action="store_true",
+    "-n", "--networking", dest="net", action="store_true",
     help="enable network access",
 )
 opts.add_argument(
@@ -24,7 +24,7 @@ opts.add_argument(
     help="start a new session for the container",
 )
 opts.add_argument(
-    "--no-sudo", dest="rootd", action="store_false",
+    "--no-sudo", dest="sudo", action="store_false",
     help="disable use of af-sudo",
 )
 opts.add_argument(
@@ -32,7 +32,7 @@ opts.add_argument(
     help="change repository to REPO",
 )
 opts.add_argument(
-    "--ro-aports", dest="ro_aports", action="store_true",
+    "--ro-aports", action="store_true",
     help="mount APORTSDIR as read-only",
 )
 opts.add_argument(
@@ -40,7 +40,7 @@ opts.add_argument(
     help="mount container root as read/write",
 )
 opts.add_argument(
-    "--su", dest="root", action="store_true",
+    "--su", action="store_true",
     help="enter container as root",
 )
 opts.add_argument(
@@ -58,13 +58,13 @@ if not opts.argv:
 
 cont = apkfoundry.container.Container(
     opts.cdir,
-    rootd=opts.rootd,
+    sudo=opts.sudo,
 )
 
 rc, _ = cont.run(
     opts.argv,
-    root=opts.root,
-    net=opts.networking,
+    su=opts.su,
+    net=opts.net,
     repo=opts.repo,
     ro_aports=opts.ro_aports,
     ro_root=opts.ro_root,

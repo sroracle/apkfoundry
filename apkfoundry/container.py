@@ -12,7 +12,7 @@ from pathlib import Path
 
 import apkfoundry         # BWRAP, CACHEDIR, DEFAULT_ARCH, HOME, LIBEXECDIR,
                           # MOUNTS, SYSCONFDIR, local_conf, site_conf
-import apkfoundry._root as _root
+import apkfoundry._sudo as _sudo
 import apkfoundry._util as _util
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ def _userns_init(pid, uid, gid):
 class Container:
     __slots__ = (
         "cdir",
-        "rootd_conn",
+        "sudo_conn",
 
         "_branch",
         "_branchdir",
@@ -73,12 +73,12 @@ class Container:
         "_gid",
     )
 
-    def __init__(self, cdir, *, rootd=True):
+    def __init__(self, cdir, *, sudo=True):
         self.cdir = Path(cdir).resolve(strict=True)
-        if rootd:
-            self.rootd_conn = _root.client_init(self.cdir)
+        if sudo:
+            self.sudo_conn = _sudo.client_init(self.cdir)
         else:
-            self.rootd_conn = None
+            self.sudo_conn = None
 
         self._branch = None
         self._branchdir = None
@@ -125,18 +125,18 @@ class Container:
             self._arch = self._read_info("etc/apk/arch")
         return self._arch
 
-    def _bwrap(self, args, *, net=False, root=False, setsid=True, **kwargs):
+    def _bwrap(self, args, *, net=False, su=False, setsid=True, **kwargs):
         if "env" not in kwargs:
             kwargs["env"] = {}
         kwargs["env"].update({
             name: os.environ[name] for name in _KEEP_ENV \
             if name in os.environ and name not in kwargs["env"]
         })
-        user = "root" if root else "build"
+        user = "root" if su else "build"
         kwargs["env"].update({
             "LOGNAME": user,
             "USER": user,
-            "UID": str(0 if root else self._uid),
+            "UID": str(0 if su else self._uid),
             "PATH": "/usr/bin:/usr/sbin:/bin:/sbin",
         })
 
@@ -152,8 +152,8 @@ class Container:
             "--unshare-user",
             "--userns-block-fd", str(pipe_r),
             "--info-fd", str(info_w),
-            "--uid", str(0 if root else self._uid),
-            "--gid", str(0 if root else self._gid),
+            "--uid", str(0 if su else self._uid),
+            "--gid", str(0 if su else self._gid),
         ]
 
         if net:
@@ -161,7 +161,7 @@ class Container:
         if setsid:
             args_pre.append("--new-session")
 
-        if root:
+        if su:
             args_pre.extend([
                 "--cap-add", "CAP_CHOWN",
                 "--cap-add", "CAP_FOWNER",
@@ -299,7 +299,7 @@ class Container:
             "/tmp/af/libexec/af-su",
             *cmd,
         ]
-        return self._bwrap(args, **kwargs, root=True)
+        return self._bwrap(args, **kwargs, su=True)
 
     def bootstrap(self, arch):
         self._arch = arch
@@ -325,7 +325,7 @@ class Container:
 
         rc, _ = self.run(
             ("/af/bootstrap-stage2",),
-            root=True, net=True, ro_root=False,
+            su=True, net=True, ro_root=False,
         )
         return rc
 
@@ -361,7 +361,7 @@ class Container:
             repo=None,
             ro_aports=True,
             ro_root=True,
-            skip_rootd=False,
+            skip_sudo=False,
             skip_mounts=False,
 
             net=False,
@@ -400,19 +400,19 @@ class Container:
             if repo:
                 self.repo = repo
 
-        if self.rootd_conn and not skip_rootd:
+        if self.sudo_conn and not skip_sudo:
             if self.refresh():
                 return 1, None
             if "pass_fds" not in kwargs:
                 kwargs["pass_fds"] = []
-            kwargs["pass_fds"].append(self.rootd_conn.fileno())
-            kwargs["env"]["AF_ROOT_FD"] = str(self.rootd_conn.fileno())
+            kwargs["pass_fds"].append(self.sudo_conn.fileno())
+            kwargs["env"]["AF_SUDO_FD"] = str(self.sudo_conn.fileno())
 
         setarch_f = self.cdir / "af/info/setarch"
         if setarch_f.is_file() and not skip_mounts:
             args.extend(["setarch", setarch_f.read_text().strip()])
 
-        if kwargs.get("root", False):
+        if kwargs.get("su", False):
             args.append("/af/libexec/af-su")
 
         args.extend(cmd)

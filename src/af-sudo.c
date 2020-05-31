@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 	if (argc - start == 0)
 		usage();
 
-	sock_fd = fd_from_env("AF_ROOT_FD");
+	sock_fd = fd_from_env("AF_SUDO_FD");
 
 	send_cmd(sock_fd, my_fds, argc, start, argv);
 	return recv_retcode(sock_fd);

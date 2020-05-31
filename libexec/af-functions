@@ -129,13 +129,13 @@ af_loginit() {
 # executing abuild.
 af_abuild_unpriv() (
 	set -e
-	eval "exec $AF_ROOT_FD>&-"
+	eval "exec $AF_SUDO_FD>&-"
 	export ABUILD_FETCH=
 	export ADDGROUP=
 	export ADDUSER=
 	export SUDO_APK=
 	export APK_FETCH=
-	export AF_ROOT_FD=
+	export AF_SUDO_FD=
 	exec abuild "$@"
 )
 

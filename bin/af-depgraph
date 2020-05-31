@@ -98,7 +98,7 @@ opts = opts.parse_args()
 conf = apkfoundry.local_conf(None, _util.get_branch())
 
 if opts.container:
-    cont = apkfoundry.container.Container(opts.container, rootd=False)
+    cont = apkfoundry.container.Container(opts.container, sudo=False)
 else:
     cont = None
 

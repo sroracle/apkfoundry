@@ -35,7 +35,7 @@ root
 home empty
 """
 
-cont = apkfoundry.container.Container(cdir, rootd=False)
+cont = apkfoundry.container.Container(cdir, sudo=False)
 rc, proc = cont.run_external(
     ["env", f"HOME={apkfoundry.HOME}", "sh", "-exc", script],
     skip_mounts=True,

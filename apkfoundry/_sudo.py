@@ -74,16 +74,16 @@ def send_retcode(conn, rc):
 
 def client_init(cdir):
     server, client = socket.socketpair()
-    root_thread = threading.Thread(
-        target=RootConn,
+    sudo_thread = threading.Thread(
+        target=SudoConn,
         args=(server, cdir),
         daemon=True,
     )
 
-    root_thread.start()
+    sudo_thread.start()
     return client
 
-class RootConn(socketserver.StreamRequestHandler):
+class SudoConn(socketserver.StreamRequestHandler):
     def __init__(self, sock, cdir):
         self.cdir = Path(cdir)
         super().__init__(sock, None, None)
@@ -134,10 +134,10 @@ class RootConn(socketserver.StreamRequestHandler):
             argv[0] = COMMANDS[cmd][0]
 
             try:
-                cont = apkfoundry.container.Container(self.cdir, rootd=False)
+                cont = apkfoundry.container.Container(self.cdir, sudo=False)
                 rc, _ = cont.run(
                     argv,
-                    root=True, net=True, ro_root=False,
+                    su=True, net=True, ro_root=False,
                     stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
                 )
 
