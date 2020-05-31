@@ -252,6 +252,8 @@ class Container:
             "--ro-bind", "/", "/",
             "--dev-bind", "/dev", "/dev",
             "--proc", "/proc",
+            "--tmpfs", "/tmp",
+            "--tmpfs", "/var/tmp",
             "--bind", self.cdir, self.cdir,
             "--bind", _ROOTFS_CACHE, _ROOTFS_CACHE,
             apkfoundry.LIBEXECDIR / "af-su",
