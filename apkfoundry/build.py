@@ -368,7 +368,8 @@ def _buildrepo_args(args):
     )
     cont.add_argument(
         "-S", "--setarch",
-        help="setarch(8) architecture name (default: none)",
+        help="""setarch(8) architecture name (default: look in site
+        configuration, otherwise none)""",
     )
     cont.add_argument(
         "-s", "--srcdest",

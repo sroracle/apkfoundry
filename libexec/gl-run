@@ -12,15 +12,13 @@ import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-import apkfoundry           # CACHEDIR, MOUNTS, SYSCONFDIR, site_conf
+import apkfoundry           # CACHEDIR, MOUNTS, SYSCONFDIR
 import apkfoundry.build     # buildrepo
 import apkfoundry.container # Container
 import apkfoundry._log as _log
 import apkfoundry._util as _util
 
 FAKE_BEFORE = "0000000000000000000000000000000000000000"
-
-SETARCH = apkfoundry.site_conf("setarch")
 
 os.environ["USE_COLORS"] = "force"
 _log.init(color=True, sections=True)
@@ -189,9 +187,6 @@ def build_script(script, env, privkey, pubkey):
 
     if env.arch:
         args += ["--arch", env.arch]
-    setarch = SETARCH.get(env.arch, None)
-    if setarch:
-        args += ["--setarch", setarch]
 
     args += [
         "--",

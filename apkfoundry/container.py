@@ -20,7 +20,8 @@ _LOGGER = logging.getLogger(__name__)
 _KEEP_ENV = (
     "TERM",
 )
-_SUBID = apkfoundry.site_conf().getint("container", "subid")
+_SITE_CONF = apkfoundry.site_conf()
+_SUBID = _SITE_CONF.getint("container", "subid")
 _ROOTFS_CACHE = apkfoundry.CACHEDIR / "rootfs"
 _ABUILD_USERDIR = "af/abuild"
 
@@ -474,6 +475,7 @@ def _make_infodir(conf, opts):
 def _cont_make_args(args):
     opts = argparse.ArgumentParser(
         usage="af-mkchroot [options ...] CDIR APORTSDIR",
+        description="""Make a new APK Foundry container."""
     )
     opts.add_argument(
         "-A", "--arch",
@@ -491,17 +493,17 @@ def _cont_make_args(args):
     )
     opts.add_argument(
         "-r", "--repodest",
-        help="""package destination directory (default: container root
-        /af/repos)""",
+        help="""package destination directory (default:
+        CDIR/af/repos)""",
     )
     opts.add_argument(
         "-S", "--setarch",
-        help="setarch(8) architecture name (default: none)",
+        help="""setarch(8) architecture name (default: look in site
+        configuration, otherwise none)""",
     )
     opts.add_argument(
         "-s", "--srcdest",
-        help="""source file directory (default: container root
-        /af/distfiles)""",
+        help="source file directory (default: CDIR/af/distfiles)",
     )
     opts.add_argument(
         "cdir", metavar="CDIR",
@@ -519,6 +521,8 @@ def cont_make(args):
 
     if not opts.arch:
         opts.arch = apkfoundry.DEFAULT_ARCH
+    if not opts.setarch:
+        opts.setarch = _SITE_CONF.get("setarch", opts.arch, fallback=None)
     if not opts.branch:
         opts.branch = _util.get_branch(opts.aportsdir)
     branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
