@@ -12,11 +12,11 @@ DEFAULT_ARCH = "x86_64"
 
 _src = Path(__file__).parent.parent
 _maybe_src = lambda x, y: (_src / x) if (_src / x).is_dir() else Path(y)
-LIBEXECDIR = _maybe_src("libexec", "/usr/libexec/apkfoundry")
+LIBEXECDIR = _maybe_src("libexec", "/usr/libexec/apkfoundry").resolve()
 _path = os.environ.get("PATH", None)
 os.environ["PATH"] = str(LIBEXECDIR) + (os.pathsep + _path if _path else "")
 
-HOME = Path(os.environ["HOME"])
+HOME = Path(os.environ["HOME"]).resolve()
 SYSCONFDIR = Path(os.environ.get(
     "AF_CONFIG",
     Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config")) / "apkfoundry",

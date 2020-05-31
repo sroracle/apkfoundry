@@ -8,6 +8,7 @@ import subprocess # PIPE
 import sys        # exit
 from pathlib import Path
 
+import apkfoundry           # HOME
 import apkfoundry.container # Container
 
 logging.basicConfig(
@@ -21,18 +22,25 @@ cdir.mkdir()
 
 script = """
 id -nru
+
 id -nrg
-pwd
+
+if [ -n "$(ls "$HOME")" ]; then
+    echo home not empty
+else
+    echo home empty
+fi
 """
 
 expect = f"""root
 root
-{Path.cwd()}
+home empty
 """
 
 cont = apkfoundry.container.Container(cdir, rootd=False)
 rc, proc = cont.run_external(
-    ["sh", "-exc", script],
+    ["env", f"HOME={apkfoundry.HOME}", "sh", "-exc", script],
+    skip_mounts=True,
     stdout=subprocess.PIPE,
     encoding="utf-8",
 )

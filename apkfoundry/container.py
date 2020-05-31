@@ -10,7 +10,7 @@ import shutil     # chown, copy2, copytree, rmtree
 import subprocess # call, Popen
 from pathlib import Path
 
-import apkfoundry         # BWRAP, CACHEDIR, DEFAULT_ARCH, LIBEXECDIR,
+import apkfoundry         # BWRAP, CACHEDIR, DEFAULT_ARCH, HOME, LIBEXECDIR,
                           # MOUNTS, SYSCONFDIR, local_conf, site_conf
 import apkfoundry._root as _root
 import apkfoundry._util as _util
@@ -196,6 +196,15 @@ class Container:
             _LOGGER.debug("container failed with status %r!", retcodes)
         return (max(abs(i) for i in retcodes), proc)
 
+    def _resolv_mounts(self):
+        mounts = apkfoundry.MOUNTS.copy()
+        for mount in mounts:
+            mounts[mount] = self.cdir / "af/info" / mount
+            if not mounts[mount].is_symlink():
+                raise RuntimeError(f"af/info/{mount} isn't a symlink")
+            mounts[mount] = mounts[mount].resolve(strict=True)
+        return mounts
+
     def _run_env(self, kwargs):
         if self.branchdir:
             branchdir = "/" + str(self.branchdir.relative_to(self.cdir))
@@ -236,15 +245,15 @@ class Container:
             "AF_BUILD_GID": str(self._gid),
 
             "AF_BRANCH": self.branch or "",
-            "AF_BRANCHDIR": self.branchdir or "",
+            "AF_BRANCHDIR": "/tmp/af/branchdir" if self.branchdir else "",
             "AF_REPO": self.repo or "",
             "AF_ARCH": self.arch or "",
 
-            "AF_LIBEXEC": apkfoundry.LIBEXECDIR,
-            "AF_ROOTFS_CACHE": _ROOTFS_CACHE,
+            "AF_LIBEXEC": "/tmp/af/libexec",
+            "AF_ROOTFS_CACHE": "/tmp/af/rootfs-cache",
         })
 
-    def run_external(self, cmd, **kwargs):
+    def run_external(self, cmd, skip_mounts=False, **kwargs):
         _ROOTFS_CACHE.mkdir(parents=True, exist_ok=True)
         self._ext_env(kwargs)
 
@@ -254,9 +263,40 @@ class Container:
             "--proc", "/proc",
             "--tmpfs", "/tmp",
             "--tmpfs", "/var/tmp",
-            "--bind", self.cdir, self.cdir,
-            "--bind", _ROOTFS_CACHE, _ROOTFS_CACHE,
-            apkfoundry.LIBEXECDIR / "af-su",
+            "--dir", "/tmp/af",
+            "--dir", "/tmp/af/rootfs-cache",
+            "--dir", "/tmp/af/libexec",
+            "--dir", "/tmp/af/cdir",
+            "--ro-bind", apkfoundry.LIBEXECDIR, "/tmp/af/libexec",
+            "--bind", _ROOTFS_CACHE, "/tmp/af/rootfs-cache",
+            "--bind", self.cdir, "/tmp/af/cdir",
+        ]
+
+        if not skip_mounts:
+            mounts = self._resolv_mounts()
+            args += [
+                "--bind", mounts["aportsdir"],
+                "/tmp/af/cdir" + apkfoundry.MOUNTS["aportsdir"],
+                "--bind", mounts["repodest"],
+                "/tmp/af/cdir" + apkfoundry.MOUNTS["repodest"],
+                "--bind", mounts["srcdest"],
+                "/tmp/af/cdir" + apkfoundry.MOUNTS["srcdest"],
+                "--bind", mounts["builddir"],
+                "/tmp/af/cdir" + apkfoundry.MOUNTS["builddir"],
+            ]
+
+            # TODO: mount cache?
+
+            if self.branchdir:
+                args += [
+                    "--bind", self.branchdir,
+                    "/tmp/af/branchdir",
+                ]
+
+        args += [
+            "--tmpfs", apkfoundry.HOME,
+            "--chdir", "/tmp/af/cdir",
+            "/tmp/af/libexec/af-su",
             *cmd,
         ]
         return self._bwrap(args, **kwargs, root=True)
@@ -265,9 +305,9 @@ class Container:
         self._arch = arch
 
         rc, _ = self.run_external(
-            (self.cdir / "af/bootstrap-stage1",),
+            # Relative to CWD = cdir
+            ("af/bootstrap-stage1",),
             net=True,
-            cwd=self.cdir,
         )
         if rc:
             return rc
@@ -294,6 +334,7 @@ class Container:
         if children:
             rc, _ = self.run_external(
                 ("rm", "-rf", *children),
+                skip_mounts=True,
             )
             if rc:
                 return rc
@@ -305,11 +346,12 @@ class Container:
         if not script.is_file():
             _LOGGER.warning("No refresh script found")
             return 0
+        shutil.copy2(script, self.cdir / "af/refresh")
 
         rc, _ = self.run_external(
-            (script,),
+            # Relative to CWD = cdir
+            ("af/refresh",),
             setsid=setsid, net=True,
-            cwd=self.cdir,
         )
         return rc
 
@@ -341,12 +383,7 @@ class Container:
         ]
 
         if not skip_mounts:
-            mounts = apkfoundry.MOUNTS.copy()
-            for mount in mounts:
-                mounts[mount] = self.cdir / "af/info" / mount
-                if not mounts[mount].is_symlink():
-                    raise RuntimeError(f"af/info/{mount} isn't a symlink")
-                mounts[mount] = mounts[mount].resolve(strict=True)
+            mounts = self._resolv_mounts()
             args += [
                 "--bind", self.cdir / "tmp", "/tmp",
                 "--bind", self.cdir / "var/tmp", "/var/tmp",
