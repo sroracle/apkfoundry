@@ -489,12 +489,12 @@ def _cont_make_args(args):
     )
     opts.add_argument(
         "-c", "--cache",
-        help="shared APK cache directory (default: disabled)",
+        help="external APK cache directory (default: none)",
     )
     opts.add_argument(
         "-r", "--repodest",
-        help="""package destination directory (default:
-        CDIR/af/repos)""",
+        help="""external package destination directory (default:
+        none)""",
     )
     opts.add_argument(
         "-S", "--setarch",
@@ -503,7 +503,7 @@ def _cont_make_args(args):
     )
     opts.add_argument(
         "-s", "--srcdest",
-        help="source file directory (default: CDIR/af/distfiles)",
+        help="external source file directory (default: none)",
     )
     opts.add_argument(
         "cdir", metavar="CDIR",

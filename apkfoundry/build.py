@@ -362,8 +362,8 @@ def _buildrepo_args(args):
         help="external APK cache directory (default: none)",
     )
     cont.add_argument(
-        "--directory", metavar="DIR",
-        help=f"""use DIR as the container root (default: temporary
+        "--directory", metavar="CDIR",
+        help=f"""use CDIR as the container root (default: temporary
         directory in {apkfoundry.LOCALSTATEDIR})""",
     )
     cont.add_argument(
@@ -381,7 +381,7 @@ def _buildrepo_args(args):
     )
     checkout.add_argument(
         "-a", "--aportsdir",
-        help="project checkout directory",
+        help="project git directory",
     )
     checkout.add_argument(
         "-g", "--git-url",
@@ -389,8 +389,8 @@ def _buildrepo_args(args):
     )
     checkout.add_argument(
         "--branch",
-        help="""git branch for checkout (default: master). This is also
-        useful when using --aportsdir in a detached HEAD state.""",
+        help="""git branch for APORTSDIR (default: detect). This is
+        useful when APORTSDIR is in a detached HEAD state.""",
     )
 
     opts.add_argument(
