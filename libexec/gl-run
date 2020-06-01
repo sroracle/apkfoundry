@@ -19,6 +19,8 @@ import apkfoundry._log as _log
 import apkfoundry._util as _util
 
 FAKE_BEFORE = "0000000000000000000000000000000000000000"
+SYS_FAIL = os.environ["SYSTEM_FAILURE_EXIT_CODE"]
+BUILD_FAIL = os.environ["BUILD_FAILURE_EXIT_CODE"]
 
 os.environ["USE_COLORS"] = "force"
 _log.init(color=True, sections=True)
