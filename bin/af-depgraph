@@ -30,11 +30,15 @@ def print_graph(opts, graph):
         def print_rel(dep, rdep):
             print(rdep, "->", dep)
 
+    # Note: all_downstreams is recursive, while predecessors is not.
+    # Therefore we want to perform all_downstreams on a copy of the
+    # prune list, while with predecessors we let it recurse by growing
+    # the list we're iterating over.
     if opts.all_rdeps:
         for pkg in opts.startdirs[:]:
             opts.startdirs += graph.all_downstreams(pkg)
     elif opts.all_deps:
-        for pkg in opts.startdirs[:]:
+        for pkg in opts.startdirs:
             opts.startdirs += graph.predecessors(pkg)
 
     if opts.rdeps or opts.all_rdeps:
