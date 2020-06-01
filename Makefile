@@ -38,13 +38,13 @@ PYLINT_TARGETS = \
 	bin/af-depgraph \
 	bin/af-mkchroot \
 	bin/af-rmchroot \
+	libexec/gl-config \
 	libexec/gl-run
 
 SHLINT_TARGETS = \
 	docs/build-script \
 	bin/af-mkuidmap \
 	bin/af-mkgidmap \
-	libexec/gl-config \
 	libexec/af-deps \
 	libexec/resignapk \
 	libexec/checkapk \
