@@ -35,6 +35,12 @@ Variables
 ``CI_BUILDS_DIR``  This is the directory root for the container. Inside
                    the container it will be ``/``.
 ``GIT_CLONE_PATH`` This must be set to ``$CI_BUILDS_DIR/af/aports``.
+``AF_PROJ_CONFIG`` Where to find the APK Foundry project configuration.
+                   Can be specified as a git clone URL from which to
+                   fetch it, or a clone URL and a branch separated by
+                   spaces. Leave unset or blank to use the default of
+                   ``.apkfoundry/`` relative to the project's git root
+                   on the current branch.
 ``AF_ARCH``        The architecture for which this job will build.
 ``AF_PACKAGES``    List of packages to manually include in the build.
 ``AF_PRIVKEY``     Name of the private key with which to re-sign packages
