@@ -5,7 +5,7 @@
 # See LICENSE for more information.
 import base64     # b64decode
 import logging    # info, error
-import os         # chdir, environ
+import os         # environ
 import shutil     # copy2, rmtree
 import subprocess # check_output
 import sys        # argv, exit
@@ -109,10 +109,10 @@ def get_keys():
         if not privkey.is_file():
             logging.error("AF_PRIVKEY does not exist on this builder")
             return None, None
+        privkey = privkey.read_bytes()
 
         pubkey = env["AF_PUBKEY"].strip() if "AF_PUBKEY" in env \
             else privkey.name + ".pub"
-        privkey = privkey.read_bytes()
 
         return privkey, pubkey
 
@@ -136,8 +136,6 @@ def get_sources(script, env):
     return 0
 
 def build_script(script, env, privkey, pubkey):
-    os.chdir(env.aportsdir)
-
     shutil.copy2(script, env.cdir / "af/build-script.alt")
     sanitize_script(env.cdir / "af/build-script.alt")
     try:
@@ -145,10 +143,11 @@ def build_script(script, env, privkey, pubkey):
     except FileNotFoundError:
         pass
     env.tmp.symlink_to("/tmp")
+    (env.aportsdir / ".gl-repos").symlink_to("../repos")
 
     if env.mr:
         env.before = subprocess.check_output(
-            ("git", "merge-base", env.ref, env.after),
+            ("git", "-C", env.aportsdir, "merge-base", env.ref, env.after),
             encoding="utf-8",
         )
         if not env.before or env.before == env.after:
@@ -157,7 +156,7 @@ def build_script(script, env, privkey, pubkey):
 
     manual_pkgs = []
     if "AF_PACKAGES" in env and env["AF_PACKAGES"].strip():
-        manual_pkgs = [i.strip() for i in env["AF_PACKAGES"].split()]
+        manual_pkgs = [i for i in env["AF_PACKAGES"].split()]
 
     if env.before == FAKE_BEFORE:
         if manual_pkgs:
@@ -167,8 +166,6 @@ def build_script(script, env, privkey, pubkey):
         rev_range = None
     else:
         rev_range = " ".join((env.before, env.after))
-
-    (env.aportsdir / ".gl-repos").symlink_to("../repos")
 
     args = [
         "--directory", env.cdir,
@@ -191,8 +188,8 @@ def build_script(script, env, privkey, pubkey):
     args += [
         "--",
         env.cdir / apkfoundry.MOUNTS["repodest"].lstrip("/"),
+        *manual_pkgs,
     ]
-    args += manual_pkgs
 
     args = [str(i) for i in args]
     rc = apkfoundry.build.buildrepo(args)
