@@ -213,9 +213,11 @@ if stage == "get_sources":
 elif stage == "build_script":
     privkey, pubkey = get_keys()
     with tempfile.NamedTemporaryFile() as f:
-        f.write(privkey)
-        f.flush()
-        rc = build_script(script, env, f.name, pubkey)
+        if privkey:
+            f.write(privkey)
+            f.flush()
+            privkey = f.name
+        rc = build_script(script, env, privkey, pubkey)
 elif stage == "after_script":
     if (env.cdir / "af/info").is_dir():
         rc = after_script(script, env)
