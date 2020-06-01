@@ -13,30 +13,58 @@ import apkfoundry._util as _util
 
 _log.init()
 
-def print_list(startdirs, func, sep):
-    for startdir in startdirs:
-        for i in func(startdir):
-            print(f"{startdir} {sep} {i}")
-
-def print_graph(startdirs, graph, dot=False):
-    if dot:
+def print_graph(opts, graph):
+    if opts.dot:
         print("digraph \"af-depgraph\" {")
-        print("  rankdir=LR")
+        print("  rankdir=RL")
+        print("  overlap=scale")
+        def print_rel(dep, rdep):
+            print(f"  \"{rdep}\" -> \"{dep}\"")
+        for pkg in opts.startdirs:
+            print(
+                f"  \"{pkg}\"",
+                "[ style=filled, fillcolor=blue, fontcolor=white ]",
+            )
 
-    for dep, rdeps in graph.graph.items():
-        for rdep in rdeps:
-            if not startdirs or rdep in startdirs:
-                if dot:
-                    print(f"  \"{rdep}\" -> \"{dep}\"")
-                else:
-                    print(f"{rdep} -> {dep}")
-            elif dep in startdirs:
-                if dot:
-                    print(f"  \"{rdep}\" -> \"{dep}\"")
-                else:
-                    print(f"{dep} <- {rdep}")
+    else:
+        def print_rel(dep, rdep):
+            print(rdep, "->", dep)
 
-    if dot:
+    if opts.all_rdeps:
+        for pkg in opts.startdirs[:]:
+            opts.startdirs += graph.all_downstreams(pkg)
+    elif opts.all_deps:
+        for pkg in opts.startdirs[:]:
+            opts.startdirs += graph.predecessors(pkg)
+
+    if opts.rdeps or opts.all_rdeps:
+        for pkg, rdeps in graph.graph.items():
+            if opts.startdirs and pkg not in opts.startdirs:
+                continue
+            for rdep in rdeps:
+                print_rel(pkg, rdep)
+
+    elif opts.deps or opts.all_deps:
+        for pkg, rdeps in graph.graph.items():
+            for rdep in rdeps:
+                if opts.startdirs and rdep not in opts.startdirs:
+                    continue
+                print_rel(pkg, rdep)
+
+    else:
+        for pkg, rdeps in graph.graph.items():
+            if opts.startdirs and pkg not in opts.startdirs:
+                continue
+
+            if opts.dot:
+                print(f"  \"{pkg}\"")
+
+            for rdep in rdeps:
+                if opts.startdirs and rdep not in opts.startdirs:
+                    continue
+                print_rel(pkg, rdep)
+
+    if opts.dot:
         print("}")
 
 def tsort(opts, graph):
@@ -45,94 +73,105 @@ def tsort(opts, graph):
         order = [i for i in order if i in opts.startdirs]
     print("\n".join(order))
 
-opts = argparse.ArgumentParser(
-    usage="af-depgraph [options ...] [STARTDIR ...]",
+def startdirs_arg(parser):
+    parser.add_argument(
+        "startdirs", metavar="STARTDIR", nargs="*",
+        help="prune graph to examine only these STARTDIRs",
+    )
+
+def add_subcmd(parser, name, func=None, startdirs=True, **kwargs):
+    subcmd = parser.add_parser(
+        name, **kwargs,
+        prog=f"af-depgraph [options ...] {name}",
+    )
+    if func:
+        subcmd.set_defaults(func=func)
+    if startdirs:
+        startdirs_arg(subcmd)
+    return subcmd
+
+getopts = argparse.ArgumentParser(
+    usage="af-depgraph [options ...] CMD [STARTDIR ...]",
 )
-opts.add_argument(
-    "-q", "--quiet", action="store_true",
-    help="just check for cycles and exit",
-)
-opts.add_argument(
+getopts.add_argument(
     "-c", "--container", metavar="CDIR",
     help="execute inside container CDIR",
 )
-opts.add_argument(
-    "-g", "--graphviz", action="store_true",
-    help="print DOT output for Graphviz",
-)
-opts.add_argument(
+getopts.add_argument(
     "-s", "--skip-check", action="store_true",
     help="do not consider $checkdepends",
 )
-opts.add_argument(
+cmds = getopts.add_subparsers(
+    metavar="CMD",
+    help="subcommand to run",
+)
+
+cmd_graph = add_subcmd(
+    cmds, "graph",
+    help="print entire dependency graph",
+    func=print_graph,
+)
+cmd_graph.add_argument(
+    "-g", "--graphviz", dest="dot", action="store_true",
+    help="print DOT output for Graphviz",
+)
+cmd_graph.add_argument(
     "-d", "--deps", action="store_true",
     help="print the dependencies of each STARTDIR",
 )
-opts.add_argument(
+cmd_graph.add_argument(
+    "-D", "--all-deps", action="store_true",
+    help="print all packages on which each STARTDIR ultimately depends",
+)
+cmd_graph.add_argument(
     "-r", "--rdeps", action="store_true",
-    help="print the reverse dependencies of each STARTDIR",
+    help="""print the packages which depend on each STARTDIR (i.e. the
+    reverse dependencies)""",
 )
-opts.add_argument(
+cmd_graph.add_argument(
     "-R", "--all-rdeps", action="store_true",
-    help="print all packages which ultimately depend on each STARTDIR",
+    help="""print all packages which ultimately depend on each
+    STARTDIR""",
 )
-opts.add_argument(
-    "-o", "--build-order", action="store_true",
+
+add_subcmd(
+    cmds, "acyclic",
+    help="exit 0 if graph is acyclic only",
+    func=lambda _, graph: sys.exit(0) if graph.is_acyclic() else sys.exit(2),
+)
+add_subcmd(
+    cmds, "build-order",
     help="""consider STARTDIRs as a list of packages to build and output
     the topological sort build order""",
+    func=tsort,
 )
-opts.add_argument(
-    "--no-deps", action="store_true",
+add_subcmd(
+    cmds, "no-deps",
     help="print packages with no dependencies",
+    func=lambda _, graph: print("\n".join(graph.ind_nodes())),
 )
-opts.add_argument(
-    "--no-rdeps", action="store_true",
+add_subcmd(
+    cmds, "no-rdeps",
     help="print packages with no reverse dependencies",
+    func=lambda _, graph: print("\n".join(graph.all_leaves())),
 )
-opts.add_argument(
-    "startdirs", metavar="STARTDIR", nargs="*",
-    help="prune graph to examine only these STARTDIRs",
-)
-opts = opts.parse_args()
+
+opts = getopts.parse_args()
+if not hasattr(opts, "func"):
+    getopts.print_help()
+    sys.exit(1)
 
 conf = apkfoundry.proj_conf(None, _util.get_branch())
-
 if opts.container:
     cont = apkfoundry.container.Container(opts.container, sudo=False)
 else:
     cont = None
 
 graph = apkfoundry.digraph.generate_graph(
-    conf, skip_check=opts.skip_check, cont=cont
+    conf, cont=cont,
+    skip_check=opts.skip_check,
 )
 if graph is None:
     sys.exit(3)
 
-if opts.quiet:
-    if not graph.is_acyclic():
-        sys.exit(2)
-
-elif opts.no_deps:
-    print("\n".join(graph.ind_nodes()))
-
-elif opts.no_rdeps:
-    print("\n".join(graph.all_leaves()))
-
-elif opts.deps:
-    print_list(opts.startdirs, graph.predecessors, "->")
-
-elif opts.all_rdeps:
-    print_list(opts.startdirs, graph.all_downstreams, "<*")
-
-elif opts.rdeps:
-    print_list(opts.startdirs, graph.downstream, "<-")
-
-elif opts.build_order:
-    if not graph.is_acyclic():
-        sys.exit(2)
-    tsort(opts, graph)
-
-else:
-    print_graph(opts.startdirs, graph, opts.graphviz)
-    if not graph.is_acyclic():
-        sys.exit(2)
+opts.func(opts, graph)
