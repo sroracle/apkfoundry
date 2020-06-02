@@ -13,7 +13,7 @@ import apkfoundry._util as _util
 
 _log.init()
 
-def print_graph(opts, graph):
+def dot(opts, graph, func, recurse=False):
     if opts.dot:
         print("digraph \"af-depgraph\" {")
         print("  rankdir=RL")
@@ -30,46 +30,37 @@ def print_graph(opts, graph):
         def print_rel(dep, rdep):
             print(rdep, "->", dep)
 
-    # Note: all_downstreams is recursive, while predecessors is not.
-    # Therefore we want to perform all_downstreams on a copy of the
-    # prune list, while with predecessors we let it recurse by growing
-    # the list we're iterating over.
-    if opts.all_rdeps:
-        for pkg in opts.startdirs[:]:
-            opts.startdirs += graph.all_downstreams(pkg)
-    elif opts.all_deps:
-        for pkg in opts.startdirs:
-            opts.startdirs += graph.predecessors(pkg)
-
-    if opts.rdeps or opts.all_rdeps:
-        for pkg, rdeps in graph.graph.items():
-            if opts.startdirs and pkg not in opts.startdirs:
-                continue
-            for rdep in rdeps:
-                print_rel(pkg, rdep)
-
-    elif opts.deps or opts.all_deps:
-        for pkg, rdeps in graph.graph.items():
-            for rdep in rdeps:
-                if opts.startdirs and rdep not in opts.startdirs:
-                    continue
-                print_rel(pkg, rdep)
-
-    else:
-        for pkg, rdeps in graph.graph.items():
-            if opts.startdirs and pkg not in opts.startdirs:
-                continue
-
-            if opts.dot:
-                print(f"  \"{pkg}\"")
-
-            for rdep in rdeps:
-                if opts.startdirs and rdep not in opts.startdirs:
-                    continue
-                print_rel(pkg, rdep)
+    for line in func(opts, graph, recurse):
+        print_rel(*line)
 
     if opts.dot:
         print("}")
+
+# Note: all_downstreams is recursive, while predecessors is not.
+# Therefore we want to perform all_downstreams on a copy of the prune
+# list ([:]), while with predecessors we let it recurse by growing the
+# list we're iterating over.
+def print_rdeps(opts, graph, recurse):
+    if recurse:
+        for pkg in opts.startdirs[:]:
+            opts.startdirs += graph.all_downstreams(pkg)
+
+    for pkg, rdeps in graph.graph.items():
+        if opts.startdirs and pkg not in opts.startdirs:
+            continue
+        for rdep in rdeps:
+            yield pkg, rdep
+
+def print_deps(opts, graph, recurse):
+    if recurse:
+        for pkg in opts.startdirs:
+            opts.startdirs += graph.predecessors(pkg)
+
+    for pkg, rdeps in graph.graph.items():
+        for rdep in rdeps:
+            if opts.startdirs and rdep not in opts.startdirs:
+                continue
+            yield pkg, rdep
 
 def tsort(opts, graph):
     order = graph.topological_sort()
@@ -77,19 +68,27 @@ def tsort(opts, graph):
         order = [i for i in order if i in opts.startdirs]
     print("\n".join(order))
 
+def dot_arg(parser):
+    parser.add_argument(
+        "-g", "--graphviz", dest="dot", action="store_true",
+        help="print DOT output for Graphviz",
+    )
+
 def startdirs_arg(parser):
     parser.add_argument(
         "startdirs", metavar="STARTDIR", nargs="*",
         help="prune graph to examine only these STARTDIRs",
     )
 
-def add_subcmd(parser, name, func=None, startdirs=True, **kwargs):
+def add_subcmd(parser, name, func=None, startdirs=True, dot=False, **kwargs):
     subcmd = parser.add_parser(
         name, **kwargs,
         prog=f"af-depgraph [options ...] {name}",
     )
     if func:
         subcmd.set_defaults(func=func)
+    if dot:
+        dot_arg(subcmd)
     if startdirs:
         startdirs_arg(subcmd)
     return subcmd
@@ -110,32 +109,27 @@ cmds = getopts.add_subparsers(
     help="subcommand to run",
 )
 
-cmd_graph = add_subcmd(
-    cmds, "graph",
-    help="print entire dependency graph",
-    func=print_graph,
-)
-cmd_graph.add_argument(
-    "-g", "--graphviz", dest="dot", action="store_true",
-    help="print DOT output for Graphviz",
-)
-cmd_graph.add_argument(
-    "-d", "--deps", action="store_true",
+add_subcmd(
+    cmds, "deps", dot=True,
     help="print the dependencies of each STARTDIR",
+    func=lambda opts, graph: dot(opts, graph, print_deps),
 )
-cmd_graph.add_argument(
-    "-D", "--all-deps", action="store_true",
+add_subcmd(
+    cmds, "all-deps", dot=True,
     help="print all packages on which each STARTDIR ultimately depends",
+    func=lambda opts, graph: dot(opts, graph, print_deps, recurse=True),
 )
-cmd_graph.add_argument(
-    "-r", "--rdeps", action="store_true",
+add_subcmd(
+    cmds, "rdeps", dot=True,
     help="""print the packages which depend on each STARTDIR (i.e. the
     reverse dependencies)""",
+    func=lambda opts, graph: dot(opts, graph, print_rdeps),
 )
-cmd_graph.add_argument(
-    "-R", "--all-rdeps", action="store_true",
+add_subcmd(
+    cmds, "all-rdeps", dot=True,
     help="""print all packages which ultimately depend on each
     STARTDIR""",
+    func=lambda opts, graph: dot(opts, graph, print_rdeps, recurse=True),
 )
 
 add_subcmd(
