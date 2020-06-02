@@ -208,7 +208,8 @@ class Container:
 
     def _run_env(self, kwargs):
         if self.branchdir:
-            branchdir = "/" + str(self.branchdir.relative_to(self.cdir))
+            branchdir = Path(apkfoundry.MOUNTS["aportsdir"]) / ".apkfoundry"
+            branchdir /= self.branchdir.name
         else:
             branchdir = ""
 
