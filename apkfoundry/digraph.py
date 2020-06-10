@@ -228,7 +228,7 @@ def generate_graph(conf, skip_check=False, cont=None):
             args,
             stdout=subprocess.PIPE,
             encoding="utf-8",
-            skip_sudo=True,
+            skip_refresh=True, skip_sudo=True,
         )
     else:
         proc = subprocess.run(

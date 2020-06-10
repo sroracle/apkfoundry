@@ -234,25 +234,7 @@ class Container:
             "AF_LIBEXEC": "/af/libexec",
         })
 
-    def _ext_env(self, kwargs):
-        if "env" not in kwargs:
-            kwargs["env"] = {}
-        kwargs["env"].update({
-            "AF_BUILD_UID": str(self._uid),
-            "AF_BUILD_GID": str(self._gid),
-
-            "AF_BRANCH": self.branch or "",
-            "AF_BRANCHDIR": "/tmp/af/branchdir" if self.branchdir else "",
-            "AF_REPO": self.repo or "",
-            "AF_ARCH": self.arch or "",
-
-            "AF_LIBEXEC": "/tmp/af/libexec",
-            "AF_ROOTFS_CACHE": "/tmp/af/rootfs-cache",
-        })
-
     def run_external(self, cmd, skip_mounts=False, **kwargs):
-        self._ext_env(kwargs)
-
         args = [
             "--ro-bind", "/", "/",
             "--dev-bind", "/dev", "/dev",
@@ -325,6 +307,7 @@ class Container:
         children = os.listdir(self.cdir)
         if children:
             rc, _ = self.run_external(
+                # Relative to CWD = cdir
                 ("rm", "-rf", *children),
                 skip_mounts=True,
             )
@@ -340,10 +323,10 @@ class Container:
             return 0
         shutil.copy2(script, self.cdir / "af/refresh")
 
-        rc, _ = self.run_external(
-            # Relative to CWD = cdir
-            ("af/refresh",),
-            setsid=setsid, net=True,
+        rc, _ = self.run(
+            ("/af/refresh",),
+            setsid=setsid, skip_refresh=True,
+            su=True, net=True, ro_root=False,
         )
         return rc
 
@@ -353,8 +336,9 @@ class Container:
             repo=None,
             ro_aports=True,
             ro_root=True,
-            skip_sudo=False,
             skip_mounts=False,
+            skip_refresh=False,
+            skip_sudo=False,
 
             net=False,
             setsid=True,
@@ -392,9 +376,10 @@ class Container:
             if repo:
                 self.repo = repo
 
+        if not skip_refresh and self.refresh():
+            return 1, None
+
         if self.sudo_conn and not skip_sudo:
-            if self.refresh():
-                return 1, None
             if "pass_fds" not in kwargs:
                 kwargs["pass_fds"] = []
             kwargs["pass_fds"].append(self.sudo_conn.fileno())
@@ -416,7 +401,7 @@ class Container:
             })
 
         setarch_f = self.cdir / "af/info/setarch"
-        if setarch_f.is_file() and not skip_mounts:
+        if setarch_f.is_file():
             args.extend(["setarch", setarch_f.read_text().strip()])
 
         if kwargs.get("su", False):
