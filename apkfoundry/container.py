@@ -279,14 +279,10 @@ class Container:
         ]
         return self._bwrap(args, **kwargs, su=True)
 
-    def bootstrap(self, conf, arch):
+    def bootstrap(self, conf, arch, script):
         self._arch = arch
 
         rc = _rootfs.extract_rootfs(self, conf)
-        if rc:
-            return rc
-
-        rc = self.refresh()
         if rc:
             return rc
 
@@ -298,8 +294,8 @@ class Container:
             userdir_cdir.mkdir(parents=True)
 
         rc, _ = self.run(
-            ("/af/bootstrap",),
-            su=True, net=True, ro_root=False,
+            (script,),
+            su=True, net=True, ro_root=False, skip_refresh=True,
         )
         return rc
 
@@ -512,11 +508,12 @@ def cont_make(args):
     (opts.cdir / "af").mkdir(parents=True, exist_ok=True)
     opts.cdir.chmod(0o770)
 
-    script2 = branchdir / "bootstrap"
-    if not script2.is_file():
+    script = branchdir / "bootstrap"
+    if not script.is_file():
         _LOGGER.error("missing bootstrap script")
         return None
-    shutil.copy2(script2, opts.cdir / "af")
+    script = Path(apkfoundry.MOUNTS["aportsdir"]) \
+        / ".apkfoundry" / script.relative_to(branchdir.parent)
 
     for mount in apkfoundry.MOUNTS.values():
         (opts.cdir / mount.lstrip("/")).mkdir(parents=True, exist_ok=True)
@@ -524,10 +521,8 @@ def cont_make(args):
     _make_infodir(conf, opts)
 
     cont = Container(opts.cdir)
-    rc = cont.bootstrap(conf, opts.arch)
+    rc = cont.bootstrap(conf, opts.arch, script)
     if rc:
         return None
-
-    (opts.cdir / "af/bootstrap").unlink()
 
     return cont
