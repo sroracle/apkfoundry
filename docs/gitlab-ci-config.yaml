@@ -8,7 +8,7 @@ stages:
     GIT_CLONE_PATH: $CI_BUILDS_DIR/af/aports
 
   script:
-    - "$AF_BRANCHDIR/build" "$@"
+    - $AF_BRANCHDIR/build "$@"
 
   artifacts:
     paths:
