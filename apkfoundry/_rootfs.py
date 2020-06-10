@@ -74,7 +74,7 @@ def extract_rootfs(cont, conf):
         apkfoundry.ROOTFS_CACHE
     )
 
-    exclusions = [("--exclude", i) for i in conf.getlist("exclude", [])]
+    exclusions = [("--exclude", i) for i in conf.getlist("rootfs-exclude", [])]
     exclusions = [j for i in exclusions for j in i]
 
     rc, _ = cont.run_external(
