@@ -43,8 +43,6 @@ PYLINT_TARGETS = \
 
 SHLINT_TARGETS = \
 	docs/build \
-	bin/af-mkuidmap \
-	bin/af-mkgidmap \
 	libexec/af-deps \
 	libexec/resignapk \
 	libexec/checkapk \
