@@ -298,7 +298,7 @@ class Container:
             userdir_cdir.mkdir(parents=True)
 
         rc, _ = self.run(
-            ("/af/bootstrap-stage2",),
+            ("/af/bootstrap",),
             su=True, net=True, ro_root=False,
         )
         return rc
@@ -512,7 +512,7 @@ def cont_make(args):
     (opts.cdir / "af").mkdir(parents=True, exist_ok=True)
     opts.cdir.chmod(0o770)
 
-    script2 = branchdir / "bootstrap-stage2"
+    script2 = branchdir / "bootstrap"
     if not script2.is_file():
         _LOGGER.error("missing bootstrap script")
         return None
@@ -528,6 +528,6 @@ def cont_make(args):
     if rc:
         return None
 
-    (opts.cdir / "af/bootstrap-stage2").unlink()
+    (opts.cdir / "af/bootstrap").unlink()
 
     return cont
