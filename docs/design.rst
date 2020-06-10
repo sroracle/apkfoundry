@@ -57,9 +57,8 @@ The job lifecycle
 
 #. Bootstrap the container as "root", if it does not already exist
 
-   #. Stage 1 (outside container): download and unpack rootfs, add build
-      user
-   #. Run the ``refresh`` script inside the container
+   #. Stage 1 (outside container): download, verify, and unpack rootfs
+   #. Run the ``refresh`` script inside the container as ``root``
    #. Copy ``$AF_CONFIG/abuild`` to ``$ABUILD_USERDIR`` inside the
       container, if it exists
    #. Stage 2 (inside container): upgrade it, add ``build`` user, and
@@ -67,8 +66,8 @@ The job lifecycle
 
 #. Perform each build
 
-   #. Run the ``refresh`` script inside the container as "root"
-   #. Run the ``build-script`` inside the container as "build"
+   #. Run the ``refresh`` script inside the container as ``root``
+   #. Run the ``build-script`` inside the container as ``build``
 
 #. Re-sign ``.apk`` files outside of the container, if a re-signing key
    is given
