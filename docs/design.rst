@@ -67,7 +67,7 @@ The job lifecycle
 #. Perform each build
 
    #. Run the ``refresh`` script inside the container as ``root``
-   #. Run the ``build-script`` inside the container as ``build``
+   #. Run the ``build`` script inside the container as ``build``
 
 #. Re-sign ``.apk`` files outside of the container, if a re-signing key
    is given

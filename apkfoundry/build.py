@@ -79,7 +79,7 @@ def _stats_builds(done):
             return 1
     return 0
 
-def run_task(cont, startdir):
+def run_task(cont, startdir, script):
     buildbase = Path(apkfoundry.MOUNTS["builddir"]) / startdir
 
     tmp_real = cont.cdir / "af/info/builddir" / startdir / "tmp"
@@ -119,12 +119,8 @@ def run_task(cont, startdir):
 
     repo = startdir.split("/")[0]
 
-    build_script = "/af/build-script.alt"
-    if not (cont.cdir / build_script.lstrip("/")).is_file():
-        build_script = "/af/build-script"
-
     rc, _ = cont.run(
-        [build_script, startdir],
+        [script, startdir],
         repo=repo,
         env=env,
         net=net,
@@ -140,7 +136,7 @@ def run_task(cont, startdir):
 
     return rc
 
-def run_graph(cont, conf, graph, startdirs):
+def run_graph(cont, conf, graph, startdirs, script):
     initial = set(startdirs)
     done = {}
 
@@ -178,7 +174,7 @@ def run_graph(cont, conf, graph, startdirs):
                 "(%d/%d) Start: %s", cur, tot, startdir
             )
 
-            rc = run_task(cont, startdir)
+            rc = run_task(cont, startdir, script)
 
             if rc == 0:
                 _log.section_end(
@@ -223,7 +219,7 @@ def run_graph(cont, conf, graph, startdirs):
 
     return _stats_builds(done)
 
-def run_job(cont, conf, startdirs):
+def run_job(cont, conf, startdirs, script):
     _log.section_start(
         _LOGGER, "gen-build-order", "Generating build order...",
     )
@@ -233,7 +229,7 @@ def run_job(cont, conf, startdirs):
         return 1
     _log.section_end(_LOGGER)
 
-    return run_graph(cont, conf, graph, startdirs)
+    return run_graph(cont, conf, graph, startdirs, script)
 
 def changed_pkgs(*rev_range, gitdir=None):
     gitdir = ["-C", str(gitdir)] if gitdir else []
@@ -412,6 +408,12 @@ def _buildrepo_args(args):
         help="git revision range for changed APKBUILDs",
     )
     opts.add_argument(
+        "--script",
+        help="""Alternative build script to use instead of
+        $AF_BRANCHDIR/build. Must be an absolute path underneath the
+        container root.""",
+    )
+    opts.add_argument(
         "repodest", metavar="REPODEST",
         help="package destination directory",
     )
@@ -500,6 +502,10 @@ def buildrepo(args):
     branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
     conf = apkfoundry.proj_conf(opts.aportsdir, opts.branch)
 
+    if not opts.script:
+        opts.script = Path(apkfoundry.MOUNTS["aportsdir"]) \
+            / ".apkfoundry" / branchdir.name / "build"
+
     _build_list(opts)
     _filter_list(conf, opts)
     if not opts.startdirs:
@@ -511,11 +517,7 @@ def buildrepo(args):
         _LOGGER.error("Failed to bootstrap container")
         return _cleanup(1, cont, opts.delete)
 
-    shutil.copy2(
-        branchdir / "build-script",
-        cdir / "af/build-script",
-    )
-    rc = run_job(cont, conf, opts.startdirs)
+    rc = run_job(cont, conf, opts.startdirs, opts.script)
 
     if opts.key:
         if opts.pubkey is None:

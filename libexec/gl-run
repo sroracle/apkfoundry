@@ -155,8 +155,8 @@ def get_sources(script, env):
     return 0
 
 def build_script(script, env, privkey, pubkey):
-    shutil.copy2(script, env.cdir / "af/build-script.alt")
-    sanitize_script(env.cdir / "af/build-script.alt")
+    shutil.copy2(script, env.cdir / "af/gl-build")
+    sanitize_script(env.cdir / "af/gl-build")
     try:
         shutil.rmtree(env.tmp)
     except FileNotFoundError:
@@ -193,6 +193,7 @@ def build_script(script, env, privkey, pubkey):
         "--cache", env.cache,
         "--delete", "never",
         "--srcdest", env.srcdest,
+        "--script", "/af/gl-build",
     ]
 
     if rev_range:
@@ -217,11 +218,11 @@ def build_script(script, env, privkey, pubkey):
     return rc
 
 def after_script(script, env):
-    shutil.copy2(script, env.cdir / "af/after-script")
-    sanitize_script(env.cdir / "af/after-script")
+    shutil.copy2(script, env.cdir / "af/gl-after")
+    sanitize_script(env.cdir / "af/gl-after")
 
     cont = apkfoundry.container.Container(env.cdir)
-    return cont.run(["/af/after-script"])[0]
+    return cont.run(["/af/gl-after"])[0]
 
 env = CI_Env()
 script = sys.argv[1]
