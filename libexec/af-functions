@@ -35,7 +35,7 @@ af_userconf() (
 	fi
 )
 
-# Usage: af_loginit [-ab]
+# Usage: af_loginit [-at]
 # Redirect standard output and standard error to a log file named
 # $REPODEST/$repo/$CARCH/logs/$pkgname-$pkgver-r$pkgrel.log depending on
 # the APKBUILD in the current working directory. A symlink named
@@ -44,7 +44,7 @@ af_userconf() (
 # -a        append to .log file instead of overwriting
 # -t        tee to original standard output
 af_loginit() {
-	local append both opt
+	local append opt tee
 	OPTIND=1
 	while getopts at opt; do
 	case "$opt" in
