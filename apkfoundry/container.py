@@ -10,8 +10,9 @@ import shutil     # chown, copy2, copytree, rmtree
 import subprocess # call, Popen
 from pathlib import Path
 
-import apkfoundry         # BWRAP, CACHEDIR, DEFAULT_ARCH, HOME, LIBEXECDIR,
-                          # MOUNTS, SYSCONFDIR, proj_conf, site_conf
+import apkfoundry         # BWRAP, DEFAULT_ARCH, HOME, LIBEXECDIR, MOUNTS,
+                          # ROOTFS_CACHE, SYSCONFDIR, proj_conf, site_conf
+import apkfoundry._rootfs as _rootfs
 import apkfoundry._sudo as _sudo
 import apkfoundry._util as _util
 
@@ -22,7 +23,6 @@ _KEEP_ENV = (
 )
 _SITE_CONF = apkfoundry.site_conf()
 _SUBID = _SITE_CONF.getint("container", "subid")
-_ROOTFS_CACHE = apkfoundry.CACHEDIR / "rootfs"
 _ABUILD_USERDIR = "af/abuild"
 
 def _idmap(cmd, pid, ent_id):
@@ -251,7 +251,6 @@ class Container:
         })
 
     def run_external(self, cmd, skip_mounts=False, **kwargs):
-        _ROOTFS_CACHE.mkdir(parents=True, exist_ok=True)
         self._ext_env(kwargs)
 
         args = [
@@ -265,7 +264,7 @@ class Container:
             "--dir", "/tmp/af/libexec",
             "--dir", "/tmp/af/cdir",
             "--ro-bind", apkfoundry.LIBEXECDIR, "/tmp/af/libexec",
-            "--bind", _ROOTFS_CACHE, "/tmp/af/rootfs-cache",
+            "--ro-bind-try", apkfoundry.ROOTFS_CACHE, "/tmp/af/rootfs-cache",
             "--bind", self.cdir, "/tmp/af/cdir",
         ]
 
@@ -298,14 +297,10 @@ class Container:
         ]
         return self._bwrap(args, **kwargs, su=True)
 
-    def bootstrap(self, arch):
+    def bootstrap(self, conf, arch):
         self._arch = arch
 
-        rc, _ = self.run_external(
-            # Relative to CWD = cdir
-            ("af/bootstrap-stage1",),
-            net=True,
-        )
+        rc = _rootfs.extract_rootfs(self, conf)
         if rc:
             return rc
 
@@ -532,12 +527,10 @@ def cont_make(args):
     (opts.cdir / "af").mkdir(parents=True, exist_ok=True)
     opts.cdir.chmod(0o770)
 
-    script1 = branchdir / "bootstrap-stage1"
     script2 = branchdir / "bootstrap-stage2"
-    if not (script1.is_file() and script2.is_file()):
-        _LOGGER.error("missing bootstrap scripts")
+    if not script2.is_file():
+        _LOGGER.error("missing bootstrap script")
         return None
-    shutil.copy2(script1, opts.cdir / "af")
     shutil.copy2(script2, opts.cdir / "af")
 
     for mount in apkfoundry.MOUNTS.values():
@@ -546,11 +539,10 @@ def cont_make(args):
     _make_infodir(conf, opts)
 
     cont = Container(opts.cdir)
-    rc = cont.bootstrap(opts.arch)
+    rc = cont.bootstrap(conf, opts.arch)
     if rc:
         return None
 
-    (opts.cdir / "af/bootstrap-stage1").unlink()
     (opts.cdir / "af/bootstrap-stage2").unlink()
 
     return cont

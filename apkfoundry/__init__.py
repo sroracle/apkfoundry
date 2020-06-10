@@ -30,6 +30,8 @@ CACHEDIR = Path(os.environ.get(
     Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / "apkfoundry",
 )).resolve(strict=False)
 
+ROOTFS_CACHE = CACHEDIR / "rootfs"
+
 MOUNTS = {
     "aportsdir": "/af/aports",
     "builddir": "/af/build",

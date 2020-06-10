@@ -1,48 +1,5 @@
 #!/bin/sh
 
-# Usage: af_fetch URL FILENAME SHA256SUMS [curl options...]
-# Fetch FILENAME from URL if it doesn't already exist. Verify its SHA256
-# checksum from SHA256SUMS. If the checksum does not match, it will be
-# deleted.
-#
-# Default curl options: --fail --location
-af_fetch() (
-	url="$1"; shift
-	file="$1"; shift
-	csums="$1"; shift
-	set -e
-
-	if ! [ -e "$file" ]; then
-	  echo ">>> Fetching ${file##*/}" >&2
-	  curl -fLo "$@" "$file" "$url"
-	fi
-
-	set -- $csums
-	cd "$AF_ROOTFS_CACHE"
-	IFS="
-"
-	for csum in $csums; do
-		shift; name="$1"; shift
-		[ "$name" = "${file##*/}" ] || continue
-
-		if ! printf '%s' "$csum" | sha256sum -c; then
-		  rm -f "$file"
-		  exit 1
-		fi
-	done
-)
-
-# Usage: af_untar FILENAME [tar options...]
-# Unpack FILENAME to the current working directory and fixup its
-# permissions.
-#
-# Default tar options: none
-af_untar() {
-	file="$1"; shift
-	tar -xf "$file" "$@"
-	chown "$AF_BUILD_UID:0" .
-}
-
 # Usage: af_mkuser
 # Create the "build" user and group with the correct IDs.
 af_mkuser() {
