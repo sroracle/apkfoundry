@@ -11,6 +11,7 @@
   * Add documentation about the internal environment and scripting
   * Reusing containers - detect if CDIR passed to buildrepo is already
     bootstrapped
+  * af-buildrepo cloning with external .apkfoundry
 
 * Long-term implementation wishlist
 

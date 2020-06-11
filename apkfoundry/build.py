@@ -493,10 +493,9 @@ def buildrepo(args):
             "git", "-C", opts.aportsdir,
             "checkout", opts.branch,
         ))
-        _util.check_call((
-            "git", "-C", opts.aportsdir,
-            "worktree", "add", ".apkfoundry", "apkfoundry",
-        ))
+        if not (opts.aportsdir / ".apkfoundry").is_dir():
+            _LOGGER.critical("No .apkfoundry configuration directory exists!")
+            return _cleanup(1, None, opts.delete)
         _log.section_end(_LOGGER)
 
     branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
