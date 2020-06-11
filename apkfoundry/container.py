@@ -149,6 +149,7 @@ class Container:
 
         args_pre = [
             apkfoundry.BWRAP,
+            "--die-with-parent",
             "--unshare-all",
             "--unshare-user",
             "--userns-block-fd", str(pipe_r),
