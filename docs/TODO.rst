@@ -15,6 +15,4 @@
 
 * Long-term implementation wishlist
 
-  * GitLab >= 12.6: external custom ``.gitlab-ci.yml`` path (other
-    project)
   * Restore webhook server for running pipelines against other repos?
