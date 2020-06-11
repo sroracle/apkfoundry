@@ -391,6 +391,10 @@ def _buildrepo_args(args):
         help="when to delete the container (default: never)",
     )
     opts.add_argument(
+        "--dry-run", action="store_true",
+        help="only show what would be built, then exit",
+    )
+    opts.add_argument(
         "-k", "--key",
         help="re-sign APKs with FILE outside of container",
     )
@@ -507,6 +511,9 @@ def buildrepo(args):
     if not opts.startdirs:
         _LOGGER.info("No packages to build!")
         return _cleanup(0, None, opts.delete)
+
+    if opts.dry_run:
+        return 0
 
     cont = _buildrepo_bootstrap(opts, cdir)
     if not cont:
