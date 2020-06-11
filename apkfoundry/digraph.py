@@ -269,7 +269,7 @@ def generate_graph(conf, skip_check=False, cont=None):
         graph.add_node(rdep)
 
         for name in names:
-            dep = origins.get(name, None) or deps_map.get(name, None)
+            dep = origins.get(name) or deps_map.get(name)
             if dep is None:
                 _LOGGER.warning("unknown dependency: %s", name)
                 continue

@@ -438,7 +438,7 @@ def _make_infodir(conf, opts):
         (opts.cdir / "af/info" / mount).symlink_to(mounts[mount])
 
     for mount in apkfoundry.MOUNTS:
-        if mounts.get(mount, None):
+        if mounts.get(mount):
             continue
 
         (opts.cdir / "af/info" / mount).symlink_to(

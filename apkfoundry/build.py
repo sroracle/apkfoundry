@@ -313,7 +313,7 @@ def _filter_list(conf, opts, startdirs):
         if startdir in opts.startdirs:
             continue
         repo, _ = startdir.split("/", maxsplit=1)
-        arches = repos.get(repo, None)
+        arches = repos.get(repo)
         if arches is None:
             _log.msg2(
                 _LOGGER, "%s - repository not configured",
