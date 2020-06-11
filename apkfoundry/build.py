@@ -296,12 +296,8 @@ def _build_list(opts):
             _LOGGER, "changed_pkgs", "Determining changed packages..."
         )
         pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
-        if pkgs is None:
-            _LOGGER.info("No packages were changed")
-        else:
-            _log.msg2(_LOGGER, pkgs)
-            opts.startdirs.extend(pkgs)
-
+        _log.msg2(_LOGGER, pkgs)
+        opts.startdirs.extend(pkgs)
         _log.section_end(_LOGGER)
 
 def _filter_list(conf, opts):
