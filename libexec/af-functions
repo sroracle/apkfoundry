@@ -81,6 +81,18 @@ af_loginit() {
 	fi
 }
 
+# Usage: af_abuild_env STARTDIR
+# Sets up the environment for abuild to perform out-of-tree builds. This
+# is useful when trying to resume a failed build or otherwise run a
+# build interactively.
+af_abuild_env() {
+	export HOME=/af/build/"$1"/tmp
+	mkdir -p "$HOME"
+	export TEMP="$HOME" TMP="$HOME" TEMPDIR="$HOME" TMPDIR="$HOME"
+	export ABUILD_SRCDIR=/af/build/"$1"/src
+	export ABUILD_PKGBASEDIR=/af/build/"$1"/pkg
+}
+
 # Usage: af_abuild_unpriv [abuild options...] [abuild phases...]
 # A wrapper that completely drops APK Foundry privileges before
 # executing abuild.
