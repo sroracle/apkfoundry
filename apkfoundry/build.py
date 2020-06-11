@@ -282,7 +282,7 @@ def _ensure_dir(name):
 
     return ok
 
-def _build_list(opts):
+def _build_list(conf, opts):
     if opts.startdirs:
         _log.section_start(
             _LOGGER, "manual_pkgs",
@@ -297,10 +297,10 @@ def _build_list(opts):
         )
         pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
         _log.msg2(_LOGGER, pkgs)
-        opts.startdirs.extend(pkgs)
         _log.section_end(_LOGGER)
+        opts.startdirs.extend(_filter_list(conf, opts, pkgs))
 
-def _filter_list(conf, opts):
+def _filter_list(conf, opts, startdirs):
     _log.section_start(
         _LOGGER, "skip_pkgs",
         "Determining packages to skip...",
@@ -308,7 +308,10 @@ def _filter_list(conf, opts):
 
     repos = conf.getmaplist("repos")
     skip = conf.getmaplist("skip")
-    for i, startdir in enumerate(opts.startdirs):
+    for startdir in startdirs:
+        # Already manually included
+        if startdir in opts.startdirs:
+            continue
         repo, _ = startdir.split("/", maxsplit=1)
         arches = repos.get(repo, None)
         if arches is None:
@@ -316,23 +319,20 @@ def _filter_list(conf, opts):
                 _LOGGER, "%s - repository not configured",
                 startdir,
             )
-            opts.startdirs[i] = None
             continue
         if opts.arch not in arches:
             _log.msg2(
                 _LOGGER, "%s - repository not enabled for %s",
                 startdir, opts.arch,
             )
-            opts.startdirs[i] = None
             continue
         if opts.arch in skip.get(startdir, {}):
             _log.msg2(
                 _LOGGER, "%s - package skipped for %s",
                 startdir, opts.arch,
             )
-            opts.startdirs[i] = None
             continue
-    opts.startdirs = [i for i in opts.startdirs if i]
+        yield startdir
 
     _log.section_end(_LOGGER)
 
@@ -506,8 +506,7 @@ def buildrepo(args):
         opts.script = Path(apkfoundry.MOUNTS["aportsdir"]) \
             / ".apkfoundry" / branchdir.name / "build"
 
-    _build_list(opts)
-    _filter_list(conf, opts)
+    _build_list(conf, opts)
     if not opts.startdirs:
         _LOGGER.info("No packages to build!")
         return _cleanup(0, None, opts.delete)
