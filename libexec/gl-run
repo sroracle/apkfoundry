@@ -183,6 +183,9 @@ def build_script(script, env, privkey, pubkey):
         else:
             logging.error("New branch detected, ignoring revision range")
         rev_range = None
+    elif "AF_MANUAL_ONLY" in env and env["AF_MANUAL_ONLY"]:
+        logging.info("Manual job detected, ignoring revision range")
+        rev_range = None
     else:
         rev_range = " ".join((env.before, env.after))
 

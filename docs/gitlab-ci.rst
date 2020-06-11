@@ -43,6 +43,9 @@ Variables
                    on the current branch.
 ``AF_ARCH``        The architecture for which this job will build.
 ``AF_PACKAGES``    List of packages to manually include in the build.
+``AF_MANUAL_ONLY`` Only consider ``AF_PACKAGES``; do not scan the
+                   revision range for change APKBUILDs. Can be any
+                   non-empty value to signify "yes".
 ``AF_PRIVKEY``     Name of the private key with which to re-sign packages
                    outside of the container. These are stored in
                    ``$AF_CONFIG/$project/`` on each builder.
