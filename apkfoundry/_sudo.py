@@ -137,7 +137,7 @@ class SudoConn(socketserver.StreamRequestHandler):
                 cont = apkfoundry.container.Container(self.cdir, sudo=False)
                 rc, _ = cont.run(
                     argv,
-                    su=True, net=True, ro_root=False,
+                    su=True, net=True, ro_root=False, skip_refresh=True,
                     stdin=self.fds[0], stdout=self.fds[1], stderr=self.fds[2],
                 )
 
