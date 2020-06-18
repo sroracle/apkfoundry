@@ -1,6 +1,8 @@
 Next release:
 
 * bug: af-buildrepo --dry-run still makes an empty tmpdir
+* bug: in some cases of SOVER changing, bundled checkapk will fail with
+  no diagnostics
 * bug? supplementary groups which aren't mapped inside the container
   aren't dropped
 
