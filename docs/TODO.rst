@@ -9,7 +9,6 @@ Next release:
     whether they can just be dropped safely
 
 * bug: af-depgraph: don't apply deps_ignore unless producing a tsort
-* bug: af-deps: don't ignore cmd: anymore; we can use deps_map for that
 * docs: add documentation about the internal environment and scripting
 * feature: af-buildrepo: add --interactive
 
