@@ -1,6 +1,5 @@
 Next release:
 
-* bug: af-buildrepo --dry-run still makes an empty tmpdir
 * bug? supplementary groups which aren't mapped inside the container
   aren't dropped
 

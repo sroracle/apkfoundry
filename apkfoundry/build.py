@@ -3,6 +3,7 @@
 # See LICENSE for more information.
 import argparse   # ArgumentParser
 import enum       # Enum, IntFlag, unique
+import functools  # partial
 import logging    # getLogger
 import os         # access, *_OK
 import re         # compile
@@ -260,9 +261,14 @@ def resignapk(cdir, privkey, pubkey):
     _log.section_end(_LOGGER)
 
 def _cleanup(rc, cont, delete):
+    if hasattr(cont, "destroy"):
+        destroy = cont.destroy
+    else:
+        destroy = functools.partial(shutil.rmtree, cont)
+
     if cont and (delete == "always" or (delete == "on-success" and rc == 0)):
         _LOGGER.info("Deleting container...")
-        rc = max(cont.destroy(), rc)
+        rc = max(destroy() or 0, rc)
 
     return rc
 
@@ -432,17 +438,17 @@ def _buildrepo_bootstrap(opts, cdir):
         cont_make_args += ["--repodest", opts.repodest]
         opts.repodest = Path(opts.repodest)
         if not _ensure_dir(opts.repodest):
-            return _cleanup(1, None, opts.delete)
+            return None
     if opts.srcdest:
         cont_make_args += ["--srcdest", opts.srcdest]
         opts.srcdest = Path(opts.srcdest)
         if not _ensure_dir(opts.srcdest):
-            return _cleanup(1, None, opts.delete)
+            return None
     if opts.cache:
         cont_make_args += ["--cache", opts.cache]
         opts.cache = Path(opts.cache)
         if not _ensure_dir(opts.cache):
-            return _cleanup(1, None, opts.delete)
+            return None
     if opts.setarch:
         cont_make_args += ["--setarch", opts.setarch]
 
@@ -495,7 +501,7 @@ def buildrepo(args):
         ))
         if not (opts.aportsdir / ".apkfoundry").is_dir():
             _LOGGER.critical("No .apkfoundry configuration directory exists!")
-            return _cleanup(1, None, opts.delete)
+            return _cleanup(1, cdir, opts.delete)
         _log.section_end(_LOGGER)
 
     branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
@@ -508,10 +514,10 @@ def buildrepo(args):
     _build_list(conf, opts)
     if not opts.startdirs:
         _LOGGER.info("No packages to build!")
-        return _cleanup(0, None, opts.delete)
+        return _cleanup(0, cdir, opts.delete)
 
     if opts.dry_run:
-        return 0
+        return _cleanup(0, cdir, "always")
 
     cont = _buildrepo_bootstrap(opts, cdir)
     if not cont:
