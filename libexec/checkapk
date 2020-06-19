@@ -208,7 +208,7 @@ check_soname() {
 
 	rdeps="$($APK search --repositories-file "$tmpdir/repositories" \
 		--rdepends --quiet --exact --origin "$soname" \
-		| sort -u | grep -Fvx "$pkgname")"
+		| sort -u | grep -Fvx "$pkgname" || :)"
 
 	if [ -n "$rdeps" ]; then
 		msg "Dependent origins on $soname:"
