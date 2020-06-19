@@ -14,6 +14,8 @@ Next release:
 
 Future releases:
 
+* feature: af_userconf/buildrepo should copy pubkey to REPODEST
+  automatically?
 * feature: resignapk should only re-sign new .apks
 * feature: project configuration - uploading
 * feature: reusing containers - detect if CDIR passed to buildrepo is
