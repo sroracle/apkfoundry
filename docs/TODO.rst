@@ -1,16 +1,15 @@
 Next release:
 
+* docs: add documentation about the internal environment and scripting
+
+Future releases:
+
 * af-sudo needs some love.
 
   * Restore ability to handle multiple simultaneous connections
   * send RC as a character instead of raw bytes (ew)
   * in the future, communicate CWD
 
-* docs: add documentation about the internal environment and scripting
-
-Future releases:
-
-* bug: af-depgraph: don't apply deps_ignore unless producing a tsort
 * bug? supplementary groups which aren't mapped inside the container
   aren't dropped
 

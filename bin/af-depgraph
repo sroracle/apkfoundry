@@ -105,7 +105,7 @@ getopts.add_argument(
     help="do not consider $checkdepends",
 )
 cmds = getopts.add_subparsers(
-    metavar="CMD",
+    metavar="CMD", dest="cmd",
     help="subcommand to run",
 )
 
@@ -166,7 +166,9 @@ else:
     cont = None
 
 graph = apkfoundry.digraph.generate_graph(
-    conf, cont=cont,
+    conf,
+    use_ignore=opts.cmd in ("acyclic", "build-order"),
+    cont=cont,
     skip_check=opts.skip_check,
 )
 if graph is None:

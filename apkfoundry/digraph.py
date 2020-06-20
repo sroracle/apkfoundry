@@ -213,8 +213,8 @@ class Digraph:
 
         return tsort
 
-def generate_graph(conf, skip_check=False, cont=None):
-    deps_ignore = conf.getmaplist("deps_ignore")
+def generate_graph(conf, *, use_ignore=True, skip_check=False, cont=None):
+    deps_ignore = conf.getmaplist("deps_ignore") if use_ignore else {}
     deps_map = conf.getmap("deps_map")
 
     graph = Digraph()
