@@ -1,19 +1,29 @@
 Next release:
 
+* af-sudo needs some love.
+
+  * Restore ability to handle multiple simultaneous connections
+  * send RC as a character instead of raw bytes (ew)
+  * in the future, communicate CWD
+
+* docs: add documentation about the internal environment and scripting
+
+Future releases:
+
+* bug: af-depgraph: don't apply deps_ignore unless producing a tsort
 * bug? supplementary groups which aren't mapped inside the container
   aren't dropped
 
   * This causes the coreutils and rsync check()s to fail because they
     then think that 65534 is a valid GID to try to chgrp things to
-  * need to investigate the properties of these unmapped groups and
-    whether they can just be dropped safely
+  * `CVE-2018-7169 <https://nvd.nist.gov/vuln/detail/CVE-2018-7169>`_
+    `LP#1729357 <https://bugs.launchpad.net/ubuntu/+source/shadow/+bug/1729357>`_
+    `shadow!97 <https://github.com/shadow-maint/shadow/pull/97>`_
+  * Due to the issues above newgidmap will set setgroups to deny iif
+    invoked by a user trying to map only themselves into a new
+    namespace when they have no subgid entries.
 
-* bug: af-depgraph: don't apply deps_ignore unless producing a tsort
-* docs: add documentation about the internal environment and scripting
 * feature: af-buildrepo: add --interactive
-
-Future releases:
-
 * feature: af_userconf/buildrepo should copy pubkey to REPODEST
   automatically?
 * feature: resignapk should only re-sign new .apks
