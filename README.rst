@@ -29,3 +29,8 @@ Getting started
 ---------------
 
 See `the quickstart guide <docs/quickstart.rst>`_.
+
+Installing
+----------
+
+See `the installation guide <docs/install.rst>`_.

@@ -15,8 +15,8 @@ APK Foundry: getting started
 
    ``DEFAULT_ARCH``
      Default ``apk`` architecture name to use if none is given when
-     bootstrapping containers. The default value is the output of
-     ``apk --print-arch`` which may not be available on all systems.
+     bootstrapping containers. **The default value is** ``x86_64`` **so
+     you'll probably need to change this.**
 
    For example:
 

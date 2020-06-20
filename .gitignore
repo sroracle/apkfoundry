@@ -4,6 +4,7 @@ var
 tests/tmp
 *.bak
 MANIFEST
+config.mk
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

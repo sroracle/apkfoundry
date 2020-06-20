@@ -1,12 +1,17 @@
 # vi: noet
-DESTDIR = target
 PREFIX = usr
 DOCDIR = $(PREFIX)/share/doc/apkfoundry
-LIBEXECDIR = $(PREFIX)/libexec/apkfoundry
-export DOCDIR LIBEXECDIR
 
 BWRAP = bwrap.nosuid
-DEFAULT_ARCH = $(shell apk --print-arch)
+DEFAULT_ARCH = x86_64
+
+-include config.mk
+DESTDIR = target
+LIBEXECDIR = $(PREFIX)/libexec/apkfoundry
+# This is not a typo, I really do mean DOCDIR
+# These two are needed by setup.py
+export DOCDIR LIBEXECDIR
+
 
 PYTHON = python3
 PYLINT = pylint
@@ -73,12 +78,12 @@ configure:
 quickstart: configure libexec
 
 .PHONY: check
-check: quickstart
+check:
 	@tests/run-tests.sh $(TEST_ARGS) $(TEST_TARGETS)
 
 .PHONY: paths
-paths: configure
-	@printf 'PATH: LIBEXECDIR = "%s"\n' '$(LIBEXECDIR)'
+paths:
+	@printf 'CONF: LIBEXECDIR = "%s"\n' '$(LIBEXECDIR)'
 	@sed -i \
 		-e '/^LIBEXECDIR = /s@= .*@= Path("/$(LIBEXECDIR)")@' \
 		apkfoundry/__init__.py
