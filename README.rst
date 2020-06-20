@@ -28,4 +28,4 @@ Dependencies
 Getting started
 ---------------
 
-See `the quickstart guide <docs/quickstart.rst`_.
+See `the quickstart guide <docs/quickstart.rst>`_.
