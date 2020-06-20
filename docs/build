@@ -1,4 +1,5 @@
 #!/bin/sh -e
+# vi:noet
 # Disable colors if logging to a separate file (see below)
 #export USE_COLORS=
 

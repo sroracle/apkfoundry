@@ -12,6 +12,7 @@ stages:
 
   artifacts:
     paths:
+      - .gl-repos/*.pub
       - .gl-repos/*/*/APKINDEX.tar.gz
       - .gl-repos/*/*/*.apk
       # See notes in the example build script about logging.
