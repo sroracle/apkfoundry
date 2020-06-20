@@ -61,6 +61,23 @@ APK Foundry: getting started
    This will configure APK Foundry to start all containers for the
    ``pmmx`` APK architecture with ``setarch i586``.
 
+   For more information on site setings, see `the annotated example site
+   configuration file <docs/config-site.ini>`_.
+
+#. Optionally, create ``$AF_CONFIG/abuild/abuild.conf`` so that you can
+   set ``$JOBS``. For example:
+
+   .. code-block:: sh
+
+     export JOBS=2
+     export MAKEFLAGS=-j$JOBS
+
+   This will be installed along with the rest of ``$AF_CONFIG/abuild``
+   into each container's ``$ABUILD_USERDIR``. See `the configuration
+   guide <docs/configuration.rst>`_ for more information.
+
+#. Configure your project to support APK Foundry. See `the configution
+   guide <docs/configuration.rst>`_ for details.
 #. Add ``/path/to/apkfoundry`` to your ``$PYTHONPATH``.
 #. Add ``/path/to/apkfoundry/bin`` to your ``$PATH``.
 #. Explore!
