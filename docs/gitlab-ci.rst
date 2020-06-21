@@ -58,6 +58,6 @@ Variables
 
 Example configuration files:
 
-* `GitLab Runner (TOML) <docs/gitlab-runner-config.toml>`_
-* `GitLab CI (YAML) <docs/gitlab-ci-config.yaml>`_
-* `Build script (shell) <docs/build>`_
+* `GitLab Runner (TOML) <docs/examples/gitlab-runner-config.toml>`_
+* `GitLab CI (YAML) <docs/examples/gitlab-ci.yml>`_
+* `Build script (shell) <docs/examples/build.sh>`_

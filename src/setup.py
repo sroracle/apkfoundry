@@ -44,10 +44,14 @@ distutils.core.setup(
         (
             str(docdir),
             [
-                *glob.glob("docs/*"),
+                *glob.glob("docs/*.rst"),
                 *glob.glob("LICENSE*"),
                 "README.rst",
             ],
+        ),
+        (
+            str(docdir / "examples"),
+            glob.glob("docs/examples/*"),
         ),
     ]
 )

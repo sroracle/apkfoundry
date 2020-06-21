@@ -62,7 +62,7 @@ APK Foundry: getting started
    ``pmmx`` APK architecture with ``setarch i586``.
 
    For more information on site setings, see `the annotated example site
-   configuration file <docs/config-site.ini>`_.
+   configuration file <docs/examples/config-site.ini>`_.
 
 #. Optionally, create ``$AF_CONFIG/abuild/abuild.conf`` so that you can
    set ``$JOBS``. For example:
