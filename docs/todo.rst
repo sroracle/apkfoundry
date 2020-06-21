@@ -1,7 +1,3 @@
-Next release:
-
-* docs: add documentation about the internal environment and scripting
-
 Future releases:
 
 * af-sudo needs some love.
