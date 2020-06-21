@@ -46,6 +46,21 @@ In this model, the elevated privileges needed are:
   IDs to themselves, the fake ``root`` IDs to zero, and all other
   IDs in the range [1, 65535] to unused IDs.
 
+The ``root`` user inside the container drops all capabilities except the
+following:
+
+* ``CAP_CHOWN``
+* ``CAP_FOWNER``
+* ``CAP_DAC_OVERRIDE``
+* ``CAP_SETFCAP``
+* ``CAP_SYS_CHROOT``
+* ``CAP_SETUID``
+* ``CAP_SETGID``
+
+In addition, the ``NO_NEW_PRIVS`` ``prctl`` is in effect. For more
+information, see ``user_namespaces(7)``, ``capabilities(7)``, and
+``prctl(2)``.
+
 The job lifecycle
 -----------------
 
