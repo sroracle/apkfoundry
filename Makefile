@@ -108,7 +108,7 @@ pylint:
 
 .PHONY: rstlint
 rstlint:
-	@grep -ho '[<][^>]*[>]' *.rst docs/*.rst \
+	@grep -ho '<[^>]*>' *.rst docs/*.rst \
 		| tr -d '<>' | grep -v http \
 		| while read -r i; do [ -e "$$i" ] \
 		|| echo "RST: link '$$i' does not exist"; done
@@ -123,3 +123,7 @@ lint: pylint shlint rstlint
 .PHONY: setup
 setup:
 	@$(SETUP.PY) $(SETUP_ARGS)
+
+.PHONY: web
+web: clean
+	src/mkweb.sh
