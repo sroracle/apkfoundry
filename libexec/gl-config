@@ -21,6 +21,6 @@ print(json.dumps({
     "builds_dir_is_shared": False,
     "driver": {
         "name": "apkfoundry",
-        "version": "0.2",
+        "version": "0.5",
     },
 }))
