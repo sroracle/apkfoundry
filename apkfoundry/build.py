@@ -98,8 +98,7 @@ def run_task(cont, startdir, script):
         "TMP": tmp,
         "TMPDIR": tmp,
 
-        "ABUILD_SRCDIR": str(buildbase / "src"),
-        "ABUILD_PKGBASEDIR": str(buildbase / "pkg"),
+        "ABUILD_TMP": str(apkfoundry.MOUNTS["builddir"]),
         # "deps" is a waste of time since world will be refreshed
         # on next package
         "CLEANUP": "srcdir pkgdir",

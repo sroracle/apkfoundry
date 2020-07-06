@@ -89,8 +89,7 @@ af_abuild_env() {
 	export HOME=/af/build/"$1"/tmp
 	mkdir -p "$HOME"
 	export TEMP="$HOME" TMP="$HOME" TEMPDIR="$HOME" TMPDIR="$HOME"
-	export ABUILD_SRCDIR=/af/build/"$1"/src
-	export ABUILD_PKGBASEDIR=/af/build/"$1"/pkg
+	export ABUILD_TMP=/af/build
 }
 
 # Usage: af_abuild_unpriv [abuild options...] [abuild phases...]
