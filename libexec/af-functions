@@ -41,7 +41,8 @@ af_userconf() (
 # the APKBUILD in the current working directory. A symlink named
 # /af/build/log will also point to this log file.
 #
-# -a        append to .log file instead of overwriting
+# -a        append to .log file instead of overwriting. Do not enable
+#           this if the project has persistent_repodest is enabled!
 # -t        tee to original standard output
 af_loginit() {
 	local append opt tee

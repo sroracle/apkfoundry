@@ -285,7 +285,8 @@ defines some convenience functions for project use.
   Options:
 
   ``-a``
-    append to ``.log`` file instead of overwriting
+    append to ``.log`` file instead of overwriting. Do not enable this
+    if the project has ``persistent_repodest`` enabled!
   ``-t``
     tee to original standard output
 
