@@ -351,8 +351,8 @@ class Container:
             "--dev-bind", "/dev", "/dev",
             "--proc", "/proc",
             "--ro-bind", str(apkfoundry.LIBEXECDIR), "/af/libexec",
-            "--bind", "/etc/hosts", "/etc/hosts",
-            "--bind", "/etc/resolv.conf", "/etc/resolv.conf",
+            "--ro-bind", "/etc/hosts", "/af/hosts",
+            "--ro-bind", "/etc/resolv.conf", "/af/resolv.conf",
         ]
 
         if not skip_mounts:
