@@ -482,7 +482,7 @@ def buildrepo(args):
         cdir = Path(opts.directory)
     else:
         apkfoundry.LOCALSTATEDIR.mkdir(parents=True, exist_ok=True)
-        cdir = Path(tempfile.mkdtemp(dir=apkfoundry.LOCALSTATEDIR))
+        cdir = Path(tempfile.mkdtemp(dir=apkfoundry.LOCALSTATEDIR, suffix=".af"))
 
     if opts.git_url:
         if not opts.branch:
