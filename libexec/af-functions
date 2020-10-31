@@ -27,6 +27,7 @@ af_userconf() (
 		chown build:build "$PACKAGER_PRIVKEY" "$PACKAGER_PRIVKEY.pub"
 	fi
 	cp "$PACKAGER_PRIVKEY.pub" /etc/apk/keys
+	cp "$PACKAGER_PRIVKEY.pub" "$REPODEST"
 
 	if [ -z "$PACKAGER" ]; then
 		cat >> "$ABUILD_USERCONF" <<-EOF

@@ -16,9 +16,3 @@ apk upgrade -Ual
 
 af_mkuser
 af_userconf
-
-# Copy temporary public key to uploads directory
-(
-	. "$ABUILD_USERCONF"
-	cp "$PACKAGER_PRIVKEY.pub" "$REPODEST"
-)
