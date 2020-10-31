@@ -457,11 +457,15 @@ def _buildrepo_bootstrap(opts, cdir):
         "--", str(cdir), str(opts.aportsdir),
     ]
     cont = apkfoundry.container.cont_make(cont_make_args)
+
     _log.section_end(_LOGGER)
     return cont
 
 def buildrepo(args):
     opts = _buildrepo_args(args)
+
+    if opts.dry_run:
+        opts.delete = "always"
 
     if not opts.arch:
         opts.arch = apkfoundry.DEFAULT_ARCH
@@ -516,7 +520,7 @@ def buildrepo(args):
         return _cleanup(0, cdir, opts.delete)
 
     if opts.dry_run:
-        return _cleanup(0, cdir, "always")
+        return _cleanup(0, cdir, opts.delete)
 
     cont = _buildrepo_bootstrap(opts, cdir)
     if not cont:
