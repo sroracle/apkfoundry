@@ -318,10 +318,11 @@ class Container:
         if not script.is_file():
             _LOGGER.warning("No refresh script found")
             return 0
-        shutil.copy2(script, self.cdir / "af/refresh")
+        script = script.relative_to(self.branchdir.parent.parent)
+        script = Path(apkfoundry.MOUNTS["aportsdir"]) / script
 
         rc, _ = self.run(
-            ("/af/refresh",),
+            (str(script),),
             setsid=setsid, skip_refresh=True,
             su=True, net=True, ro_root=False,
         )
