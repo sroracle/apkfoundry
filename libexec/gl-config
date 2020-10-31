@@ -9,12 +9,18 @@ import tempfile   # mkdtemp
 
 import apkfoundry # LOCALSTATEDIR
 import apkfoundry._log as _log
+import apkfoundry._util as _util
 
-_log.init()
-
+_log.init(color=True, sections=True)
+env = _util.CI_Env()
 apkfoundry.LOCALSTATEDIR.mkdir(parents=True, exist_ok=True)
-builds_dir = tempfile.mkdtemp(dir=apkfoundry.LOCALSTATEDIR)
-logging.info("Build directory: %s", builds_dir)
+
+builds_dir = tempfile.mkdtemp(
+    dir=apkfoundry.LOCALSTATEDIR,
+    prefix=f"gl-job-{env.job}-",
+    suffix=".af"
+)
+logging.info("Container: %s", builds_dir)
 
 print(json.dumps({
     "builds_dir": builds_dir,
