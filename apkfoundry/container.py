@@ -23,7 +23,7 @@ _KEEP_ENV = (
 )
 _SITE_CONF = apkfoundry.site_conf()
 _SUBID = _SITE_CONF.getint("container", "subid")
-_ABUILD_USERDIR = "af/abuild"
+_ABUILD_USERDIR = "af/config/abuild"
 
 def _idmap(cmd, pid, ent_id):
     holes = {
@@ -98,27 +98,27 @@ class Container:
     @property
     def branch(self):
         if not self._branch:
-            self._branch = self._read_info("af/info/branch")
+            self._branch = self._read_info("af/config/branch")
         return self._branch
 
     @property
     def branchdir(self):
         if self.branch and not self._branchdir:
             self._branchdir = _util.get_branchdir(
-                self.cdir / "af/info/aportsdir", self.branch
+                self.cdir / "af/config/aportsdir", self.branch
             )
         return self._branchdir
 
     @property
     def repo(self):
         if not self._repo:
-            self._repo = self._read_info("af/info/repo")
+            self._repo = self._read_info("af/config/repo")
         return self._repo
 
     @repo.setter
     def repo(self, value):
         self._repo = value
-        (self.cdir / "af/info/repo").write_text(value.strip())
+        (self.cdir / "af/config/repo").write_text(value.strip())
 
     @property
     def arch(self):
@@ -201,9 +201,9 @@ class Container:
     def _resolv_mounts(self):
         mounts = apkfoundry.MOUNTS.copy()
         for mount in mounts:
-            mounts[mount] = self.cdir / "af/info" / mount
+            mounts[mount] = self.cdir / "af/config" / mount
             if not mounts[mount].is_symlink():
-                raise RuntimeError(f"af/info/{mount} isn't a symlink")
+                raise RuntimeError(f"af/config/{mount} isn't a symlink")
             mounts[mount] = mounts[mount].resolve(strict=True)
         return mounts
 
@@ -351,8 +351,12 @@ class Container:
             "--dev-bind", "/dev", "/dev",
             "--proc", "/proc",
             "--ro-bind", str(apkfoundry.LIBEXECDIR), "/af/libexec",
-            "--ro-bind", "/etc/hosts", "/af/hosts",
-            "--ro-bind", "/etc/resolv.conf", "/af/resolv.conf",
+            "--ro-bind", self.cdir / "af/config", "/af/config",
+            "--bind", self.cdir / _ABUILD_USERDIR, "/af/config/abuild",
+            "--bind", self.cdir / "af/config/host", "/af/config/host",
+            "--ro-bind", "/etc/hosts", "/af/config/host/hosts",
+            "--ro-bind", "/etc/resolv.conf", "/af/config/host/resolv.conf",
+            "--ro-bind-try", self.cdir / "af/scripts", "/af/scripts",
         ]
 
         if not skip_mounts:
@@ -366,9 +370,9 @@ class Container:
                 "--bind", mounts["builddir"], apkfoundry.MOUNTS["builddir"],
                 "--chdir", apkfoundry.MOUNTS["aportsdir"],
             ]
-            if (self.cdir / "af/info/cache").exists():
+            if (self.cdir / "af/config/cache").exists():
                 args += [
-                    "--bind", self.cdir / "af/info/cache", "/etc/apk/cache",
+                    "--bind", self.cdir / "af/config/cache", "/etc/apk/cache",
                 ]
             if repo:
                 self.repo = repo
@@ -397,7 +401,7 @@ class Container:
                 "APK_FETCH": "apk",
             })
 
-        setarch_f = self.cdir / "af/info/setarch"
+        setarch_f = self.cdir / "af/config/setarch"
         if setarch_f.is_file():
             args.extend(["setarch", setarch_f.read_text().strip()])
 
@@ -413,14 +417,15 @@ class Container:
         )
 
 def _make_infodir(conf, opts):
-    af_info = opts.cdir / "af/info"
-    af_info.mkdir()
+    af_info = opts.cdir / "af/config/host"
+    af_info.mkdir(parents=True)
+    af_info = af_info.parent
 
     (af_info / "branch").write_text(opts.branch.strip())
     (af_info / "repo").write_text(conf["default_repo"].strip())
 
     if opts.setarch:
-        (opts.cdir / "af/info/setarch").write_text(opts.setarch.strip())
+        (opts.cdir / "af/config/setarch").write_text(opts.setarch.strip())
 
     mounts = {
         "aportsdir": opts.aportsdir, # this make act weird since
@@ -435,20 +440,20 @@ def _make_infodir(conf, opts):
         if not mounts[mount]:
             continue
 
-        (opts.cdir / "af/info" / mount).symlink_to(mounts[mount])
+        (opts.cdir / "af/config" / mount).symlink_to(mounts[mount])
 
     for mount in apkfoundry.MOUNTS:
         if mounts.get(mount):
             continue
 
-        (opts.cdir / "af/info" / mount).symlink_to(
+        (opts.cdir / "af/config" / mount).symlink_to(
             opts.cdir / apkfoundry.MOUNTS[mount].lstrip("/")
         )
 
     (opts.cdir / "af/libexec").mkdir()
 
     if opts.cache:
-        (opts.cdir / "af/info/cache").symlink_to(opts.cache)
+        (opts.cdir / "af/config/cache").symlink_to(opts.cache)
 
 def _cont_make_args(args):
     opts = argparse.ArgumentParser(

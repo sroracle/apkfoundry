@@ -7,8 +7,8 @@
 # If the hosts(5) and/or resolv.conf(5) are unmodified, apk will try to
 # overwrite them even though they are read-only. So we work around it
 # using symlinks.
-ln -srf /af/hosts /etc/hosts
-ln -srf /af/resolv.conf /etc/resolv.conf
+ln -srf /af/config/host/hosts /etc/hosts
+ln -srf /af/config/host/resolv.conf /etc/resolv.conf
 
 ln -srf /usr/share/zoneinfo/UTC /etc/localtime
 

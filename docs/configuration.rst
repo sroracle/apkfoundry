@@ -208,8 +208,9 @@ version.
 * Network isolation is in effect. Pass ``--networking`` to override.
 
 The host system's ``/etc/hosts`` and ``/etc/resolv.conf`` are bind
-mounted read-only as ``/af/hosts`` and ``/af/resolv.conf``. The
-project's bootstrap configuration should symlink to these files.
+mounted read-only as ``/af/config/host/hosts`` and
+``/af/config/host/resolv.conf``.  The project's bootstrap configuration
+should symlink to these files.
 
 Requesting elevated permissions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
