@@ -5,9 +5,12 @@ import argparse   # ArgumentParser
 import json       # load
 import logging    # getLogger
 import os         # close, environ, fdopen, getgid, getuid, listdir, pipe, write
+                  # isatty, tcgetpgrp, tcsetpgrp
 import select     # select
 import shutil     # chown, copy2, copytree, rmtree
+import signal     # SIG_IGN, signal, SIGTTOU
 import subprocess # call, Popen
+import sys        # stdin
 from pathlib import Path
 
 import apkfoundry         # BWRAP, DEFAULT_ARCH, HOME, LIBEXECDIR, MOUNTS,
@@ -160,8 +163,15 @@ class Container:
 
         if net:
             args_pre.append("--share-net")
+
+        stdin = sys.stdin.fileno()
         if setsid:
             args_pre.append("--new-session")
+            pgrp = None
+        elif os.isatty(stdin):
+            pgrp = os.tcgetpgrp(stdin)
+        else:
+            pgrp = None
 
         if su:
             args_pre.extend([
@@ -192,6 +202,12 @@ class Container:
         os.close(pipe_w)
 
         proc.stdout, proc.stderr = proc.communicate()
+
+        if pgrp:
+            handler = signal.signal(signal.SIGTTOU, signal.SIG_IGN)
+            os.tcsetpgrp(stdin, pgrp)
+            signal.signal(signal.SIGTTOU, handler)
+
         retcodes.append(proc.returncode)
         success = all(i == 0 for i in retcodes)
         if not success:

@@ -80,7 +80,7 @@ def _stats_builds(done):
             return 1
     return 0
 
-def run_task(cont, startdir, script):
+def _run_env(cont, startdir):
     buildbase = Path(apkfoundry.MOUNTS["builddir"]) / startdir
 
     tmp_real = cont.cdir / "af/config/builddir" / startdir / "tmp"
@@ -105,6 +105,11 @@ def run_task(cont, startdir, script):
         "ERROR_CLEANUP": "",
     }
 
+    return env, tmp_real
+
+def run_task(cont, startdir, script):
+    env, tmp = _run_env(cont, startdir)
+    repo = startdir.split("/")[0]
 
     APKBUILD = cont.cdir / f"af/config/aportsdir/{startdir}/APKBUILD"
     net = False
@@ -113,11 +118,8 @@ def run_task(cont, startdir, script):
             if _NET_OPTION.search(line) is not None:
                 net = True
                 break
-
     if net:
         _LOGGER.warning("%s: network access enabled", startdir)
-
-    repo = startdir.split("/")[0]
 
     rc, _ = cont.run(
         [script, startdir],
@@ -130,14 +132,61 @@ def run_task(cont, startdir, script):
         try:
             # Only remove TEMP files, not src/pkg
             _LOGGER.info("Removing package tmpfiles")
-            shutil.rmtree(tmp_real)
+            shutil.rmtree(tmp)
         except (FileNotFoundError, PermissionError):
             pass
 
     return rc
 
-def run_graph(cont, conf, graph, startdirs, script):
-    initial = set(startdirs)
+def _interrupt(cont, startdir):
+    prompt = """Interactive mode options:
+
+* s - Shell
+* n - Networked shell
+* S - Superuser shell (with RW rootfs and networking access)
+* i - Ignore and continue
+* r - Recalculate and continue
+* ^D - exit
+
+> """
+
+    try:
+        response = input(prompt).strip()
+    except EOFError:
+        return FailureAction.STOP
+    if response not in ("s", "n", "S", "i", "r"):
+        return None
+
+    if response == "i":
+        return FailureAction.IGNORE
+    if response == "r":
+        return FailureAction.RECALCULATE
+
+    if response in ("s", "n"):
+        env, _ = _run_env(cont, startdir)
+    else:
+        env = {}
+
+    net = response in ("n", "S")
+    su = response == "S"
+    ro_root = response != "S"
+    skip_sudo = response == "S"
+
+    cont.run(
+        ["sh", "-"],
+        env=env,
+        su=su,
+        ro_root=ro_root,
+        skip_refresh=True,
+        skip_sudo=skip_sudo,
+        net=net,
+        setsid=False,
+    )
+
+    return None
+
+def run_graph(cont, conf, graph, opts):
+    initial = set(opts.startdirs)
     done = {}
 
     try:
@@ -174,7 +223,7 @@ def run_graph(cont, conf, graph, startdirs, script):
                 "(%d/%d) Start: %s", cur, tot, startdir
             )
 
-            rc = run_task(cont, startdir, script)
+            rc = run_task(cont, startdir, opts.script)
 
             if rc == 0:
                 _log.section_end(
@@ -188,7 +237,14 @@ def run_graph(cont, conf, graph, startdirs, script):
                 )
                 done[startdir] = Status.FAIL
 
-                if on_failure == FailureAction.RECALCULATE:
+                if opts.interactive:
+                    action = _interrupt(cont, startdir)
+                    while action is None:
+                        action = _interrupt(cont, startdir)
+                else:
+                    action = on_failure
+
+                if action == FailureAction.RECALCULATE:
                     _log.section_start(
                         _LOGGER, "recalc-order", "Recalculating build order"
                     )
@@ -205,21 +261,21 @@ def run_graph(cont, conf, graph, startdirs, script):
 
                     _log.section_end(_LOGGER)
 
-                elif on_failure == FailureAction.STOP:
+                elif action == FailureAction.STOP:
                     _LOGGER.error("Stopping due to previous error")
                     cancels = initial - set(done.keys())
                     for rdep in cancels:
                         done[rdep] = Status.DEPFAIL
                     graph.reset_graph()
 
-                elif on_failure == FailureAction.IGNORE:
+                elif action == FailureAction.IGNORE:
                     _LOGGER.info("Ignoring error and continuing")
 
                 break
 
     return _stats_builds(done)
 
-def run_job(cont, conf, startdirs, script):
+def run_job(cont, conf, opts):
     _log.section_start(
         _LOGGER, "gen-build-order", "Generating build order...",
     )
@@ -229,7 +285,7 @@ def run_job(cont, conf, startdirs, script):
         return 1
     _log.section_end(_LOGGER)
 
-    return run_graph(cont, conf, graph, startdirs, script)
+    return run_graph(cont, conf, graph, opts)
 
 def changed_pkgs(*rev_range, gitdir=None):
     gitdir = ["-C", str(gitdir)] if gitdir else []
@@ -400,6 +456,10 @@ def _buildrepo_args(args):
         help="only show what would be built, then exit",
     )
     opts.add_argument(
+        "-i", "--interactive", action="store_true",
+        help="interactively stop when a package fails to build",
+    )
+    opts.add_argument(
         "-k", "--key",
         help="re-sign APKs with FILE outside of container",
     )
@@ -527,7 +587,7 @@ def buildrepo(args):
         _LOGGER.error("Failed to bootstrap container")
         return _cleanup(1, cont, opts.delete)
 
-    rc = run_job(cont, conf, opts.startdirs, opts.script)
+    rc = run_job(cont, conf, opts)
 
     if opts.key:
         if opts.pubkey is None:

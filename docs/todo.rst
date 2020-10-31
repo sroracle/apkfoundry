@@ -18,7 +18,6 @@ Future releases:
     invoked by a user trying to map only themselves into a new
     namespace when they have no subgid entries.
 
-* feature: af-buildrepo: add --interactive
 * feature: resignapk should only re-sign new .apks
 * feature: af-buildrepo cloning with external .apkfoundry
 * feature: Restore webhook server for running pipelines against other
