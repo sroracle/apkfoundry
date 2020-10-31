@@ -91,6 +91,7 @@ _DEFAULT_LOCAL_CONFIG = {
         "deps_map": "",
         "on_failure": "stop",
         "skip": "",
+        "persistent_repodest": "false",
     },
 }
 

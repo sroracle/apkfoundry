@@ -12,7 +12,7 @@ import sys        # argv, exit
 import tempfile   # NamedTemporaryFile
 from pathlib import Path
 
-import apkfoundry           # CACHEDIR, MOUNTS, SYSCONFDIR
+import apkfoundry           # MOUNTS, proj_conf, SYSCONFDIR
 import apkfoundry.build     # buildrepo
 import apkfoundry.container # Container
 import apkfoundry._log as _log
@@ -103,6 +103,15 @@ def build_script(script, env, privkey, pubkey):
     env.tmp.symlink_to("/tmp")
     (env.aportsdir / ".gl-repos").symlink_to("../repos")
 
+    branchdir = _util.get_branchdir(env.aportsdir, env.ref)
+    conf = apkfoundry.proj_conf(env.aportsdir, env.ref)
+
+    if conf.getboolean("persistent_repodest") and not env.mr:
+        repodest = f"{env.project}-{env.ref_slug}"
+        repodest = apkfoundry.LOCALSTATEDIR / "repos" / repodest
+    else:
+        repodest = env.cdir / apkfoundry.MOUNTS["repodest"].lstrip("/")
+
     if env.mr:
         env.before = subprocess.check_output(
             ("git", "-C", env.aportsdir, "merge-base", env.ref, env.after),
@@ -147,7 +156,7 @@ def build_script(script, env, privkey, pubkey):
 
     args += [
         "--",
-        env.cdir / apkfoundry.MOUNTS["repodest"].lstrip("/"),
+        repodest,
         *manual_pkgs,
     ]
 
