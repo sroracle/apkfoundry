@@ -112,7 +112,7 @@ def build_script(script, env, privkey, pubkey):
             logging.error("Could not merge %s into %s", env.after, env.ref)
             return 1
 
-    manual_pkgs = [i for i in env.get("AF_PACKAGES", "").strip().split()]
+    manual_pkgs = env.get("AF_PACKAGES", "").strip().split()
 
     if env.before == FAKE_BEFORE:
         if manual_pkgs:
