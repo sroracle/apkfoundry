@@ -126,6 +126,7 @@ def run_task(cont, startdir, script):
         repo=repo,
         env=env,
         net=net,
+        chdir=Path(apkfoundry.MOUNTS["aportsdir"]) / startdir,
     )
 
     if rc == 0:
@@ -181,6 +182,7 @@ def _interrupt(cont, startdir):
         skip_sudo=skip_sudo,
         net=net,
         setsid=False,
+        chdir=Path(apkfoundry.MOUNTS["aportsdir"]) / startdir,
     )
 
     return None

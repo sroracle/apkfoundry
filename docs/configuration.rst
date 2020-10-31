@@ -110,8 +110,8 @@ APK Foundry will fall back to using the ``master`` branch directory.
   point. It is run as the container's ``build`` user which maps to the
   same ID as the user running APK Foundry.
 
-  The current working directory is set to ``APORTSDIR``, and the
-  ``STARTDIR`` to build is passed as the first (and only) argument.
+  The ``STARTDIR`` to build is passed as the first (and only) argument.
+  The current working directory is the location of this ``STARTDIR``.
 
   See `<docs/examples/build.sh>`_ for an example written in POSIX shell.
 

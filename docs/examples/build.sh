@@ -5,7 +5,6 @@
 
 . /usr/share/abuild/functions.sh
 . "$AF_LIBEXEC/af-functions"
-cd "$APORTSDIR/$1"
 
 # Logging each build to a separate file: (make sure to update
 # .gitlab-ci.yml to save artifacts if necessary):

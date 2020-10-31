@@ -356,6 +356,7 @@ class Container:
 
             net=False,
             setsid=True,
+            chdir=None,
             **kwargs):
 
         root_bind = "--ro-bind" if ro_root else "--bind"
@@ -385,7 +386,7 @@ class Container:
                 "--bind", mounts["repodest"], apkfoundry.MOUNTS["repodest"],
                 "--bind", mounts["srcdest"], apkfoundry.MOUNTS["srcdest"],
                 "--bind", mounts["builddir"], apkfoundry.MOUNTS["builddir"],
-                "--chdir", apkfoundry.MOUNTS["aportsdir"],
+                "--chdir", chdir or apkfoundry.MOUNTS["aportsdir"],
             ]
             if (self.cdir / "af/config/cache").exists():
                 args += [
