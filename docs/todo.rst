@@ -19,12 +19,7 @@ Future releases:
     namespace when they have no subgid entries.
 
 * feature: af-buildrepo: add --interactive
-* feature: af_userconf/buildrepo should copy pubkey to REPODEST
-  automatically?
 * feature: resignapk should only re-sign new .apks
-* feature: project configuration - uploading
-* feature: reusing containers - detect if CDIR passed to buildrepo is
-  already bootstrapped
 * feature: af-buildrepo cloning with external .apkfoundry
 * feature: Restore webhook server for running pipelines against other
   repos?
