@@ -32,6 +32,7 @@ def sanitize_script(script):
         "-e", "/^export 'AF_PRIVKEY'=/d",
         "-e", "/^export 'AF_PRIVKEY_B64'=/d",
         "-e", "/^export 'AF_PUBKEY'=/d",
+        "-e", "0,/^'cd' \"\\/af\\/aports\"$/{//d;}",
         script,
     ))
 
