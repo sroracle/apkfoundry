@@ -29,9 +29,9 @@ def sanitize_script(script):
     _util.check_call((
         "sed", "-i",
         "-e", f"s@{env.cdir}[/]*@/@g",
-        "-e", "/AF_PRIVKEY/d",
-        "-e", "/AF_PRIVKEY_B64/d",
-        "-e", "/AF_PUBKEY/d",
+        "-e", "/^export 'AF_PRIVKEY'=/d",
+        "-e", "/^export 'AF_PRIVKEY_B64'=/d",
+        "-e", "/^export 'AF_PUBKEY'=/d",
         script,
     ))
 
