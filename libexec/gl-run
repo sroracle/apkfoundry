@@ -53,9 +53,9 @@ def get_keys():
         if not privkey.is_file():
             logging.error("AF_PRIVKEY does not exist on this builder")
             return None, None
-        privkey = privkey.read_bytes()
 
         pubkey = env.get("AF_PUBKEY", "").strip() or privkey.name + ".pub"
+        privkey = privkey.read_bytes()
         return privkey, pubkey
 
     return None, None
