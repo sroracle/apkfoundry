@@ -30,7 +30,7 @@ af_userconf() (
 
 	# We only want to make a copy of the container's key if re-signing
 	# will not occur (otherwise it is useless).
-	if [ -z "$AF_TMPKEY" ]; then
+	if [ -n "$AF_PUBKEY_COPY" ]; then
 		cp "$PACKAGER_PRIVKEY.pub" "$REPODEST"
 	fi
 

@@ -81,7 +81,7 @@ def _stats_builds(done):
             return 1
     return 0
 
-def _run_env(cont, startdir, opts):
+def _run_env(cont, startdir):
     buildbase = Path(apkfoundry.MOUNTS["builddir"]) / startdir
 
     tmp_real = cont.cdir / "af/config/builddir" / startdir / "tmp"
@@ -104,14 +104,12 @@ def _run_env(cont, startdir, opts):
         # on next package
         "CLEANUP": "srcdir pkgdir",
         "ERROR_CLEANUP": "",
-
-        "AF_TMPKEY": "Yes" if opts.key else "",
     }
 
     return env, tmp_real
 
-def run_task(cont, startdir, opts):
-    env, tmp = _run_env(cont, startdir, opts)
+def run_task(cont, startdir, script):
+    env, tmp = _run_env(cont, startdir)
     repo = startdir.split("/")[0]
 
     APKBUILD = cont.cdir / f"af/config/aportsdir/{startdir}/APKBUILD"
@@ -125,7 +123,7 @@ def run_task(cont, startdir, opts):
         _LOGGER.warning("%s: network access enabled", startdir)
 
     rc, _ = cont.run(
-        [opts.script, startdir],
+        [script, startdir],
         repo=repo,
         env=env,
         net=net,
@@ -142,7 +140,7 @@ def run_task(cont, startdir, opts):
 
     return rc
 
-def _interrupt(cont, startdir, opts):
+def _interrupt(cont, startdir):
     prompt = """Interactive mode options:
 
 * s - Shell
@@ -167,7 +165,7 @@ def _interrupt(cont, startdir, opts):
         return FailureAction.RECALCULATE
 
     if response in ("s", "n"):
-        env, _ = _run_env(cont, startdir, opts)
+        env, _ = _run_env(cont, startdir)
     else:
         env = {}
 
@@ -228,7 +226,7 @@ def run_graph(cont, conf, graph, opts):
                 "(%d/%d) Start: %s", cur, tot, startdir
             )
 
-            rc = run_task(cont, startdir, opts)
+            rc = run_task(cont, startdir, opts.script)
 
             if rc == 0:
                 _log.section_end(
@@ -243,9 +241,9 @@ def run_graph(cont, conf, graph, opts):
                 done[startdir] = Status.FAIL
 
                 if opts.interactive:
-                    action = _interrupt(cont, startdir, opts)
+                    action = _interrupt(cont, startdir)
                     while action is None:
-                        action = _interrupt(cont, startdir, opts)
+                        action = _interrupt(cont, startdir)
                 else:
                     action = on_failure
 
@@ -519,6 +517,8 @@ def _buildrepo_bootstrap(opts, cdir):
             return None
     if opts.setarch:
         cont_make_args += ["--setarch", opts.setarch]
+    if opts.key:
+        cont_make_args += ["--no-pubkey-copy"]
 
     cont_make_args += [
         "--arch", opts.arch,

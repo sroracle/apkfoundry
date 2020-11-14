@@ -296,7 +296,7 @@ class Container:
         ]
         return self._bwrap(args, **kwargs, su=True)
 
-    def bootstrap(self, conf, arch, script):
+    def bootstrap(self, conf, arch, script, **kwargs):
         self._arch = arch
 
         rc = _rootfs.extract_rootfs(self, conf)
@@ -313,6 +313,7 @@ class Container:
         rc, _ = self.run(
             (script,),
             su=True, net=True, ro_root=False, skip_refresh=True,
+            **kwargs,
         )
         return rc
 
@@ -493,6 +494,10 @@ def _cont_make_args(args):
         help="external APK cache directory (default: none)",
     )
     opts.add_argument(
+        "--no-pubkey-copy", action="store_true",
+        help="do not copy public keys to REPODEST",
+    )
+    opts.add_argument(
         "-r", "--repodest",
         help="""external package destination directory (default:
         none)""",
@@ -545,7 +550,12 @@ def cont_make(args):
     _make_infodir(conf, opts)
 
     cont = Container(opts.cdir)
-    rc = cont.bootstrap(conf, opts.arch, script)
+    rc = cont.bootstrap(
+        conf, opts.arch, script,
+        env={
+            "AF_PUBKEY_COPY": "" if opts.no_pubkey_copy else "Yes",
+        },
+    )
     if rc:
         return None
 
