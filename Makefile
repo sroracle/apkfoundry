@@ -47,7 +47,7 @@ PYLINT_TARGETS = \
 	libexec/gl-run
 
 SHLINT_TARGETS = \
-	docs/build \
+	docs/examples/*.sh \
 	libexec/af-deps \
 	libexec/resignapk \
 	libexec/checkapk \
