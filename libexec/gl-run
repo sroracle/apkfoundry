@@ -111,7 +111,6 @@ def build_script(script, env, privkey, pubkey):
     env.tmp.symlink_to("/tmp")
     (env.aportsdir / ".gl-repos").symlink_to("../repos")
 
-    branchdir = _util.get_branchdir(env.aportsdir, env.ref)
     conf = apkfoundry.proj_conf(env.aportsdir, env.ref)
 
     if conf.getboolean("persistent_repodest") and not env.mr:
