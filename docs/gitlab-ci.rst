@@ -48,7 +48,7 @@ Variables
                    non-empty value to signify "yes".
 ``AF_PRIVKEY``     Name of the private key with which to re-sign packages
                    outside of the container. These are stored in
-                   ``$AF_CONFIG/$project/`` on each builder.
+                   ``$AF_CONFIG/keys/$project/`` on each builder.
 ``AF_PRIVKEY_B64`` Base64-encoded form of the packager private key used
                    to re-sign packages outside of the container.
 ``AF_PUBKEY``      Name to use for the package signature (customarily
