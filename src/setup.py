@@ -12,7 +12,7 @@ docdir = get_path("DOCDIR")
 
 distutils.core.setup(
     name="apkfoundry",
-    version="0.5",
+    version="0.6",
     url="https://code.foxkit.us/sroracle/apkfoundry",
     author="Max Rees",
     author_email="maxcrees@me.com",

@@ -17,7 +17,7 @@ More documentation
 * `MIT license <LICENSE.MIT.html>`_
 EOF
 
-sed -i 's/^README for APK Foundry$/& v0.5/' target/index.rst
+sed -i 's/^README for APK Foundry$/& v0.6/' target/index.rst
 
 sed -E -i \
 	-e 's@<README.rst>@<index.html>@g' \

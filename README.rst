@@ -8,8 +8,8 @@ an APK-based package build orchestrator and distribution builder
   **Max Rees**, maintainer
 :Status:
   Beta
-:Latest version:
-  `Download 0.5 <https://code.foxkit.us/sroracle/apkfoundry/-/releases/v0.5>`_
+:Releases and source code:
+  `Foxkit Code Syndicate <https://code.foxkit.us/sroracle/apkfoundry>`_
 :Copyright:
   © 2018-2020 Max Rees. GPL-2.0 & MIT open source licences.
 
