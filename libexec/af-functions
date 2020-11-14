@@ -27,7 +27,12 @@ af_userconf() (
 		chown build:build "$PACKAGER_PRIVKEY" "$PACKAGER_PRIVKEY.pub"
 	fi
 	cp "$PACKAGER_PRIVKEY.pub" /etc/apk/keys
-	cp "$PACKAGER_PRIVKEY.pub" "$REPODEST"
+
+	# We only want to make a copy of the container's key if re-signing
+	# will not occur (otherwise it is useless).
+	if [ -z "$AF_TMPKEY" ]; then
+		cp "$PACKAGER_PRIVKEY.pub" "$REPODEST"
+	fi
 
 	if [ -z "$PACKAGER" ]; then
 		cat >> "$ABUILD_USERCONF" <<-EOF
