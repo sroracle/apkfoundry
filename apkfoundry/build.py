@@ -11,6 +11,7 @@ import shutil     # chown, copy2, rmtree
 import subprocess # check_output
 import tempfile   # mkdtemp
 import textwrap   # TextWrapper
+import time       # time
 from pathlib import Path
 
 import apkfoundry           # DEFAULT_ARCH, LOCALSTATEDIR, MOUNTS, proj_conf
@@ -300,17 +301,21 @@ def changed_pkgs(*rev_range, gitdir=None):
     ).splitlines()
     return [i.replace("/APKBUILD", "") for i in pkgs]
 
-def resignapk(cdir, privkey, pubkey):
-    repodir = cdir / "af/config/repodest"
-    apks = list(repodir.glob("**/*.apk"))
-    if not apks:
-        return
-    apks += list(repodir.glob("**/APKINDEX.tar.gz"))
-
+def resignapk(repodest, privkey, pubkey, now):
     _log.section_start(_LOGGER, "resignapk", "Re-signing APKs...")
+    apks = [
+        i for i in repodest.glob("**/*.apk")
+        if i.stat().st_mtime > now
+    ]
+    if not apks:
+        _log.section_end(_LOGGER, "No new .apk files found!")
+        return
+
+    _LOGGER.info("Found %d new .apk files", len(apks))
+    apks += set(repodest.glob("**/APKINDEX.tar.gz"))
     _util.check_call((
         "fakeroot", "--",
-        "resignapk", "-i",
+        "resignapk", "-iq",
         "-p", pubkey,
         "-k", privkey,
         *apks,
@@ -589,11 +594,15 @@ def buildrepo(args):
         _LOGGER.error("Failed to bootstrap container")
         return _cleanup(1, cont, opts.delete)
 
+    if opts.key:
+        repodest = cdir / "af/config/repodest"
+        now = time.time()
+
     rc = run_job(cont, conf, opts)
 
     if opts.key:
         if opts.pubkey is None:
             opts.pubkey = Path(opts.key).name + ".pub"
-        resignapk(cdir, opts.key, opts.pubkey)
+        resignapk(repodest, opts.key, opts.pubkey, now)
 
     return _cleanup(rc, cont, opts.delete)
