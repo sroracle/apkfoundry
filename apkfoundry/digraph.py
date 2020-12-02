@@ -267,13 +267,14 @@ def generate_graph(conf, *, use_ignore=True, skip_check=False, cont=None):
             _LOGGER.error("invalid af-deps output: %r", line)
             return None
 
+    missing = set()
     for rdep, names in deps.items():
         graph.add_node(rdep)
 
         for name in names:
             dep = origins.get(name) or deps_map.get(name)
             if dep is None:
-                _LOGGER.warning("unknown dependency: %s", name)
+                missing.add(name)
                 continue
             graph.add_node(dep)
 
@@ -284,5 +285,8 @@ def generate_graph(conf, *, use_ignore=True, skip_check=False, cont=None):
                 continue
 
             graph.add_edge(dep, rdep)
+
+    for dep in sorted(missing):
+        _LOGGER.warning("unknown dependency: %s", dep)
 
     return graph
