@@ -46,8 +46,11 @@ for APKBUILD in "$repo"/*/APKBUILD; do
 	[ -n "$skip_check" ] && checkdepends=
 	list_has "!check" $options && checkdepends=
 
-	for name in $pkgname $subpackages $provides; do
-		printf 'o %s %s\n' "${name%%[:=]*}" "$startdir"
+	for name in $pkgname $provides; do
+		printf 'o %s %s\n' "${name%%[<>=~]*}" "$startdir"
+	done
+	for name in $subpackages; do
+		printf 'o %s %s\n' "${name%%:*}" "$startdir"
 	done
 
 	for name in $depends $makedepends $checkdepends; do
