@@ -135,9 +135,14 @@ af_abuild() {
 		die "invalid usage"
 	fi
 
-	if [ -z "$force" ] && abuild "$@" up2date >/dev/null 2>&1; then
-		msg "Package is up2date or disabled on $CARCH or $CLIBC"
-		return 0
+	if [ -z "$force" ]; then
+		if ! abuild "$@" check_arch check_libc >/dev/null 2>&1; then
+			die "Package is disabled on $CARCH or $CLIBC"
+		fi
+		if abuild "$@" up2date >/dev/null 2>&1; then
+			msg "Package is up to date"
+			return 0
+		fi
 	fi
 
 	# builddeps is normally run before fetch, but fetch errors are more
