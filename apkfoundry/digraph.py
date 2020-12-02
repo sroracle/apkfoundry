@@ -254,15 +254,20 @@ def generate_graph(conf, *, use_ignore=True, skip_check=False, cont=None):
             _LOGGER.error("invalid af-deps output: %r", line)
             return None
 
+        # Origin: $1 comes from startdir $2
         if line[0] == "o":
             name = line[1]
             startdir = line[2]
             origins[name] = startdir
             graph.add_node(startdir)
+        # Dependency: startdir $1 depends on $2
         elif line[0] == "d":
             startdir = line[1]
             name = line[2]
             deps[startdir].append(name)
+        # Masked: startdir $1 is masked by $arch/$options
+        elif line[0] == "m":
+            _LOGGER.warning("masked: %s", line[1])
         else:
             _LOGGER.error("invalid af-deps output: %r", line)
             return None

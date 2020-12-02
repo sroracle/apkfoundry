@@ -15,6 +15,19 @@ list_has() {
 	return 1
 }
 
+check_arch() {
+	local ret=1
+	local i
+	for i in $arch; do
+		case $i in
+		all | noarch) ret=0 ;;
+		"$CARCH") ret=0 ;;
+		"!$CARCH") return 1 ;;
+		esac
+	done
+	return $ret
+}
+
 while getopts s opt; do
 case "$opt" in
 s) skip_check=1;;
@@ -27,6 +40,7 @@ for APKBUILD in "$repo"/*/APKBUILD; do
 	[ -e "$APKBUILD" ] || continue
 
 	pkgname=
+	arch=
 	options=
 	depends_dev=
 	depends=
@@ -45,6 +59,11 @@ for APKBUILD in "$repo"/*/APKBUILD; do
 
 	[ -n "$skip_check" ] && checkdepends=
 	list_has "!check" $options && checkdepends=
+
+	if ! check_arch || list_has "!libc_$CLIBC" $options; then
+		printf 'm %s .\n' "$startdir"
+		continue
+	fi
 
 	for name in $pkgname $provides; do
 		printf 'o %s %s\n' "${name%%[<>=~]*}" "$startdir"
