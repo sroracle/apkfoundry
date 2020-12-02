@@ -22,7 +22,8 @@ esac
 done
 shift "$((OPTIND - 1))"
 
-for APKBUILD in */*/APKBUILD; do
+for repo; do
+for APKBUILD in "$repo"/*/APKBUILD; do
 	[ -e "$APKBUILD" ] || continue
 
 	pkgname=
@@ -57,4 +58,5 @@ for APKBUILD in */*/APKBUILD; do
 		esac
 		printf 'd %s %s\n' "$startdir" "$name"
 	done
+done
 done

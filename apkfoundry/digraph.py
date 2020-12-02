@@ -216,11 +216,13 @@ class Digraph:
 def generate_graph(conf, *, use_ignore=True, skip_check=False, cont=None):
     deps_ignore = conf.getmaplist("deps_ignore") if use_ignore else {}
     deps_map = conf.getmap("deps_map")
+    repos = conf.getmap("repos")
 
     graph = Digraph()
     args = ["af-deps"]
     if skip_check:
         args.append("-s")
+    args += repos.keys()
 
     if cont:
         args[0] = "/af/libexec/af-deps"
