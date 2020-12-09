@@ -290,13 +290,16 @@ def run_job(cont, conf, opts):
 
     return run_graph(cont, conf, graph, opts)
 
-def changed_pkgs(*rev_range, gitdir=None):
-    gitdir = ["-C", str(gitdir)] if gitdir else []
+def changed_pkgs(conf, opts):
+    gitdir = ["-C", str(opts.aportsdir)] \
+        if opts.aportsdir else []
+    pickaxe = ["-G", "^pkg(ver|rel)="] \
+        if conf.getboolean("only_changed_versions") else []
 
     pkgs = subprocess.check_output(
         ("git", *gitdir, "diff-tree",
-         "-r", "--name-only", "--diff-filter", "dxu",
-         *rev_range, "--", "*/*/APKBUILD"),
+         "-r", "--name-only", "--diff-filter", "dxu", *pickaxe,
+         *opts.rev_range.split(), "--", "*/*/APKBUILD"),
         encoding="utf-8"
     ).splitlines()
     return [i.replace("/APKBUILD", "") for i in pkgs]
@@ -363,7 +366,7 @@ def _build_list(conf, opts):
         _log.section_start(
             _LOGGER, "changed_pkgs", "Determining changed packages..."
         )
-        pkgs = changed_pkgs(*opts.rev_range.split(), gitdir=opts.aportsdir)
+        pkgs = changed_pkgs(conf, opts)
         _log.msg2(_LOGGER, pkgs)
         _log.section_end(_LOGGER)
         opts.startdirs.extend(_filter_list(conf, opts, pkgs))

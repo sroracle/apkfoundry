@@ -92,6 +92,7 @@ _DEFAULT_LOCAL_CONFIG = {
         "on_failure": "stop",
         "skip": "",
         "persistent_repodest": "false",
+        "only_changed_versions": "false",
     },
 }
 
