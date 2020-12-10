@@ -421,8 +421,12 @@ def _buildrepo_args(args):
         {apkfoundry.DEFAULT_ARCH})""",
     )
     cont.add_argument(
-        "-c", "--cache",
+        "--cache-apk",
         help="external APK cache directory (default: none)",
+    )
+    cont.add_argument(
+        "--cache-src",
+        help="external source file cache directory (default: none)",
     )
     cont.add_argument(
         "--directory", metavar="CDIR",
@@ -433,10 +437,6 @@ def _buildrepo_args(args):
         "-S", "--setarch",
         help="""setarch(8) architecture name (default: look in site
         configuration, otherwise none)""",
-    )
-    cont.add_argument(
-        "--cache-src",
-        help="external source file cache directory (default: none)",
     )
 
     checkout = opts.add_argument_group(
@@ -513,10 +513,10 @@ def _buildrepo_bootstrap(opts, cdir):
         opts.cache_src = Path(opts.cache_src)
         if not _ensure_dir(opts.cache_src):
             return None
-    if opts.cache:
-        cont_make_args += ["--cache", opts.cache]
-        opts.cache = Path(opts.cache)
-        if not _ensure_dir(opts.cache):
+    if opts.cache_apk:
+        cont_make_args += ["--cache-apk", opts.cache_apk]
+        opts.cache_apk = Path(opts.cache_apk)
+        if not _ensure_dir(opts.cache_apk):
             return None
     if opts.setarch:
         cont_make_args += ["--setarch", opts.setarch]

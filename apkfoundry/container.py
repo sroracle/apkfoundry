@@ -474,8 +474,8 @@ def _make_infodir(conf, opts):
 
     (opts.cdir / "af/libexec").mkdir()
 
-    if opts.cache:
-        (opts.cdir / "af/config/cache").symlink_to(opts.cache)
+    if opts.cache_apk:
+        (opts.cdir / "af/config/cache").symlink_to(opts.cache_apk)
 
 def _cont_make_args(args):
     opts = argparse.ArgumentParser(
@@ -493,8 +493,12 @@ def _cont_make_args(args):
         useful when APORTSDIR is in a detached HEAD state.""",
     )
     opts.add_argument(
-        "-c", "--cache",
+        "--cache-apk",
         help="external APK cache directory (default: none)",
+    )
+    opts.add_argument(
+        "--cache-src",
+        help="external source file cache directory (default: none)",
     )
     opts.add_argument(
         "--no-pubkey-copy", action="store_true",
@@ -509,10 +513,6 @@ def _cont_make_args(args):
         "-S", "--setarch",
         help="""setarch(8) architecture name (default: look in site
         configuration, otherwise none)""",
-    )
-    cont.add_argument(
-        "--cache-src",
-        help="external source file cache directory (default: none)",
     )
     opts.add_argument(
         "cdir", metavar="CDIR",

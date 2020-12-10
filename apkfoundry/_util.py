@@ -56,8 +56,8 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
         "mr",
         "target_url",
 
-        "cache",
-        "srcdest",
+        "cache_apk",
+        "cache_src",
     )
 
     def __init__(self):
@@ -82,10 +82,9 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
             self.mr = None
             self.target_url = None
 
-        self.cache = apkfoundry.CACHEDIR / "apk" / \
+        self.cache_apk = apkfoundry.CACHEDIR / "apk" / \
             f"{self['CI_PROJECT_PATH_SLUG']}.{self.ref}.{self.arch}"
-
-        self.srcdest = apkfoundry.CACHEDIR / "src" / \
+        self.cache_src = apkfoundry.CACHEDIR / "src" / \
             f"{self['CI_PROJECT_PATH_SLUG']}"
 
     def __getitem__(self, key):

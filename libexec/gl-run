@@ -146,9 +146,9 @@ def build_script(script, env, privkey, pubkey):
         "--directory", env.cdir,
         "--aportsdir", env.aportsdir,
         "--branch", env.ref,
-        "--cache", env.cache,
+        "--cache-apk", env.cache_apk,
+        "--cache-src", env.cache_src,
         "--delete", "never",
-        "--cache-src", env.srcdest,
         "--script", "/af/scripts/gl-build",
     ]
 
