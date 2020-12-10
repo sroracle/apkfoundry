@@ -1,22 +1,21 @@
 # vi: noet
 PREFIX = usr
 DOCDIR = $(PREFIX)/share/doc/apkfoundry
+LIBEXECDIR = $(PREFIX)/libexec/apkfoundry
 
 BWRAP = bwrap.nosuid
 DEFAULT_ARCH = x86_64
 
--include config.mk
-DESTDIR = target
-LIBEXECDIR = $(PREFIX)/libexec/apkfoundry
-# This is not a typo, I really do mean DOCDIR
-# These two are needed by setup.py
-export DOCDIR LIBEXECDIR
-
-
 PYTHON = python3
+DESTDIR = target
+
+-include config.mk
+
 PYLINT = pylint
 CHECKBASHISMS = checkbashisms
 SETUP.PY = $(PYTHON) src/setup.py
+# These two are needed by setup.py
+export DOCDIR LIBEXECDIR
 
 C_TARGETS = \
 	libexec/af-su \
@@ -73,6 +72,12 @@ configure:
 		-e '/^BWRAP = /s@= .*@= "$(BWRAP)"@' \
 		-e '/^DEFAULT_ARCH = /s@= .*@= "$(DEFAULT_ARCH)"@' \
 		apkfoundry/__init__.py
+	@printf 'CONF: PYTHON = "%s"\n' "$$(command -v "$(PYTHON)")"
+	@sed -i \
+		-e "1s@^#!.*python.*\$$@#!$$(command -v "$(PYTHON)")@" \
+		bin/* \
+		libexec/* \
+		tests/*.test
 
 .PHONY: quickstart
 quickstart: configure libexec
@@ -97,6 +102,10 @@ install: paths all
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_TARGETS)
+
+#
+# Maintainer targets:
+#
 
 .PHONY: dist
 dist: clean
