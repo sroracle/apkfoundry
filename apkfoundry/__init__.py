@@ -114,7 +114,7 @@ def site_conf(section=None):
 
     return config
 
-def proj_conf(gitdir=None, section=None):
+def proj_conf(gitdir=None, section=None, overrides=None):
     if gitdir is None:
         gitdir = Path.cwd()
     files = sorted((Path(gitdir) / ".apkfoundry").glob("*.ini"))
@@ -122,6 +122,8 @@ def proj_conf(gitdir=None, section=None):
     config = _ConfigParser(default_section="master")
     config.read_dict(_DEFAULT_PROJ_CONFIG)
     config.read(files)
+    if overrides:
+        config.read_dict({(section if section else "master"): overrides})
 
     if section:
         if section not in config:

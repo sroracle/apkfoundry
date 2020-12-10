@@ -457,6 +457,12 @@ def _buildrepo_args(args):
     )
 
     opts.add_argument(
+        "-o", "--config-option", action="append",
+        metavar="KEY=VALUE",
+        help="""override project configuration settings (can be
+        specified multiple times)""",
+    )
+    opts.add_argument(
         "-D", "--delete", choices=("always", "on-success", "never"),
         default="never",
         help="when to delete the container (default: never)",
@@ -580,7 +586,11 @@ def buildrepo(args):
         _log.section_end(_LOGGER)
 
     branchdir = _util.get_branchdir(opts.aportsdir, opts.branch)
-    conf = apkfoundry.proj_conf(opts.aportsdir, opts.branch)
+    if opts.config_option:
+        conf = dict(map(lambda i: i.split("=", maxsplit=1), opts.config_option))
+    else:
+        conf = None
+    conf = apkfoundry.proj_conf(opts.aportsdir, opts.branch, conf)
 
     if not opts.script:
         opts.script = Path(apkfoundry.MOUNTS["aportsdir"]) \
