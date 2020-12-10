@@ -148,7 +148,7 @@ def build_script(script, env, privkey, pubkey):
         "--branch", env.ref,
         "--cache", env.cache,
         "--delete", "never",
-        "--srcdest", env.srcdest,
+        "--cache-src", env.srcdest,
         "--script", "/af/scripts/gl-build",
     ]
 

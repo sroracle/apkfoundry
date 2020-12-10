@@ -435,8 +435,8 @@ def _buildrepo_args(args):
         configuration, otherwise none)""",
     )
     cont.add_argument(
-        "-s", "--srcdest",
-        help="external source file directory (default: none)",
+        "--cache-src",
+        help="external source file cache directory (default: none)",
     )
 
     checkout = opts.add_argument_group(
@@ -508,10 +508,10 @@ def _buildrepo_bootstrap(opts, cdir):
         opts.repodest = Path(opts.repodest)
         if not _ensure_dir(opts.repodest):
             return None
-    if opts.srcdest:
-        cont_make_args += ["--srcdest", opts.srcdest]
-        opts.srcdest = Path(opts.srcdest)
-        if not _ensure_dir(opts.srcdest):
+    if opts.cache_src:
+        cont_make_args += ["--cache-src", opts.cache_src]
+        opts.cache_src = Path(opts.cache_src)
+        if not _ensure_dir(opts.cache_src):
             return None
     if opts.cache:
         cont_make_args += ["--cache", opts.cache]

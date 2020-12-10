@@ -453,7 +453,7 @@ def _make_infodir(conf, opts):
         "aportsdir": opts.aportsdir, # this make act weird since
                                      # it's always specified
         "repodest": opts.repodest,
-        "srcdest": opts.srcdest,
+        "srcdest": opts.cache_src,
     }
 
     for mount in mounts:
@@ -510,9 +510,9 @@ def _cont_make_args(args):
         help="""setarch(8) architecture name (default: look in site
         configuration, otherwise none)""",
     )
-    opts.add_argument(
-        "-s", "--srcdest",
-        help="external source file directory (default: none)",
+    cont.add_argument(
+        "--cache-src",
+        help="external source file cache directory (default: none)",
     )
     opts.add_argument(
         "cdir", metavar="CDIR",
