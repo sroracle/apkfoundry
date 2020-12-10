@@ -108,17 +108,18 @@ def _run_env(cont, startdir):
 
     return env, tmp_real
 
-def run_task(cont, startdir, script):
+def run_task(cont, conf, startdir, script):
     env, tmp = _run_env(cont, startdir)
     repo = startdir.split("/")[0]
 
     APKBUILD = cont.cdir / f"af/config/aportsdir/{startdir}/APKBUILD"
-    net = False
-    with open(APKBUILD) as f:
-        for line in f:
-            if _NET_OPTION.search(line) is not None:
-                net = True
-                break
+    net = conf.getboolean("container.networking")
+    if not net:
+        with open(APKBUILD) as f:
+            for line in f:
+                if _NET_OPTION.search(line) is not None:
+                    net = True
+                    break
     if net:
         _LOGGER.warning("%s: network access enabled", startdir)
 
@@ -226,7 +227,7 @@ def run_graph(cont, conf, graph, opts):
                 "(%d/%d) Start: %s", cur, tot, startdir
             )
 
-            rc = run_task(cont, startdir, opts.script)
+            rc = run_task(cont, conf, startdir, opts.script)
 
             if rc == 0:
                 _log.section_end(
