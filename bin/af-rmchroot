@@ -13,7 +13,7 @@ import apkfoundry._log as _log
 _log.init()
 
 opts = argparse.ArgumentParser(
-    usage="af-rmchroot [-f] CDIR",
+    usage="af-rmchroot [--force] CDIR",
 )
 opts.add_argument(
     "--force", action="store_true",
