@@ -416,7 +416,7 @@ def _buildrepo_args(args):
         title="Container options",
     )
     cont.add_argument(
-        "-A", "--arch",
+        "--arch",
         help=f"""APK architecture name (default:
         {apkfoundry.DEFAULT_ARCH})""",
     )
@@ -434,7 +434,7 @@ def _buildrepo_args(args):
         directory in {apkfoundry.LOCALSTATEDIR})""",
     )
     cont.add_argument(
-        "-S", "--setarch",
+        "--setarch",
         help="""setarch(8) architecture name (default: look in site
         configuration, otherwise none)""",
     )

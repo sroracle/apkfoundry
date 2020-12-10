@@ -483,7 +483,7 @@ def _cont_make_args(args):
         description="""Make a new APK Foundry container."""
     )
     opts.add_argument(
-        "-A", "--arch",
+        "--arch",
         help=f"""APK architecture name (default:
         {apkfoundry.DEFAULT_ARCH})""",
     )
@@ -505,12 +505,12 @@ def _cont_make_args(args):
         help="do not copy public keys to REPODEST",
     )
     opts.add_argument(
-        "-r", "--repodest",
+        "--repodest",
         help="""external package destination directory (default:
         none)""",
     )
     opts.add_argument(
-        "-S", "--setarch",
+        "--setarch",
         help="""setarch(8) architecture name (default: look in site
         configuration, otherwise none)""",
     )

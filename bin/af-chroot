@@ -28,7 +28,7 @@ opts.add_argument(
     help="disable use of af-sudo",
 )
 opts.add_argument(
-    "-r", "--repo",
+    "--repo",
     help="change repository to REPO",
 )
 opts.add_argument(
