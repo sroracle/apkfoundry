@@ -25,12 +25,15 @@ _KEEP_ENV = (
     "TERM",
 )
 _SITE_CONF = apkfoundry.site_conf()
-_SUBID = _SITE_CONF.getint("container", "subid")
+_SUBIDS = {
+    "newuidmap": _SITE_CONF.getint("container", "subuid"),
+    "newgidmap": _SITE_CONF.getint("container", "subgid"),
+}
 _ABUILD_USERDIR = "af/config/abuild"
 
 def _idmap(cmd, pid, ent_id):
     holes = {
-        0: _SUBID,
+        0: _SUBIDS[cmd],
         ent_id: ent_id,
     }
 
@@ -45,7 +48,7 @@ def _idmap(cmd, pid, ent_id):
     for map0, map1 in gaps:
         if not map0 - map1 or not map1 - (map0 + 1):
             continue
-        args += [map0 + 1, _SUBID + map0 + 1, map1 - (map0 + 1)]
+        args += [map0 + 1, _SUBIDS[cmd] + map0 + 1, map1 - (map0 + 1)]
 
     if len(args) % 3 != 0:
         raise ValueError("map must have 3 entries per line")

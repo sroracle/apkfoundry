@@ -77,7 +77,8 @@ def _ConfigParser(**kwargs):
 
 _DEFAULT_SITE_CONFIG = {
     "container": {
-        "subid": "100000",
+        "subuid": "100000",
+        "subgid": "100000",
     },
     "setarch": {
     },
