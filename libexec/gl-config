@@ -7,7 +7,7 @@ import json       # dumps
 import logging
 import tempfile   # mkdtemp
 
-import apkfoundry # LOCALSTATEDIR
+import apkfoundry # LOCALSTATEDIR, VERSION
 import apkfoundry._log as _log
 import apkfoundry._util as _util
 
@@ -27,6 +27,6 @@ print(json.dumps({
     "builds_dir_is_shared": False,
     "driver": {
         "name": "apkfoundry",
-        "version": "0.6",
+        "version": apkfoundry.VERSION,
     },
 }))

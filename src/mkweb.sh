@@ -1,4 +1,5 @@
 #!/bin/sh -e
+version="$(PYTHONPATH=. python3 -c 'import apkfoundry; print(apkfoundry.VERSION)')"
 cp -a docs/ target/
 cp LICENSE* target/
 
@@ -17,7 +18,7 @@ More documentation
 * `MIT license <LICENSE.MIT.html>`_
 EOF
 
-sed -i 's/^README for APK Foundry$/& v0.6/' target/index.rst
+sed -i "s/^README for APK Foundry\$/& v$version/" target/index.rst
 
 sed -E -i \
 	-e 's@<README.rst>@<index.html>@g' \

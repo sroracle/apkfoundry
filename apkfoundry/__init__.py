@@ -7,6 +7,8 @@ import logging      # getLogger
 import os           # environ, pathsep
 from pathlib import Path
 
+VERSION = "0.6"
+
 BWRAP = "bwrap.nosuid"
 DEFAULT_ARCH = "x86_64"
 
