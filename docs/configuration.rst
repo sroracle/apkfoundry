@@ -168,6 +168,12 @@ Inside the container, the following environment variables will be set:
   inspecting using ``git`` since the checkout may be in a detached HEAD
   state. For merge requests, this is the target branch's name.
 
+``AF_BRANCHDIR``
+  The project configuration subdirectory that's considered active.
+  Usually it's ``$APORTSDIR/.apkfoundry/branch-name/``, but if no
+  subdirectory exists for the current branch, it falls back on
+  ``master/``.
+
 ``AF_REPO``
   The APK repository currently being built.
 
