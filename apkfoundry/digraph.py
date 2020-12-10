@@ -214,9 +214,9 @@ class Digraph:
         return tsort
 
 def generate_graph(conf, *, use_ignore=True, skip_check=False, cont=None):
-    deps_ignore = conf.getmaplist("deps_ignore") if use_ignore else {}
-    deps_map = conf.getmap("deps_map")
-    repos = conf.getmap("repos")
+    deps_ignore = conf.getmaplist("deps.ignore") if use_ignore else {}
+    deps_map = conf.getmap("deps.map")
+    repos = conf.getmaplist("repo.arch")
 
     graph = Digraph()
     args = ["af-deps"]

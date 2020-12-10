@@ -193,11 +193,11 @@ def run_graph(cont, conf, graph, opts):
     done = {}
 
     try:
-        on_failure = FailureAction[conf["on_failure"].upper()]
+        on_failure = FailureAction[conf["build.on-failure"].upper()]
     except KeyError:
         _LOGGER.error(
-            "on_failure = %s is invalid; defaulting to STOP",
-            conf["on_failure"].upper(),
+            "build.on-failure = %s is invalid; defaulting to STOP",
+            conf["build.on-failure"].upper(),
         )
         on_failure = FailureAction.STOP
 
@@ -294,7 +294,7 @@ def changed_pkgs(conf, opts):
     gitdir = ["-C", str(opts.aportsdir)] \
         if opts.aportsdir else []
     pickaxe = ["-G", "^pkg(ver|rel)="] \
-        if conf.getboolean("only_changed_versions") else []
+        if conf.getboolean("build.only-changed-versions") else []
 
     pkgs = subprocess.check_output(
         ("git", *gitdir, "diff-tree",
@@ -377,8 +377,8 @@ def _filter_list(conf, opts, startdirs):
         "Determining packages to skip...",
     )
 
-    repos = conf.getmaplist("repos")
-    skip = conf.getmaplist("skip")
+    repos = conf.getmaplist("repo.arch")
+    skip = conf.getmaplist("build.skip")
     for startdir in startdirs:
         # Already manually included
         if startdir in opts.startdirs:

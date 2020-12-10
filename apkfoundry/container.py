@@ -444,7 +444,7 @@ def _make_infodir(conf, opts):
     af_info = af_info.parent
 
     (af_info / "branch").write_text(opts.branch.strip())
-    (af_info / "repo").write_text(conf["default_repo"].strip())
+    (af_info / "repo").write_text(conf["repo.default"].strip())
 
     if opts.setarch:
         (opts.cdir / "af/config/setarch").write_text(opts.setarch.strip())

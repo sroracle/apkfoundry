@@ -286,7 +286,7 @@ defines some convenience functions for project use.
 
   ``-a``
     append to ``.log`` file instead of overwriting. Do not enable this
-    if the project has ``persistent_repodest`` enabled!
+    if the project has ``container.persistent-repodest`` enabled!
   ``-t``
     tee to original standard output
 

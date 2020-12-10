@@ -48,7 +48,8 @@ af_userconf() (
 # /af/build/log will also point to this log file.
 #
 # -a        append to .log file instead of overwriting. Do not enable
-#           this if the project has persistent_repodest is enabled!
+#           this if the project has container.persistent-repodest is
+#           enabled!
 # -t        tee to original standard output
 af_loginit() {
 	local append opt tee

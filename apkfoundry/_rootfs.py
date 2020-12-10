@@ -41,10 +41,10 @@ def _download_rootfs(url, filename):
             shutil.copyfileobj(response, f)
 
 def _get_rootfs(conf, arch):
-    url = conf.get("rootfs." + arch, "").strip()
-    sha256 = conf.get("sha256." + arch, "").strip()
+    url = conf.get("rootfs.url." + arch, "").strip()
+    sha256 = conf.get("rootfs.sha256." + arch, "").strip()
     if not (url and sha256):
-        _LOGGER.error("Missing rootfs/sha256 for arch %r", arch)
+        _LOGGER.error("Missing rootfs url/sha256 for arch %r", arch)
         return None
 
     url_parts = urllib.parse.urlparse(url)
@@ -74,7 +74,7 @@ def extract_rootfs(cont, conf):
         apkfoundry.ROOTFS_CACHE
     )
 
-    exclusions = [("--exclude", i) for i in conf.getlist("rootfs-exclude", [])]
+    exclusions = [("--exclude", i) for i in conf.getlist("rootfs.exclude", [])]
     exclusions = [j for i in exclusions for j in i]
 
     rc, _ = cont.run_external(

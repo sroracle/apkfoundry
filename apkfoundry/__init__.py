@@ -84,18 +84,21 @@ _DEFAULT_SITE_CONFIG = {
     },
 }
 
-_DEFAULT_LOCAL_CONFIG = {
+_DEFAULT_PROJ_CONFIG = {
     "master": {
         # Required
-        "repos": "",
-        "default_repo": "",
+        # rootfs.url.{arch} (str)
+        # rootfs.sha256.{arch} (str)
+        "repo.arch": "", # maplist
+        "repo.default": "", # str
         # Optional
-        "deps_ignore": "",
-        "deps_map": "",
-        "on_failure": "stop",
-        "skip": "",
-        "persistent_repodest": "false",
-        "only_changed_versions": "false",
+        "rootfs.exclude": "", # list
+        "build.on-failure": "stop", # str
+        "build.only-changed-versions": "false", # bool
+        "build.skip": "", # maplist
+        "container.persistent-repodest": "false", # bool
+        "deps.ignore": "", # maplist
+        "deps.map": "", # map
     },
 }
 
@@ -117,7 +120,7 @@ def proj_conf(gitdir=None, section=None):
     files = sorted((Path(gitdir) / ".apkfoundry").glob("*.ini"))
 
     config = _ConfigParser(default_section="master")
-    config.read_dict(_DEFAULT_LOCAL_CONFIG)
+    config.read_dict(_DEFAULT_PROJ_CONFIG)
     config.read(files)
 
     if section:
