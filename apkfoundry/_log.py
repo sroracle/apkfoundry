@@ -102,8 +102,8 @@ def section_start(logger, name, *args, **kwargs):
     if not logger or isinstance(logger, str):
         logger = logging.getLogger(logger)
 
+    _SECTIONS.append(name)
     ts = str(int(datetime.datetime.now().timestamp()))
-    _SECTIONS.append((ts, name))
 
     logger.log(_SECTION_START, args[0], "start", ts, name, *args[1:], **kwargs)
 
@@ -114,5 +114,7 @@ def section_end(logger, *args, **kwargs):
     if not args:
         args = [""]
 
-    ts, name = _SECTIONS.pop()
+    name = _SECTIONS.pop()
+    ts = str(int(datetime.datetime.now().timestamp()))
+
     logger.log(_SECTION_END, args[0], "end", ts, name, *args[1:], **kwargs)
