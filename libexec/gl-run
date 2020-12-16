@@ -89,10 +89,16 @@ def get_sources(script, env):
             logging.error("Invalid AF_PROJ_CONFIG URL: %r", url)
             return 1
 
+        _log.section_start(None, "clone_config", "Fetching configuration...")
         _util.check_call((
-            "git", "clone",
+            "git", "clone", "--quiet", "--depth=1",
             *branch, url, env.aportsdir / ".apkfoundry",
         ))
+        _util.check_call((
+            "git", "-C", env.aportsdir / ".apkfoundry",
+            "show", "--no-patch", "--pretty=tformat:%h %s",
+        ))
+        _log.section_end(None)
 
     else:
         if not (env.aportsdir / ".apkfoundry").is_dir():
