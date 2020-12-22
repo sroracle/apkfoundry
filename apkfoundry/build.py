@@ -113,7 +113,7 @@ def run_task(cont, conf, startdir, script):
     repo = startdir.split("/")[0]
 
     APKBUILD = cont.cdir / f"af/config/aportsdir/{startdir}/APKBUILD"
-    net = conf.getboolean("container.networking")
+    net = conf.getboolean("build.networking")
     if not net:
         with open(APKBUILD) as f:
             for line in f:

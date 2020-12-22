@@ -93,10 +93,10 @@ _DEFAULT_PROJ_CONFIG = {
         "repo.default": "", # str
         # Optional
         "rootfs.exclude": "", # list
+        "build.networking": "false",
         "build.on-failure": "stop", # str
         "build.only-changed-versions": "false", # bool
         "build.skip": "", # maplist
-        "container.networking": "false",
         "container.persistent-repodest": "false", # bool
         "deps.ignore": "", # maplist
         "deps.map": "", # map
