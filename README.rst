@@ -36,3 +36,8 @@ Installing
 ----------
 
 See `the installation guide <docs/install.rst>`_.
+
+Release history and upcoming changes
+------------------------------------
+
+See `the NEWS file <docs/news.rst>`_.
