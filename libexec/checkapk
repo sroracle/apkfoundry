@@ -6,7 +6,6 @@
 # Distributed under GPL-2
 #
 
-program_version=3.4.1-20-gdf3c2de
 datadir=/usr/share/abuild
 
 if ! [ -f "$datadir/functions.sh" ]; then
@@ -48,13 +47,20 @@ list_has() {
 }
 
 usage() {
-	cat >&2 <<-__EOF__
-		$program $program_version - find ABI breakages in package upgrades
-		Usage: $program
+	cat >&2 <<-EOF
+		$program - find ABI breakages in package upgrades
+		Usage:
 
-		Run in the directory of a built package.
-
-	__EOF__
+		    $program
+		        Run in the directory of a built package to compare all
+		        new .apks in REPODEST with the old .apks from untagged
+		        HTTP repositories in /etc/apk/repositories.
+		    $program new.apk
+		        Compare a single new.apk with the corresponding old.apk
+		        from HTTP repositories in /etc/apk/repositories.
+		    $program old.apk new.apk
+		        Compare a single new.apk with a single old.apk.
+	EOF
 }
 
 fetch_old() {
@@ -156,7 +162,7 @@ filelist() {
 		| sort -k 3,3 > "$filename"
 }
 
-abigail_pre() {
+setup_abigail() {
 	[ -n "$abigail" ] || return 0
 
 	# This assumes one of each, which should generally be the case.
@@ -247,34 +253,48 @@ check_soname() {
 	fi
 }
 
-if [ $# -gt 0 ]; then
+setup_classic() {
+	if ! [ -f "$OLDPWD/APKBUILD" ]; then
+		die 'must be run in the directory of a built package'
+	fi
+	. "$OLDPWD/APKBUILD"
+	if [ -n "$DEFAULT_DBG" ] \
+			&& ! subpackage_types_has "dbg" \
+			&& ! list_has "!dbg" $options \
+			&& [ "$arch" != "noarch" ]; then
+		subpackages="$pkgname-dbg $subpackages"
+	fi
+
+	startdir="$OLDPWD"
+	repodir="${startdir%/*}"
+	repo="${repodir##*/}"
+}
+
+setup_onediff() {
+	case "$2" in
+	/*) newapk="$2";;
+	*) newapk="$OLDPWD/$2";;
+	esac
+	case "$1" in
+	/*) oldapk="$1";;
+	*) oldapk="$OLDPWD/$1";;
+	esac
+	[ "$oldapk" != "$OLDPWD/" ] || oldapk=
+	tar -zxf "$newapk" .PKGINFO
+	pkgname="$(awk -F ' = ' '$1 == "pkgname" { print $2 }' .PKGINFO)"
+	subpackages=
+	abigail=
+}
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
-	exit 2
-fi
-
-if ! [ -f "$ABUILD_CONF" ] && ! [ -f "$ABUILD_USERCONF" ]; then
-	die "no abuild.conf found"
-fi
-
-if ! [ -f APKBUILD ]; then
-	die 'must be run in the directory of a built package'
+	exit 0
 fi
 
 if ! [ -n "$CARCH" ]; then
 	die "failed to detect CARCH"
 fi
 
-. ./APKBUILD
-if [ -n "$DEFAULT_DBG" ] \
-		&& ! subpackage_types_has "dbg" \
-		&& ! list_has "!dbg" $options \
-		&& [ "$arch" != "noarch" ]; then
-	subpackages="$pkgname-dbg $subpackages"
-fi
-
-startdir="$PWD"
-repodir="${startdir%/*}"
-repo="${repodir##*/}"
 tmpdir=$(mktemp -d -t checkpkg-script.XXXXXX)
 trap "rm -rf '$tmpdir'" INT EXIT
 cd "$tmpdir" || die "failed to create temp dir"
@@ -282,27 +302,38 @@ cd "$tmpdir" || die "failed to create temp dir"
 # generate a temp repositories file with only the http(s) repos
 grep -E "^https?:" /etc/apk/repositories > "$tmpdir/repositories"
 
-abigail_pre
+case "$#" in
+0) setup_classic ;;
+1) setup_onediff "" "$1";;
+2) setup_onediff "$1" "$2";;
+*) usage; exit 2;;
+esac
+
+setup_abigail
 
 for i in $pkgname $subpackages; do
 	_pkgname=${i%%:*}
 
-	newapk="$(fetch_new "$_pkgname")"
+	if [ -z "$newapk" ]; then
+		newapk="$(fetch_new "$_pkgname")"
+	fi
 
-	case "$newapk" in
-	"$dbg2")
-		oldapk="$dbg1"
-		;;
-	"$dev2")
-		oldapk="$dev1"
-		;;
-	*)
-		oldapk=old.apk
-		if ! fetch_old "$_pkgname"; then
-			oldapk=
-		fi
-		;;
-	esac
+	if [ -z "$oldapk" ]; then
+		case "$newapk" in
+		"$dbg2")
+			oldapk="$dbg1"
+			;;
+		"$dev2")
+			oldapk="$dev1"
+			;;
+		*)
+			oldapk=old.apk
+			if ! fetch_old "$_pkgname"; then
+				oldapk=
+			fi
+			;;
+		esac
+	fi
 
 	if [ -n "$oldapk" ]; then
 		pkginfo "$oldapk" "pkginfo-$_pkgname-old"
@@ -331,4 +362,7 @@ for i in $pkgname $subpackages; do
 	fi
 
 	rm -f old.apk
+
+	newapk=
+	oldapk=
 done
