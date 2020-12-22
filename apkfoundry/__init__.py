@@ -115,12 +115,23 @@ _PROJ_CONFIG_V1 = {
     "only_changed_versions": "build.only-changed-versions",
 }
 
+def _site_conf_v1_compat(config):
+    if "subid" in config["container"]:
+        if not _site_conf_v1_compat.warned:
+            _LOGGER.warning("Site configuration 'container.subid' is deprecated. Use subuid/subgid.")
+            _site_conf_v1_compat.warned = True
+        config["container"]["subuid"] = config["container"]["subid"]
+        config["container"]["subgid"] = config["container"]["subid"]
+_site_conf_v1_compat.warned = False
+
 def site_conf(section=None):
     files = sorted(SYSCONFDIR.glob("*.ini"))
 
     config = _ConfigParser()
     config.read_dict(_DEFAULT_SITE_CONFIG)
     config.read(files)
+
+    _site_conf_v1_compat(config)
 
     if section:
         return config[section]
@@ -132,7 +143,7 @@ def _proj_conf_v1_compat(config):
     if not any(j in config[i] for i in sections for j in _PROJ_CONFIG_V1):
         return
     if not _proj_conf_v1_compat.warned:
-        _LOGGER.warning("The .apkfoundry project configuration is using the deprecated v1 format which will be removed in a future version.")
+        _LOGGER.warning("The .apkfoundry project configuration v1 is deprecated.")
         _proj_conf_v1_compat.warned = True
 
     for section in sections:
