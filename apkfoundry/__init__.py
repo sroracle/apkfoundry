@@ -103,6 +103,18 @@ _DEFAULT_PROJ_CONFIG = {
     },
 }
 
+_PROJ_CONFIG_V1 = {
+    "rootfs-exclude": "rootfs.exclude",
+    "repos": "repo.arch",
+    "default_repo": "repo.default",
+    "deps_ignore": "deps.ignore",
+    "deps_map": "deps.map",
+    "on_failure": "build.on-failure",
+    "skip": "build.skip",
+    "persistent_repodest": "container.persistent-repodest",
+    "only_changed_versions": "build.only-changed-versions",
+}
+
 def site_conf(section=None):
     files = sorted(SYSCONFDIR.glob("*.ini"))
 
@@ -115,6 +127,30 @@ def site_conf(section=None):
 
     return config
 
+_proj_conf_v1_compat_warned = False
+def _proj_conf_v1_compat(config):
+    sections = [*config.sections(), "master"]
+    if not any(j in config[i] for i in sections for j in _PROJ_CONFIG_V1):
+        return
+    if not _proj_conf_v1_compat.warned:
+        _LOGGER.warning("The .apkfoundry project configuration is using the deprecated v1 format which will be removed in a future version.")
+        _proj_conf_v1_compat.warned = True
+
+    for section in sections:
+        for old, new in _PROJ_CONFIG_V1.items():
+            if config[section].get(old):
+                config[section][new] = config[section][old]
+        new_keys = {}
+        for old, value in config[section].items():
+            if old.startswith("rootfs.") and not old.startswith(("rootfs.url.", "rootfs.exclude", "rootfs.sha256.")):
+                new_keys[old.replace("rootfs.", "rootfs.url.", 1)] = value
+                continue
+            if old.startswith("sha256."):
+                new_keys[old.replace("sha256.", "rootfs.sha256.", 1)] = value
+                continue
+        config[section].update(new_keys)
+_proj_conf_v1_compat.warned = False
+
 def proj_conf(gitdir=None, section=None, overrides=None):
     if gitdir is None:
         gitdir = Path.cwd()
@@ -123,6 +159,9 @@ def proj_conf(gitdir=None, section=None, overrides=None):
     config = _ConfigParser(default_section="master")
     config.read_dict(_DEFAULT_PROJ_CONFIG)
     config.read(files)
+
+    _proj_conf_v1_compat(config)
+
     if overrides:
         config.read_dict({(section if section else "master"): overrides})
 
