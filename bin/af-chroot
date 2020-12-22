@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
-import argparse # ArgumentParser, REMAINDER
+import argparse # ArgumentParser, REMAINDER, SUPPRESS
+import logging  # warning
 import sys      # exit
 from pathlib import Path
 
@@ -31,6 +32,7 @@ opts.add_argument(
     "--repo",
     help="change repository to REPO",
 )
+opts.add_argument("-r", help=argparse.SUPPRESS)
 opts.add_argument(
     "--ro-aports", action="store_true",
     help="mount APORTSDIR as read-only",
@@ -55,6 +57,10 @@ opts = opts.parse_args()
 opts.cdir = Path(opts.cdir).resolve(strict=False)
 if not opts.argv:
     opts.argv = ["sh", "-"]
+
+if opts.r:
+    logging.warning("-r is deprecated. Use --repo.")
+    opts.repo = opts.r
 
 cont = apkfoundry.container.Container(
     opts.cdir,

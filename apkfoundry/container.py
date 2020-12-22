@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
-import argparse   # ArgumentParser
+import argparse   # ArgumentParser, SUPPRESS
 import json       # load
 import logging    # getLogger
 import os         # close, environ, fdopen, getgid, getuid, listdir, pipe, write
@@ -487,6 +487,7 @@ def _cont_make_args(args):
         help=f"""APK architecture name (default:
         {apkfoundry.DEFAULT_ARCH})""",
     )
+    opts.add_argument("-A", help=argparse.SUPPRESS)
     opts.add_argument(
         "--branch",
         help="""git branch for APORTSDIR (default: detect). This is
@@ -496,10 +497,12 @@ def _cont_make_args(args):
         "--cache-apk",
         help="external APK cache directory (default: none)",
     )
+    opts.add_argument("-c", "--cache", help=argparse.SUPPRESS)
     opts.add_argument(
         "--cache-src",
         help="external source file cache directory (default: none)",
     )
+    opts.add_argument("-s", "--srcdest", help=argparse.SUPPRESS)
     opts.add_argument(
         "--no-pubkey-copy", action="store_true",
         help="do not copy public keys to REPODEST",
@@ -509,11 +512,13 @@ def _cont_make_args(args):
         help="""external package destination directory (default:
         none)""",
     )
+    opts.add_argument("-r", help=argparse.SUPPRESS)
     opts.add_argument(
         "--setarch",
         help="""setarch(8) architecture name (default: look in site
         configuration, otherwise none)""",
     )
+    opts.add_argument("-S", help=argparse.SUPPRESS)
     opts.add_argument(
         "cdir", metavar="CDIR",
         help="container directory",
@@ -522,7 +527,24 @@ def _cont_make_args(args):
         "aportsdir", metavar="APORTSDIR",
         help="project git directory",
     )
-    return opts.parse_args(args)
+    opts = opts.parse_args(args)
+    if opts.A:
+        _LOGGER.warning("-A is deprecated. Use --arch.")
+        opts.arch = opts.A
+    if opts.cache:
+        _LOGGER.warning("-c/--cache is deprecated. Use --cache-apk.")
+        opts.cache_apk = opts.cache
+    if opts.srcdest:
+        _LOGGER.warning("-s/--srcdest is deprecated. Use --cache-src.")
+        opts.cache_src = opts.srcdest
+    if opts.r:
+        _LOGGER.warning("-r is deprecated. Use --repodest.")
+        opts.repodest = opts.r
+    if opts.S:
+        _LOGGER.warning("-S is deprecated. Use --setarch.")
+        opts.setarch = opts.S
+
+    return opts
 
 def cont_make(args):
     opts = _cont_make_args(args)

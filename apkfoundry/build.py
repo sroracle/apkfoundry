@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
-import argparse   # ArgumentParser
+import argparse   # ArgumentParser, SUPPRESS
 import enum       # Enum, IntFlag, unique
 import functools  # partial
 import logging    # getLogger
@@ -421,14 +421,17 @@ def _buildrepo_args(args):
         help=f"""APK architecture name (default:
         {apkfoundry.DEFAULT_ARCH})""",
     )
+    cont.add_argument("-A", help=argparse.SUPPRESS)
     cont.add_argument(
         "--cache-apk",
         help="external APK cache directory (default: none)",
     )
+    cont.add_argument("-c", "--cache", help=argparse.SUPPRESS)
     cont.add_argument(
         "--cache-src",
         help="external source file cache directory (default: none)",
     )
+    cont.add_argument("-s", "--srcdest", help=argparse.SUPPRESS)
     cont.add_argument(
         "--directory", metavar="CDIR",
         help=f"""use CDIR as the container root (default: temporary
@@ -439,6 +442,7 @@ def _buildrepo_args(args):
         help="""setarch(8) architecture name (default: look in site
         configuration, otherwise none)""",
     )
+    cont.add_argument("-S", help=argparse.SUPPRESS)
 
     checkout = opts.add_argument_group(
         title="Checkout options",
@@ -503,7 +507,21 @@ def _buildrepo_args(args):
         "startdirs", metavar="STARTDIR", nargs="*",
         help="list of STARTDIRs to build",
     )
-    return opts.parse_args(args)
+    opts = opts.parse_args(args)
+    if opts.A:
+        _LOGGER.warning("-A is deprecated. Use --arch.")
+        opts.arch = opts.A
+    if opts.cache:
+        _LOGGER.warning("-c/--cache is deprecated. Use --cache-apk.")
+        opts.cache_apk = opts.cache
+    if opts.srcdest:
+        _LOGGER.warning("-s/--srcdest is deprecated. Use --cache-src.")
+        opts.cache_src = opts.srcdest
+    if opts.S:
+        _LOGGER.warning("-S is deprecated. Use --setarch.")
+        opts.setarch = opts.S
+
+    return opts
 
 def _buildrepo_bootstrap(opts, cdir):
     _log.section_start(
