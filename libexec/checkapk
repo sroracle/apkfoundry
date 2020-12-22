@@ -100,31 +100,58 @@ filelist() {
 
 	case "$tar_flavor" in
 	GNU)
+		# https://www.gnu.org/software/tar/manual/html_node/verbose-tutorial.html
+		# Datetime is ISO 8601 + HH:MM, always.
 		# -rw-r--r-- root/root       737 2019-06-14 20:45 .PKGINFO
 		# lrwxrwxrwx root/root         0 2019-09-13 06:01 usr/lib/libixion-0.15.so.0 -> libixion-0.15.so.0.0.0
 		# hrwxr-xr-x root/root         0 2019-04-22 10:26 usr/bin/python3.6 link to usr/bin/python3.6m
-		tar_fmt='{ printf "%s %s ", $1, $2 }
-			/^l/ { printf "%s -> ", $(NF-2) }
-			/^h/ { printf "%s -> ", $(NF-3) }
-			{ print $NF }';;
+		tar_fmt='{
+			$3 = ""
+			$4 = ""
+			$5 = ""
+			# 5-3+2 = 4 spaces
+			sub("    ", " ")
+			print
+		}';;
 	busybox)
+		# https://git.busybox.net/busybox/tree/archival/libarchive/header_verbose_list.c
+		# Datetime is %4u-%02u-%02u %02u:%02u:%02u
 		# -rw-r--r-- root/root       737 2019-06-14 20:45:29 .PKGINFO
 		# lrwxrwxrwx root/root         0 2019-09-13 06:01:49 usr/lib/libixion-0.15.so.0 -> libixion-0.15.so.0.0.0
 		# -rwxr-xr-x root/root         0 2019-04-22 10:26:45 usr/bin/python3.6 -> usr/bin/python3.6m
-		tar_fmt='{ printf "%s %s ", $1, $2 }
-			/ -> / { printf "%s -> ", $(NF-2) }
-			{ print $NF }';;
+		tar_fmt='{
+			$3 = ""
+			$4 = ""
+			$5 = ""
+			# 5-3+2 = 4 spaces
+			sub("    ", " ")
+			print
+		}';;
 	libarchive)
+		# https://github.com/libarchive/libarchive/blob/master/tar/util.c (list_item_verbose)
+		# Datetime is one of these:
+		#   %e %b  %Y
+		#   %b %e  %Y
+		#   %e %b %H:%M
+		#   %b %e %H:%M
 		# -rw-r--r--  0 root   root      737 Jun 14 15:45 .PKGINFO
 		# lrwxrwxrwx  0 root   root        0 Sep 13 01:01 usr/lib/libixion-0.15.so.0 -> libixion-0.15.so.0.0.0
 		# hrwxr-xr-x  0 root   root        0 Oct  1 22:40 usr/bin/python3.6m link to usr/bin/python3.6
-		tar_fmt='{ printf "%s %s/%s ", $1, $3, $4 }
-			/^l/ { printf "%s -> ", $(NF-2) }
-			/^h/ { printf "%s -> ", $(NF-3) }
-			{ print $NF }';;
+		tar_fmt='{
+			$2 = $3 "/" $4
+			$3 = ""
+			$4 = ""
+			$5 = ""
+			$6 = ""
+			$7 = ""
+			$8 = ""
+			# 8-3+2 = 7 spaces
+			sub("       ", " ")
+			print
+		}';;
 	esac
 
-	tar -ztvf "$apk" | grep -ve ' \.SIGN\.' \
+	LC_ALL=C tar -ztvf "$apk" | grep -ve ' \.SIGN\.' \
 		| awk "$tar_fmt" \
 		| sort -k 3,3 > "$filename"
 }
