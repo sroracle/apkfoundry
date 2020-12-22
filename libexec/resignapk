@@ -59,9 +59,19 @@ pubkey="$PACKAGER_PUBKEY"
 while getopts ik:np:qh opt; do
 	case "$opt" in
 	i) inplace=1;;
-	k) privkey="$OPTARG";;
+	k)
+		privkey="$OPTARG"
+		case "$privkey" in
+		/*) ;;
+		*) privkey="$PWD/$privkey";;
+		esac;;
 	n) packager=1;;
-	p) pubkey="$OPTARG";;
+	p)
+		pubkey="$OPTARG"
+		case "$pubkey" in
+		/*) ;;
+		*) pubkey="$PWD/$pubkey";;
+		esac;;
 	q) quiet=1;;
 	*) usage
 	   [ "$opt" = "h" ] && exit 0
