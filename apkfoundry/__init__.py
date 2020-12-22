@@ -127,7 +127,6 @@ def site_conf(section=None):
 
     return config
 
-_proj_conf_v1_compat_warned = False
 def _proj_conf_v1_compat(config):
     sections = [*config.sections(), "master"]
     if not any(j in config[i] for i in sections for j in _PROJ_CONFIG_V1):
