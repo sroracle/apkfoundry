@@ -62,7 +62,8 @@ fetch_old() {
 		warning "could not download $1 (network error or new package)"
 		return 1
 	else
-		[ -e old.apk ] || die "can't find old apk old.apk"
+		[ -e old.apk ] || die "can't find old apk $1"
+		[ -s old.apk ] || die "old apk $1 is zero bytes"
 		return 0
 	fi
 }
