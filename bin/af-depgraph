@@ -54,7 +54,7 @@ def print_rdeps(opts, graph, recurse):
 def print_deps(opts, graph, recurse):
     if recurse:
         for pkg in opts.startdirs:
-            opts.startdirs += graph.predecessors(pkg)
+            opts.startdirs += set(graph.predecessors(pkg)) - set(opts.startdirs)
 
     for pkg, rdeps in graph.graph.items():
         for rdep in rdeps:
