@@ -155,7 +155,7 @@ def build_script(script, env, privkey, pubkey):
         "--cache-apk", env.cache_apk,
         "--cache-src", env.cache_src,
         "--delete", "never",
-        "--script", "/af/scripts/gl-build",
+        "--build-script", "/af/scripts/gl-build",
     ]
 
     if rev_range:

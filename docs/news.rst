@@ -41,6 +41,9 @@ Deprecated
   **will be dropped in a future release**. Use ``--repodest``.
 * The ``-r`` short CLI option for ``af-chroot`` is deprecated and **will
   be dropped in a future release**. Use ``--repo``.
+* The ``--script`` CLI option was renamed to ``--build-script`` for
+  ``af-buildrepo``. The ``--script`` alias **will be dropped in a future
+  release**.
 * The site-local configuration now has ``container.subuid`` and
   ``container.subgid`` to replace ``container.subid``, which assumed
   both were the same. The old ``container.subid`` continues to be

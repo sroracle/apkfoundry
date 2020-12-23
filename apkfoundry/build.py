@@ -227,7 +227,7 @@ def run_graph(cont, conf, graph, opts):
                 "(%d/%d) Start: %s", cur, tot, startdir
             )
 
-            rc = run_task(cont, conf, startdir, opts.script)
+            rc = run_task(cont, conf, startdir, opts.build_script)
 
             if rc == 0:
                 _log.section_end(
@@ -494,11 +494,12 @@ def _buildrepo_args(args):
         help="git revision range for changed APKBUILDs",
     )
     opts.add_argument(
-        "--script",
+        "--build-script",
         help="""Alternative build script to use instead of
         $AF_BRANCHDIR/build. Must be an absolute path underneath the
         container root.""",
     )
+    opts.add_argument("--script", help=argparse.SUPPRESS)
     opts.add_argument(
         "repodest", metavar="REPODEST",
         help="package destination directory",
@@ -520,6 +521,9 @@ def _buildrepo_args(args):
     if opts.S:
         _LOGGER.warning("-S is deprecated. Use --setarch.")
         opts.setarch = opts.S
+    if opts.script:
+        _LOGGER.warning("--script is deprecated. Use --build-script.")
+        opts.build_script = opts.script
 
     return opts
 
@@ -611,8 +615,8 @@ def buildrepo(args):
         conf = None
     conf = apkfoundry.proj_conf(opts.aportsdir, opts.branch, conf)
 
-    if not opts.script:
-        opts.script = Path(apkfoundry.MOUNTS["aportsdir"]) \
+    if not opts.build_script:
+        opts.build_script = Path(apkfoundry.MOUNTS["aportsdir"]) \
             / ".apkfoundry" / branchdir.name / "build"
 
     _build_list(conf, opts)
