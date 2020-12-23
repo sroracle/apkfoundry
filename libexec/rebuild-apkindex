@@ -1,0 +1,49 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2020 Max Rees
+# See LICENSE for more information.
+. /usr/share/abuild/functions.sh
+
+usage() {
+	cat >&2 <<-EOF
+		$program - rebuild and sign APKINDEX.tar.gz
+		Usage: $program PATH/TO/REPO/ARCH [PATH/TO/PRIVKEY [PATH/TO/PUBKEY]]
+	EOF
+}
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+	usage
+	exit 0
+fi
+if [ $# -lt 1 ] || [ $# -gt 3 ]; then
+	usage
+	exit 1
+fi
+
+repoarch="$1"
+arch="${1##*/}"
+privkey="$2"
+pubkey="$3"
+
+cleanup() {
+	rm -f APKINDEX.tar.gz.$$
+}
+trap cleanup INT EXIT
+cd "$repoarch"
+
+[ -e APKINDEX.tar.gz ] && oldindex='--index APKINDEX.tar.gz'
+apk index \
+	--quiet \
+	$oldindex \
+	--output APKINDEX.tar.gz.$$ \
+	--rewrite-arch "$arch" \
+	*.apk
+
+abuild-sign \
+	--quiet \
+	${privkey:+--privkey "$privkey"} \
+	${pubkey:+--pubkey "$pubkey"} \
+	APKINDEX.tar.gz.$$
+
+chmod 644 APKINDEX.tar.gz.$$
+mv APKINDEX.tar.gz.$$ APKINDEX.tar.gz

@@ -22,6 +22,14 @@ Added
   entirely local ``.apk`` files, and comparing one new local ``.apk``
   file with a remote old one.
 
+Breaking changes
+^^^^^^^^^^^^^^^^
+
+* The ``AF_PRIVKEY``, ``AF_PRIVKEY_B64``, and ``AF_PUBKEY`` CI
+  environment variables are no longer used. All users should migrate to
+  using an ``after`` script. For more information, see
+  `the configuration guide <docs/configuration.rst>`_.
+
 Deprecated
 ^^^^^^^^^^
 
@@ -53,6 +61,10 @@ Deprecated
   more organized. The old names ("v1") continue to be supported in this
   release with a warning that support **will be dropped in a future
   release**.
+* All CI environment variables starting with ``AF_`` have been renamed
+  to the ``AFCI_`` namespace to avoid namespace clashing. For the new
+  variable names, see `the CI guide <docs/gitlab-ci.rst>`_. The old
+  names **will be dropped in a future release**.
 
 Other changes
 ^^^^^^^^^^^^^
@@ -134,6 +146,8 @@ Fixed
   are re-signed, instead of re-signing all files in ``REPODEST``.
 * Temporary keys are no longer copied to ``REPODEST`` if re-signing will
   occur.
+* ``af-depgraph all-deps`` no longer wastes long periods of time tracing
+  dependencies it has already seen.
 
 0.5 - 2020-06-20
 ----------------

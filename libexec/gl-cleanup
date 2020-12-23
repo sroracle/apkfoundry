@@ -12,7 +12,7 @@ always)
 	cleanup
 	;;
 on-success)
-	rc="$(cat "$CUSTOM_ENV_CI_BUILDS_DIR/af/rc" 2>/dev/null || :)"
+	rc="$(cat "$CUSTOM_ENV_CI_BUILDS_DIR/af/config/rc" 2>/dev/null || :)"
 	if [ "$rc" = "0" ]; then
 		cleanup
 	fi

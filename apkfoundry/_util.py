@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2019-2020 Max Rees
 # See LICENSE for more information.
+import logging      # getLogger
 import os           # environ
 import subprocess   # check_call, check_output
 import sys          # stderr, stdout
 from pathlib import Path
 
 import apkfoundry   # CACHEDIR
+
+_LOGGER = logging.getLogger(__name__)
 
 def check_call(args, **kwargs):
     args = [str(arg) for arg in args]
@@ -38,9 +41,18 @@ def get_branchdir(gitdir=None, branch=None):
         f"could not find .apkfoundry/{branch} or .apkfoundry/master"
     )
 
+_CI_ENV_V1 = {
+    "AFCI_PROJ_CONF": "AF_PROJ_CONFIG",
+    "AFCI_ARCH": "AF_ARCH",
+    "AFCI_PACKAGES": "AF_PACKAGES",
+    "AFCI_MANUAL": "AF_MANUAL_ONLY",
+}
+
 class CI_Env: # pylint: disable=too-many-instance-attributes
     prefix = "CUSTOM_ENV_"
     __slots__ = (
+        "_v1_warned",
+
         "job",
 
         "after",
@@ -61,11 +73,13 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
     )
 
     def __init__(self):
+        self._v1_warned = False
+
         self.job = self["CI_JOB_ID"]
 
         self.after = self["CI_COMMIT_SHA"]
         self.aportsdir = Path(self["CI_PROJECT_DIR"])
-        self.arch = self["AF_ARCH"]
+        self.arch = self["AFCI_ARCH"]
         self.before = self["CI_COMMIT_BEFORE_SHA"]
         self.cdir = Path(self["CI_BUILDS_DIR"])
         self.project = self["CI_PROJECT_PATH_SLUG"]
@@ -105,4 +119,10 @@ class CI_Env: # pylint: disable=too-many-instance-attributes
     def get(self, key, default=None):
         if key in self:
             return self[key]
+        key_old = _CI_ENV_V1.get(key)
+        if key_old and key_old in self:
+            if not self._v1_warned:
+                _LOGGER.warning("%r is deprecated. Use %r.", key_old, key)
+                self._v1_warned = True
+            return self[key_old]
         return default

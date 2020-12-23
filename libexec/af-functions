@@ -1,4 +1,4 @@
-#!/bin/sh
+# vi: ft=sh noet
 
 # Usage: af_mkuser
 # Create the "build" user and group with the correct IDs.
@@ -28,11 +28,7 @@ af_userconf() (
 	fi
 	cp "$PACKAGER_PRIVKEY.pub" /etc/apk/keys
 
-	# We only want to make a copy of the container's key if re-signing
-	# will not occur (otherwise it is useless).
-	if [ -n "$AF_PUBKEY_COPY" ]; then
-		cp "$PACKAGER_PRIVKEY.pub" "$REPODEST"
-	fi
+	cp -p "$PACKAGER_PRIVKEY.pub" "$REPODEST"
 
 	if [ -z "$PACKAGER" ]; then
 		cat >> "$ABUILD_USERCONF" <<-EOF
@@ -153,3 +149,67 @@ af_abuild() {
 	# -d allows us to skip running builddeps twice
 	af_abuild_unpriv "$@" -d build_abuildrepo
 }
+
+# Usage: af_resign_files
+# Re-sign all new/changed .apk files, then rebuild and re-sign their
+# corresponding APKINDEXes using $PACKAGER_PRIVKEY.
+af_resign_files() (
+	[ -e "$AF_FILELIST" ] || exit 0
+	new_apks="$(grep '\.apk$' "$AF_FILELIST")"
+	[ -n "$new_apks" ] || exit 0
+	cd "$REPODEST"
+
+	msg "Re-signing packages with $PACKAGER_PRIVKEY..."
+	msg2 "Found $(printf '%s\n' "$new_apks" | wc -l) .apks to sign"
+
+	"$AF_LIBEXEC"/resignapk -qi $new_apks
+
+	for index in $(grep '/APKINDEX\.tar\.gz$' "$AF_FILELIST"); do
+		repoarch="${index%/APKINDEX.tar.gz}"
+		msg "Updating and signing the $repoarch repository index..."
+		"$AF_LIBEXEC"/rebuild-apkindex "$repoarch"
+	done
+)
+
+# Usage: af_sync_files DEST
+# Sync all new/changed .apk files, APKINDEXes, and log files to DEST
+# (which should correspond to a remote host's root-level REPODEST mirror
+# folder). Exporting $RSYNC_RSH will change the behavior of the
+# underlying rsync command (e.g. connect using an SSH private key).
+af_sync_files() (
+	dest="$1"
+	[ -n "$dest" ] || exit 1
+	[ -e "$AF_FILELIST" ] || exit 0
+	host="${dest#rsync://}"
+	host="${host#*@}"
+	host="${host%%[/:]*}"
+	cd "$REPODEST"
+
+	msg "Syncing to $host..."
+	msg2 "Found $(wc -l < "$AF_FILELIST") candidate files to sync"
+
+	set --
+	for repoarch in $(cut -d / -f 1-2 "$AF_FILELIST"); do
+		arch="${repoarch#*/}"
+		if [ "$arch" != "$AF_ARCH" ]; then
+			continue
+		fi
+		set -- "$@" "$repoarch"
+	done
+
+	rsync \
+		--recursive \
+		--relative \
+		--links \
+		--perms \
+		--chmod=D755,F664 \
+		--times \
+		--preallocate \
+		--compress \
+		--skip-compress=apk/gz \
+		--protect-args \
+		--itemize-changes \
+		-- \
+		"$@" \
+		"$dest"
+)

@@ -93,6 +93,8 @@ _DEFAULT_PROJ_CONFIG = {
         "repo.default": "", # str
         # Optional
         "rootfs.exclude": "", # list
+        "after.networking": "true",
+        "after.repo": "",
         "build.networking": "false",
         "build.on-failure": "stop", # str
         "build.only-changed-versions": "false", # bool

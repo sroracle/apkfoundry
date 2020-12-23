@@ -504,10 +504,6 @@ def _cont_make_args(args):
     )
     opts.add_argument("-s", "--srcdest", help=argparse.SUPPRESS)
     opts.add_argument(
-        "--no-pubkey-copy", action="store_true",
-        help="do not copy public keys to REPODEST",
-    )
-    opts.add_argument(
         "--repodest",
         help="""external package destination directory (default:
         none)""",
@@ -575,12 +571,7 @@ def cont_make(args):
     _make_infodir(conf, opts)
 
     cont = Container(opts.cdir)
-    rc = cont.bootstrap(
-        conf, opts.arch, script,
-        env={
-            "AF_PUBKEY_COPY": "" if opts.no_pubkey_copy else "Yes",
-        },
-    )
+    rc = cont.bootstrap(conf, opts.arch, script)
     if rc:
         return None
 

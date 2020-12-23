@@ -115,6 +115,9 @@ APK Foundry will fall back to using the ``master`` branch directory.
 
   See `<docs/examples/build.sh>`_ for an example written in POSIX shell.
 
+``after``
+  TODO WRITEME
+
 To use these scripts, it's important to note that the names and file
 permissions are important - namely the files must have the executable
 bit set. For example:
@@ -179,6 +182,11 @@ Inside the container, the following environment variables will be set:
 
 ``AF_ARCH``
   The APK architecture currently being built.
+
+``AF_AFTERDIR``
+  The project's directory of files for use with the ``after`` script.
+  This can include such things as package signing keys for use with
+  ``af_resign_files`` and/or SSH keys for use with ``af_sync_files``.
 
 Container structure
 ^^^^^^^^^^^^^^^^^^^
@@ -313,6 +321,16 @@ defines some convenience functions for project use.
   No phases may be given.
 
   Only a subset of abuild options are supported.
+
+``af_resign_files``
+  Re-sign all new/changed ``.apk`` files, then rebuild and re-sign their
+  corresponding APKINDEXes using ``$PACKAGER_PRIVKEY``.
+
+``af_sync_files``
+  Sync all new/changed .apk files, APKINDEXes, and log files to ``DEST``
+  (which should correspond to a remote host's root-level ``REPODEST``
+  mirror folder). Exporting ``$RSYNC_RSH`` will change the behavior of
+  the underlying rsync command (e.g. connect using an SSH private key).
 
 Working example
 ^^^^^^^^^^^^^^^

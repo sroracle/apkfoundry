@@ -3,17 +3,14 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2020 Max Rees
 # See LICENSE for more information.
-import base64     # b64decode
 import logging    # info, error
 import os         # environ
 import shutil     # copy2, rmtree
 import subprocess # check_output
 import sys        # argv, exit
-import tempfile   # NamedTemporaryFile
-from pathlib import Path
 
 import apkfoundry           # MOUNTS, proj_conf, SYSCONFDIR
-import apkfoundry.build     # buildrepo
+import apkfoundry.build     # buildrepo, run_after
 import apkfoundry.container # Container
 import apkfoundry._log as _log
 import apkfoundry._util as _util
@@ -29,42 +26,10 @@ def sanitize_script(script):
     _util.check_call((
         "sed", "-i",
         "-e", f"s@{env.cdir}[/]*@/@g",
-        "-e", "/^export 'AF_PRIVKEY'=/d",
         "-e", "/^export 'AF_PRIVKEY_B64'=/d",
-        "-e", "/^export 'AF_PUBKEY'=/d",
         "-e", "0,/^'cd' \"\\/af\\/aports\"$/{//d;}",
         script,
     ))
-
-def get_keys():
-    privkey = env.get("AF_PRIVKEY_B64", "").strip()
-    pubkey = env.get("AF_PUBKEY", "").strip()
-    if privkey and pubkey:
-        privkey = base64.b64decode(privkey)
-        logging.info("Using base64-encoded key with public name '%s'", pubkey)
-        return privkey, pubkey
-
-    privkey = env.get("AF_PRIVKEY", "").strip()
-    if privkey:
-        if "/" in privkey:
-            logging.error("AF_PRIVKEY cannot contain slashes")
-            return None, None
-
-        privkey = Path(apkfoundry.SYSCONFDIR / "keys" / env.project / privkey)
-        if not privkey.is_file():
-            logging.error("AF_PRIVKEY does not exist on this builder")
-            return None, None
-
-        pubkey = env.get("AF_PUBKEY", "").strip() or privkey.name + ".pub"
-        logging.info(
-            "Using private key '%s' with public name '%s'",
-            privkey.name,
-            pubkey,
-        )
-        privkey = privkey.read_bytes()
-        return privkey, pubkey
-
-    return None, None
 
 def get_sources(script, env):
     _util.check_call((script,))
@@ -77,7 +42,7 @@ def get_sources(script, env):
             f"+refs/heads/{env.ref}:refs/heads/{env.ref}",
         ))
 
-    proj_config = env.get("AF_PROJ_CONFIG", "").strip().split(maxsplit=1)
+    proj_config = env.get("AFCI_PROJ_CONF", "").strip().split(maxsplit=1)
     if proj_config:
         url = proj_config[0]
         if len(proj_config) == 2:
@@ -86,7 +51,7 @@ def get_sources(script, env):
             branch = []
 
         if not url.startswith(("http://", "https://", "git://")):
-            logging.error("Invalid AF_PROJ_CONFIG URL: %r", url)
+            logging.error("Invalid AFCI_PROJ_CONF URL: %r", url)
             return 1
 
         _log.section_start(None, "clone_config", "Fetching configuration...")
@@ -107,7 +72,7 @@ def get_sources(script, env):
 
     return 0
 
-def build_script(script, env, privkey, pubkey):
+def build_script(script, env):
     shutil.copy2(script, env.cdir / "af/scripts/gl-build")
     sanitize_script(env.cdir / "af/scripts/gl-build")
     try:
@@ -116,6 +81,14 @@ def build_script(script, env, privkey, pubkey):
         pass
     env.tmp.symlink_to("/tmp")
     (env.aportsdir / ".gl-repos").symlink_to("../repos")
+
+    broken = False
+    for i in ("AF_PRIVKEY", "AF_PRIVKEY_B64", "AF_PUBKEY"):
+        if env.get(i):
+            logging.error("The CI variable %r is no longer available", i)
+            broken = True
+    if broken:
+        return 1
 
     conf = apkfoundry.proj_conf(env.aportsdir, env.ref)
 
@@ -134,7 +107,7 @@ def build_script(script, env, privkey, pubkey):
             logging.error("Could not merge %s into %s", env.after, env.ref)
             return 1
 
-    manual_pkgs = env.get("AF_PACKAGES", "").strip().split()
+    manual_pkgs = env.get("AFCI_PACKAGES", "").strip().split()
 
     if env.before == FAKE_BEFORE:
         if manual_pkgs:
@@ -142,7 +115,7 @@ def build_script(script, env, privkey, pubkey):
         else:
             logging.error("New branch detected, ignoring revision range")
         rev_range = None
-    elif env.get("AF_MANUAL_ONLY"):
+    elif env.get("AFCI_MANUAL"):
         logging.info("Manual job detected, ignoring revision range")
         rev_range = None
     else:
@@ -156,13 +129,11 @@ def build_script(script, env, privkey, pubkey):
         "--cache-src", env.cache_src,
         "--delete", "never",
         "--build-script", "/af/scripts/gl-build",
+        "--after-script", "/dev/null",
     ]
 
     if rev_range:
         args += ["--rev-range", rev_range]
-
-    if privkey:
-        args += ["--key", privkey, "--pubkey", pubkey]
 
     if env.arch:
         args += ["--arch", env.arch]
@@ -175,7 +146,7 @@ def build_script(script, env, privkey, pubkey):
 
     args = [str(i) for i in args]
     rc = apkfoundry.build.buildrepo(args)
-    (env.cdir / "af/rc").write_text(str(rc))
+    (env.cdir / "af/config/rc").write_text(str(rc))
     env.tmp.unlink()
     return rc
 
@@ -183,8 +154,13 @@ def after_script(script, env):
     shutil.copy2(script, env.cdir / "af/scripts/gl-after")
     sanitize_script(env.cdir / "af/scripts/gl-after")
 
-    cont = apkfoundry.container.Container(env.cdir)
-    return cont.run(["/af/scripts/gl-after"])[0]
+    return apkfoundry.build.run_after(
+        (env.cdir / "af/config/rc").read_text().strip(),
+        apkfoundry.container.Container(env.cdir),
+        apkfoundry.proj_conf(env.aportsdir, env.ref),
+        env.get("AFCI_AFTERDIR"),
+        "/af/scripts/gl-after",
+    )
 
 env = _util.CI_Env()
 script = sys.argv[1]
@@ -193,13 +169,7 @@ stage = sys.argv[2]
 if stage == "get_sources":
     rc = get_sources(script, env)
 elif stage == "build_script":
-    privkey, pubkey = get_keys()
-    with tempfile.NamedTemporaryFile() as f:
-        if privkey:
-            f.write(privkey)
-            f.flush()
-            privkey = f.name
-        rc = build_script(script, env, privkey, pubkey)
+    rc = build_script(script, env)
 elif stage == "after_script":
     if (env.cdir / "af/config").is_dir():
         rc = after_script(script, env)

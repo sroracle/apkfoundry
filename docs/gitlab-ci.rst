@@ -35,25 +35,24 @@ Variables
 ``CI_BUILDS_DIR``  This is the directory root for the container. Inside
                    the container it will be ``/``.
 ``GIT_CLONE_PATH`` This must be set to ``$CI_BUILDS_DIR/af/aports``.
-``AF_PROJ_CONFIG`` Where to find the APK Foundry project configuration.
+``AFCI_PROJ_CONF`` Where to find the APK Foundry project configuration.
                    Can be specified as a git clone URL from which to
                    fetch it, or a clone URL and a branch separated by
                    spaces. Leave unset or blank to use the default of
                    ``.apkfoundry/`` relative to the project's git root
                    on the current branch.
-``AF_ARCH``        The architecture for which this job will build.
-``AF_PACKAGES``    List of packages to manually include in the build.
-``AF_MANUAL_ONLY`` Only consider ``AF_PACKAGES``; do not scan the
+``AFCI_ARCH``      The architecture for which this job will build.
+``AFCI_PACKAGES``  Whitespace-delimited list of packages to manually
+                   include in the build, in the format ``repo/pkg``.
+``AFCI_MANUAL``    Only consider ``AFCI_PACKAGES``; do not scan the
                    revision range for change APKBUILDs. Can be any
                    non-empty value to signify "yes".
-``AF_PRIVKEY``     Name of the private key with which to re-sign packages
-                   outside of the container. These are stored in
-                   ``$AF_CONFIG/keys/$project/`` on each builder.
-``AF_PRIVKEY_B64`` Base64-encoded form of the packager private key used
-                   to re-sign packages outside of the container.
-``AF_PUBKEY``      Name to use for the package signature (customarily
-                   ends in ``.pub``; this must match the filename in
-                   ``/etc/apk/keys``)
+``AFCI_AFTERDIR``  Whether to mount the project's ``after`` script
+                   configuration directory (located in
+                   ``$AF_CONFIG/after/$project``) for this job. Can be
+                   any non-empty value to signify "yes". Note that this
+                   will most likely cause things such as re-signing of
+                   ``.apk`` files and syncing to remote hosts to occur.
 ================== =====================================================
 
 Example configuration files:
@@ -61,3 +60,5 @@ Example configuration files:
 * `GitLab Runner (TOML) <docs/examples/gitlab-runner-config.toml>`_
 * `GitLab CI (YAML) <docs/examples/gitlab-ci.yml>`_
 * `Build script (shell) <docs/examples/build.sh>`_
+* `After script (shell) <docs/examples/after.sh>`_
+* `After script configuration (shell) <docs/examples/after-config.sh>`_

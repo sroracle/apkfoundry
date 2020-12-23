@@ -5,7 +5,7 @@ import argparse   # ArgumentParser, SUPPRESS
 import enum       # Enum, IntFlag, unique
 import functools  # partial
 import logging    # getLogger
-import os         # access, *_OK
+import os         # access, *_OK, walk
 import re         # compile
 import shutil     # chown, copy2, rmtree
 import subprocess # check_output
@@ -291,6 +291,23 @@ def run_job(cont, conf, opts):
 
     return run_graph(cont, conf, graph, opts)
 
+def run_after(rc, cont, conf, afterdir, script):
+    _log.section_start(
+        _LOGGER, "run-after-script", "Running 'after' script...",
+    )
+    rc, _ = cont.run(
+        [script],
+        repo=conf.get("after.repo", conf["repo.default"]),
+        net=conf.getboolean("after.networking"),
+        env={
+            "AF_RC": str(rc),
+            "AF_AFTERDIR": "/af/config/afterdir",
+            "AF_FILELIST": "/af/config/filelist",
+        },
+    )
+    _log.section_end(_LOGGER)
+    return rc
+
 def changed_pkgs(conf, opts):
     gitdir = ["-C", str(opts.aportsdir)] \
         if opts.aportsdir else []
@@ -305,26 +322,19 @@ def changed_pkgs(conf, opts):
     ).splitlines()
     return [i.replace("/APKBUILD", "") for i in pkgs]
 
-def resignapk(repodest, privkey, pubkey, now):
-    _log.section_start(_LOGGER, "resignapk", "Re-signing APKs...")
-    apks = [
-        i for i in repodest.glob("**/*.apk")
-        if i.stat().st_mtime > now
-    ]
-    if not apks:
-        _log.section_end(_LOGGER, "No new .apk files found!")
-        return
+def _save_filelist(cont, start):
+    files = []
+    repodest = cont.cdir / "af/config/repodest"
+    for dpath, _, fnames in os.walk(repodest):
+        dpath = Path(dpath)
+        for fname in fnames:
+            fname = dpath / fname
+            if fname.stat().st_mtime > start:
+                files.append(str(fname.relative_to(repodest)))
 
-    _LOGGER.info("Found %d new .apk files", len(apks))
-    apks += set(repodest.glob("**/APKINDEX.tar.gz"))
-    _util.check_call((
-        "fakeroot", "--",
-        "resignapk", "-iq",
-        "-p", pubkey,
-        "-k", privkey,
-        *apks,
-    ))
-    _log.section_end(_LOGGER)
+    files = "\n".join(sorted(files)) + "\n"
+    filelist = cont.cdir / "af/config/filelist"
+    filelist.write_text(files)
 
 def _cleanup(rc, cont, delete):
     if hasattr(cont, "destroy"):
@@ -468,6 +478,11 @@ def _buildrepo_args(args):
         specified multiple times)""",
     )
     opts.add_argument(
+        "--afterdir", metavar="DIR",
+        help="""mount DIR to $AF_AFTERDIR to supplement
+        --after-script""",
+    )
+    opts.add_argument(
         "-D", "--delete", choices=("always", "on-success", "never"),
         default="never",
         help="when to delete the container (default: never)",
@@ -481,15 +496,6 @@ def _buildrepo_args(args):
         help="interactively stop when a package fails to build",
     )
     opts.add_argument(
-        "-k", "--key",
-        help="re-sign APKs with FILE outside of container",
-    )
-    opts.add_argument(
-        "--pubkey",
-        help="""the filename to use for the KEY (to match /etc/apk/keys;
-        default: KEY.pub)""",
-    )
-    opts.add_argument(
         "-r", "--rev-range",
         help="git revision range for changed APKBUILDs",
     )
@@ -500,6 +506,12 @@ def _buildrepo_args(args):
         container root.""",
     )
     opts.add_argument("--script", help=argparse.SUPPRESS)
+    opts.add_argument(
+        "--after-script",
+        help="""Alternative after script to use instead of
+        $AF_BRANCHDIR/after. Must be an absolute path underneath the
+        container root.""",
+    )
     opts.add_argument(
         "repodest", metavar="REPODEST",
         help="package destination directory",
@@ -549,8 +561,6 @@ def _buildrepo_bootstrap(opts, cdir):
             return None
     if opts.setarch:
         cont_make_args += ["--setarch", opts.setarch]
-    if opts.key:
-        cont_make_args += ["--no-pubkey-copy"]
 
     cont_make_args += [
         "--arch", opts.arch,
@@ -618,6 +628,9 @@ def buildrepo(args):
     if not opts.build_script:
         opts.build_script = Path(apkfoundry.MOUNTS["aportsdir"]) \
             / ".apkfoundry" / branchdir.name / "build"
+    if not opts.after_script:
+        opts.after_script = Path(apkfoundry.MOUNTS["aportsdir"]) \
+            / ".apkfoundry" / branchdir.name / "after"
 
     _build_list(conf, opts)
     if not opts.startdirs:
@@ -632,15 +645,9 @@ def buildrepo(args):
         _LOGGER.error("Failed to bootstrap container")
         return _cleanup(1, cont, opts.delete)
 
-    if opts.key:
-        repodest = cdir / "af/config/repodest"
-        now = time.time()
-
+    start = time.time()
     rc = run_job(cont, conf, opts)
-
-    if opts.key:
-        if opts.pubkey is None:
-            opts.pubkey = Path(opts.key).name + ".pub"
-        resignapk(repodest, opts.key, opts.pubkey, now)
+    _save_filelist(cont, start)
+    rc = run_after(rc, cont, conf, opts.afterdir, opts.after_script) or rc
 
     return _cleanup(rc, cont, opts.delete)

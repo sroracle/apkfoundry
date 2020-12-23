@@ -48,10 +48,11 @@ PYLINT_TARGETS = \
 SHLINT_TARGETS = \
 	docs/examples/*.sh \
 	libexec/af-deps \
-	libexec/resignapk \
-	libexec/checkapk \
 	libexec/af-functions \
+	libexec/checkapk \
 	libexec/gl-cleanup \
+	libexec/rebuild-apkindex \
+	libexec/resignapk \
 	tests/run-tests.sh \
 	tests/af-rmchroot.test
 
